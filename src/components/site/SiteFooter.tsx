@@ -10,8 +10,8 @@ export function SiteFooter() {
     <footer className="bg-brand-navy text-brand-navy-foreground">
       <div className="mx-auto max-w-7xl px-4 pt-10 pb-8 md:px-6 md:pt-12 lg:px-10">
         {/* Logo — on white plate to keep the navy PNG visible on navy footer */}
-        <div className="inline-block rounded-xl bg-white p-3 md:p-4">
-          <Logo sizeClassName="h-16 md:h-20" />
+        <div className="inline-block rounded-xl bg-white p-4 md:p-5">
+          <Logo sizeClassName="h-24 md:h-36" />
         </div>
 
         {/* Nav — stacked on mobile, two columns from md */}
