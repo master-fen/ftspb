@@ -19,6 +19,7 @@ export type NewsItem = {
   title: string;
   excerpt?: string;
   cover: string;
+  featured?: boolean;
 };
 
 export const featuredNews: NewsItem[] = [
@@ -29,6 +30,7 @@ export const featuredNews: NewsItem[] = [
     title: "Кубок Северной Столицы 2026: открыта регистрация",
     excerpt: "Главный летний турнир города принимает заявки до 1 июня.",
     cover: trophy,
+    featured: true,
   },
   {
     id: "veterans-40-winners",
@@ -36,6 +38,7 @@ export const featuredNews: NewsItem[] = [
     date: "28.03.26",
     title: "Победители кубка ветеранов 40+",
     cover: team,
+    featured: true,
   },
   {
     id: "mens-team-roster",
@@ -43,6 +46,7 @@ export const featuredNews: NewsItem[] = [
     date: "07.05.26",
     title: "Объявлен расширенный состав мужской сборной",
     cover: podium,
+    featured: true,
   },
 ];
 
@@ -68,12 +72,36 @@ export const latestNews: NewsItem[] = [
     title: "Летний лагерь для юниоров: старт заявочной кампании",
     cover: juniors,
   },
+  {
+    id: "referees-seminar",
+    category: "Судьи",
+    date: "20.04.26",
+    title: "Семинар коллегии судей: новые правила сезона",
+    cover: team,
+  },
+  {
+    id: "clubs-new-courts",
+    category: "Клубы",
+    date: "15.04.26",
+    title: "В городе открылись два новых грунтовых корта",
+    cover: trophy,
+  },
+  {
+    id: "federation-meeting",
+    category: "Федерация",
+    date: "10.04.26",
+    title: "Итоги отчётного собрания Федерации",
+    cover: podium,
+  },
 ];
+
+export const allNews: NewsItem[] = [...featuredNews, ...latestNews];
 
 export type NavSection = { label: string; href: string };
 
 export const navSections: NavSection[] = [
   { label: "Главная", href: "/" },
+  { label: "Новости", href: "/news" },
   { label: "Федерация", href: "#" },
   { label: "Сборные команды", href: "#" },
   { label: "Календарь турниров", href: "#" },
