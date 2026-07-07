@@ -9,7 +9,7 @@ export function SiteHeader() {
 
   return (
     <header className="w-full bg-background">
-      <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-4 md:px-6 md:py-5 lg:px-10">
+      <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-2 md:px-6 md:py-2.5 lg:px-10">
         <Link to="/" className="shrink-0">
           <Logo />
         </Link>
