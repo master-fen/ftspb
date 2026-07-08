@@ -12,7 +12,7 @@ export function Logo({
 }: LogoProps) {
   return (
     <img
-      src={logoSrc}
+      src={logoSrc.url}
       alt="Федерация тенниса Санкт-Петербурга"
       className={`${sizeClassName} w-auto object-contain ${className ?? ""}`}
       loading="eager"
