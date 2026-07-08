@@ -1,4 +1,4 @@
-import logoSrc from "@/assets/logo.png";
+import logoSrc from "@/assets/logo.png.asset.json";
 
 type LogoProps = {
   className?: string;
@@ -12,7 +12,7 @@ export function Logo({
 }: LogoProps) {
   return (
     <img
-      src={logoSrc}
+      src={logoSrc.url}
       alt="Федерация тенниса Санкт-Петербурга"
       className={`${sizeClassName} w-auto object-contain ${className ?? ""}`}
       loading="eager"
