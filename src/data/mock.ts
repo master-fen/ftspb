@@ -28,7 +28,7 @@ export type NewsItem = {
 export const featuredNews: NewsItem[] = [
   {
     id: "kubok-severnoy-stolitsy-2026",
-    category: "Турниры",
+    category: "Общее",
     date: "08.05.26",
     title: "Кубок Северной Столицы 2026: открыта регистрация",
     excerpt:
@@ -49,7 +49,7 @@ export const featuredNews: NewsItem[] = [
   },
   {
     id: "veterans-40-winners",
-    category: "Турниры",
+    category: "Общее",
     date: "28.03.26",
     title: "Победители кубка ветеранов 40+",
     excerpt:
@@ -59,7 +59,7 @@ export const featuredNews: NewsItem[] = [
   },
   {
     id: "mens-team-roster",
-    category: "Сборная",
+    category: "Общее",
     date: "07.05.26",
     title: "Объявлен расширенный состав мужской сборной",
     excerpt:
@@ -72,7 +72,7 @@ export const featuredNews: NewsItem[] = [
 export const latestNews: NewsItem[] = [
   {
     id: "mens-team-roster-2",
-    category: "Сборная",
+    category: "Общее",
     date: "07.05.26",
     title: "Объявлен расширенный состав мужской сборной",
     excerpt:
@@ -81,7 +81,7 @@ export const latestNews: NewsItem[] = [
   },
   {
     id: "womens-team-roster",
-    category: "Сборная",
+    category: "Общее",
     date: "05.05.26",
     title: "Женская сборная провела учебно-тренировочный сбор",
     excerpt:
@@ -99,7 +99,7 @@ export const latestNews: NewsItem[] = [
   },
   {
     id: "referees-seminar",
-    category: "Судьи",
+    category: "Общее",
     date: "20.04.26",
     title: "Семинар коллегии судей: новые правила сезона",
     excerpt:
@@ -108,7 +108,7 @@ export const latestNews: NewsItem[] = [
   },
   {
     id: "clubs-new-courts",
-    category: "Клубы",
+    category: "Общее",
     date: "15.04.26",
     title: "В городе открылись два новых грунтовых корта",
     excerpt:
