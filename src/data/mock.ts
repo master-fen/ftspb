@@ -37,6 +37,8 @@ export const featuredNews: NewsItem[] = [
     category: "Турниры",
     date: "28.03.26",
     title: "Победители кубка ветеранов 40+",
+    excerpt:
+      "В список вошли 12 игроков. Финальный состав будет утверждён за две недели до старта.",
     cover: team,
     featured: true,
   },
@@ -45,6 +47,8 @@ export const featuredNews: NewsItem[] = [
     category: "Сборная",
     date: "07.05.26",
     title: "Объявлен расширенный состав мужской сборной",
+    excerpt:
+      "Финальный матч продлился три часа и завершился победой действующего чемпиона.",
     cover: podium,
     featured: true,
   },
