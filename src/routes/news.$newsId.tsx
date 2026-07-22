@@ -102,7 +102,7 @@ function NewsDetailPage() {
                   Прикреплённые файлы
                 </h2>
                 <ul className="mt-4 space-y-2">
-                  {item.attachments.map((att, i) => (
+                  {item.attachments.map((att: NonNullable<NewsItem["attachments"]>[number], i: number) => (
                     <li key={i}>
                       <a
                         href="#"
