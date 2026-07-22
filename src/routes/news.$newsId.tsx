@@ -142,7 +142,7 @@ function NewsDetailPage() {
                 Читайте так&#8209;же
               </h2>
               <ul className="mt-5 space-y-5">
-                {related.map((r) => (
+                {related.map((r: NewsItem) => (
                   <RelatedItem key={r.id} item={r} />
                 ))}
               </ul>
