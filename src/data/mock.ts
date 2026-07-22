@@ -19,7 +19,8 @@ export type NewsItem = {
   date: string; // dd.mm.yy
   title: string;
   excerpt?: string;
-  body?: string[];
+  /** HTML string: p / strong / ul / ol / h2 / h3 / blockquote / a */
+  body?: string;
   attachments?: NewsAttachment[];
   cover: string;
   featured?: boolean;
