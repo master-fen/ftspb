@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { ChevronRight } from "lucide-react";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
-import { NewsCard } from "@/components/site/NewsCard";
-import { allNews, type NewsCategory } from "@/data/mock";
+import { allNews, type NewsCategory, type NewsItem } from "@/data/mock";
 
 export const Route = createFileRoute("/news")({
   head: () => ({
@@ -44,8 +44,8 @@ function NewsPage() {
   const [filter, setFilter] = useState<Filter>("Все");
 
   const items = useMemo(() => {
-    const sorted = [...allNews].sort((a, b) =>
-      parseDate(b.date).getTime() - parseDate(a.date).getTime(),
+    const sorted = [...allNews].sort(
+      (a, b) => parseDate(b.date).getTime() - parseDate(a.date).getTime(),
     );
     if (filter === "Все") return sorted;
     if (filter === "Главные") return sorted.filter((n) => n.featured);
@@ -56,9 +56,24 @@ function NewsPage() {
     <div className="min-h-screen bg-background">
       <SiteHeader />
 
-      <main className="mx-auto max-w-7xl px-4 py-10 md:px-6 md:py-14 lg:px-10">
-        <header className="mb-8 md:mb-10">
-          <h1 className="text-3xl font-black tracking-tight text-foreground md:text-5xl">
+      <main className="mx-auto max-w-7xl px-4 pt-6 pb-12 md:px-6 md:pt-8 md:pb-16 lg:px-10">
+        {/* Breadcrumbs */}
+        <nav
+          aria-label="Хлебные крошки"
+          className="flex items-center gap-1.5 text-sm text-muted-foreground"
+        >
+          <Link
+            to="/"
+            className="transition-colors hover:text-brand-orange"
+          >
+            Главная
+          </Link>
+          <ChevronRight className="h-4 w-4 opacity-60" aria-hidden />
+          <span className="text-foreground/80">Новости</span>
+        </nav>
+
+        <header className="mt-4 mb-6 md:mt-6 md:mb-8">
+          <h1 className="text-4xl font-black tracking-tight text-foreground md:text-5xl lg:text-6xl">
             Новости
           </h1>
           <p className="mt-3 max-w-2xl text-sm text-muted-foreground md:text-base">
@@ -67,7 +82,7 @@ function NewsPage() {
           </p>
         </header>
 
-        <div className="mb-8 flex flex-wrap gap-2">
+        <div className="mb-8 flex flex-wrap gap-2 md:mb-10">
           {FILTERS.map((f) => {
             const active = f === filter;
             return (
@@ -77,8 +92,8 @@ function NewsPage() {
                 onClick={() => setFilter(f)}
                 className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
                   active
-                    ? "bg-brand-blue text-primary-foreground"
-                    : "bg-muted text-brand-blue hover:bg-brand-orange/10 hover:text-brand-orange"
+                    ? "bg-brand-navy text-brand-navy-foreground"
+                    : "bg-muted text-brand-navy hover:bg-brand-orange/10 hover:text-brand-orange"
                 }`}
               >
                 {f}
@@ -92,11 +107,9 @@ function NewsPage() {
             В этом разделе пока нет новостей.
           </p>
         ) : (
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
             {items.map((item) => (
-              <div key={item.id} className="aspect-[4/3]">
-                <NewsCard item={item} />
-              </div>
+              <NewsListCard key={item.id} item={item} />
             ))}
           </div>
         )}
@@ -104,6 +117,37 @@ function NewsPage() {
 
       <SiteFooter />
     </div>
+  );
+}
+
+function NewsListCard({ item }: { item: NewsItem }) {
+  return (
+    <a
+      href="#"
+      className="group flex h-full flex-col overflow-hidden rounded-xl bg-brand-navy text-brand-navy-foreground shadow-sm ring-1 ring-black/5 transition-transform duration-300 hover:-translate-y-0.5"
+    >
+      <div className="aspect-[4/3] w-full overflow-hidden">
+        <img
+          src={item.cover}
+          alt={item.title}
+          loading="lazy"
+          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+        />
+      </div>
+      <div className="flex flex-1 flex-col gap-2 p-5 md:p-6">
+        <div className="text-[11px] font-semibold tracking-wide text-white/70 uppercase">
+          {item.category} — {item.date}
+        </div>
+        <h3 className="text-lg leading-snug font-bold text-white md:text-[19px]">
+          {item.title}
+        </h3>
+        {item.excerpt ? (
+          <p className="mt-1 text-sm leading-relaxed text-white/80">
+            {item.excerpt}
+          </p>
+        ) : null}
+      </div>
+    </a>
   );
 }
 
