@@ -12,13 +12,7 @@ function isSectionActive(section: NavSection, pathname: string): boolean {
   return false;
 }
 
-function NavLabel({
-  label,
-  active,
-}: {
-  label: string;
-  active: boolean;
-}) {
+function NavLabel({ label, active }: { label: string; active: boolean }) {
   return (
     <span className="relative inline-flex flex-col items-center">
       <span>{label}</span>
@@ -53,12 +47,16 @@ export function SiteHeader() {
 
   return (
     <header className="w-full bg-background">
-      <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-2 md:px-6 md:py-2.5 lg:px-10">
+      <div
+        className={`mx-auto flex max-w-7xl items-start gap-4 px-4 pt-2 md:px-6 md:pt-2.5 lg:px-10 ${
+          openMenu ? "pb-16" : "pb-2 md:pb-2.5"
+        }`}
+      >
         <Link to="/" className="shrink-0">
           <Logo />
         </Link>
 
-        <nav className="hidden flex-1 items-center justify-center gap-7 lg:flex">
+        <nav className="hidden flex-1 items-center justify-center gap-7 self-center lg:flex">
           {navSections.map((s) => {
             const active =
               isSectionActive(s, pathname) ||
@@ -81,10 +79,24 @@ export function SiteHeader() {
                     onClick={() =>
                       setOpenMenu((cur) => (cur === s.label ? null : s.label))
                     }
-                    className={`${linkClass} inline-flex items-center gap-1`}
+                    className={linkClass}
                   >
                     <NavLabel label={s.label} active={active} />
                   </button>
+
+                  {openMenu === s.label ? (
+                    <div className="absolute left-0 top-full mt-3 flex flex-col items-start gap-2 whitespace-nowrap">
+                      {s.children.map((c) => (
+                        <a
+                          key={c.label}
+                          href={c.href}
+                          className="text-sm font-bold text-brand-blue transition-colors hover:text-brand-orange"
+                        >
+                          {c.label}
+                        </a>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               );
             }
@@ -101,7 +113,7 @@ export function SiteHeader() {
           })}
         </nav>
 
-        <div className="ml-auto flex items-center gap-2 lg:ml-0">
+        <div className="ml-auto flex items-center gap-2 self-center lg:ml-0">
           <button
             type="button"
             aria-label="Поиск"
@@ -119,38 +131,6 @@ export function SiteHeader() {
           </button>
         </div>
       </div>
-
-      {/* Desktop submenu row — sits in flow so the orange bar drops with it */}
-      {openMenu ? (
-        <div
-          className="hidden lg:block"
-          onMouseEnter={() => setOpenMenu(openMenu)}
-          onMouseLeave={() => setOpenMenu(null)}
-        >
-          <div className="mx-auto max-w-7xl px-4 pb-3 md:px-6 lg:px-10">
-            <nav className="flex items-center justify-center gap-7">
-              {navSections.map((s) => {
-                if (s.label !== openMenu || !s.children) {
-                  return <span key={s.label} className="invisible text-sm font-bold">{s.label}</span>;
-                }
-                return (
-                  <div key={s.label} className="flex flex-col items-start gap-2">
-                    {s.children.map((c) => (
-                      <a
-                        key={c.label}
-                        href={c.href}
-                        className="text-sm font-bold text-brand-blue transition-colors hover:text-brand-orange"
-                      >
-                        {c.label}
-                      </a>
-                    ))}
-                  </div>
-                );
-              })}
-            </nav>
-          </div>
-        </div>
-      ) : null}
 
       {/* Mobile drawer */}
       {mobileOpen ? (
