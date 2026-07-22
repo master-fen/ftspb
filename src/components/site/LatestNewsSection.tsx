@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { latestNews } from "@/data/mock";
 import { NewsCard } from "./NewsCard";
 import { SectionHeading } from "./SectionHeading";
@@ -11,8 +12,9 @@ export function LatestNewsSection() {
       <ul className="mt-5 flex flex-col gap-3 md:hidden">
         {latestNews.map((item) => (
           <li key={item.id}>
-            <a
-              href="#"
+            <Link
+              to="/news/$newsId"
+              params={{ newsId: item.id }}
               className="grid grid-cols-[minmax(0,1fr)_84px] items-center gap-3 rounded-xl bg-muted p-3 transition-colors hover:bg-secondary"
             >
               <div className="min-w-0">
@@ -31,19 +33,20 @@ export function LatestNewsSection() {
                   className="h-full w-full object-cover"
                 />
               </div>
-            </a>
+            </Link>
           </li>
         ))}
       </ul>
 
       <div className="mt-4 md:hidden">
-        <a
-          href="#"
+        <Link
+          to="/news"
           className="inline-flex text-base font-semibold text-brand-blue transition-colors hover:text-brand-orange"
         >
           Все новости…
-        </a>
+        </Link>
       </div>
+
 
       {/* Desktop/tablet: 3-col grid of image cards */}
       <div className="mt-6 hidden grid-cols-2 gap-5 md:grid lg:grid-cols-3">

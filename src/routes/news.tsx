@@ -122,8 +122,9 @@ function NewsPage() {
 
 function NewsListCard({ item }: { item: NewsItem }) {
   return (
-    <a
-      href="#"
+    <Link
+      to="/news/$newsId"
+      params={{ newsId: item.id }}
       className="group flex h-full flex-col overflow-hidden rounded-xl bg-brand-navy text-brand-navy-foreground shadow-sm ring-1 ring-black/5 transition-transform duration-300 hover:-translate-y-0.5"
     >
       <div className="aspect-[4/3] w-full overflow-hidden">
@@ -147,7 +148,7 @@ function NewsListCard({ item }: { item: NewsItem }) {
           </p>
         ) : null}
       </div>
-    </a>
+    </Link>
   );
 }
 

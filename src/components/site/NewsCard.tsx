@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import type { NewsItem } from "@/data/mock";
 
 type NewsCardProps = {
@@ -10,8 +11,9 @@ export function NewsCard({ item, size = "default", priority }: NewsCardProps) {
   const isHero = size === "hero";
 
   return (
-    <a
-      href="#"
+    <Link
+      to="/news/$newsId"
+      params={{ newsId: item.id }}
       className="group relative block h-full w-full overflow-hidden rounded-xl bg-card shadow-sm ring-1 ring-black/5 transition-transform duration-300 hover:-translate-y-0.5"
     >
       <div className="relative h-full w-full">
@@ -47,6 +49,7 @@ export function NewsCard({ item, size = "default", priority }: NewsCardProps) {
           ) : null}
         </div>
       </div>
-    </a>
+    </Link>
   );
 }
+
