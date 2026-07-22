@@ -87,12 +87,11 @@ function NewsDetailPage() {
               />
             </figure>
 
-            {item.body && item.body.length > 0 ? (
-              <div className="mt-8 space-y-5 text-[15px] leading-relaxed text-foreground md:mt-10 md:text-base md:leading-[1.75]">
-                {item.body.map((p: string, i: number) => (
-                  <p key={i}>{p}</p>
-                ))}
-              </div>
+            {item.body ? (
+              <div
+                className="news-prose mt-8 text-[15px] text-foreground md:mt-10 md:text-base"
+                dangerouslySetInnerHTML={{ __html: item.body }}
+              />
             ) : null}
 
             {item.attachments && item.attachments.length > 0 ? (
