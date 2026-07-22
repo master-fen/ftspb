@@ -157,12 +157,20 @@ export const latestNews: NewsItem[] = [
 
 export const allNews: NewsItem[] = [...featuredNews, ...latestNews];
 
-export type NavSection = { label: string; href: string };
+export type NavChild = { label: string; href: string };
+export type NavSection = { label: string; href: string; children?: NavChild[] };
 
 export const navSections: NavSection[] = [
   { label: "Главная", href: "/" },
   { label: "Новости", href: "/news" },
-  { label: "Федерация", href: "#" },
+  {
+    label: "Федерация",
+    href: "#",
+    children: [
+      { label: "Мероприятия", href: "#" },
+      { label: "Документы Федерации", href: "#" },
+    ],
+  },
   { label: "Сборные команды", href: "#" },
   { label: "Календарь турниров", href: "#" },
   { label: "Документы", href: "#" },
@@ -170,6 +178,7 @@ export const navSections: NavSection[] = [
   { label: "Клубы города", href: "#" },
   { label: "Контакты", href: "#" },
 ];
+
 
 export const siteMeta = {
   name: "Федерация тенниса Санкт-Петербурга",
