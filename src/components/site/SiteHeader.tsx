@@ -84,7 +84,7 @@ export function SiteHeader() {
                   </button>
 
                   {openMenu === s.label ? (
-                    <div className="absolute left-0 top-full mt-3 flex flex-col items-start gap-2 whitespace-nowrap">
+                    <div className="absolute left-0 top-full z-40 flex flex-col items-start gap-2 whitespace-nowrap pt-3 pb-2">
                       {s.children.map((c) => (
                         <a
                           key={c.label}
@@ -96,6 +96,7 @@ export function SiteHeader() {
                       ))}
                     </div>
                   ) : null}
+
                 </div>
               );
             }
