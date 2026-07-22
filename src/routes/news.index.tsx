@@ -1,18 +1,45 @@
-import { useMemo, useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { useMemo } from "react";
+import { createFileRoute, Link, stripSearchParams } from "@tanstack/react-router";
+import { zodValidator, fallback } from "@tanstack/zod-adapter";
+import { z } from "zod";
 import { ChevronRight } from "lucide-react";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { allNews, type NewsCategory, type NewsItem } from "@/data/mock";
 
+type FilterValue = "all" | "general" | "federation";
+
+const searchSchema = z.object({
+  category: fallback(z.string(), "all").default("all"),
+});
+
+const FILTERS: { value: FilterValue; label: string }[] = [
+  { value: "all", label: "Все" },
+  { value: "general", label: "Общее" },
+  { value: "federation", label: "Федерация" },
+];
+
+const VALUE_TO_CATEGORY: Record<Exclude<FilterValue, "all">, NewsCategory> = {
+  general: "Общее",
+  federation: "Федерация",
+};
+
+function normalize(raw: string): FilterValue {
+  return raw === "general" || raw === "federation" ? raw : "all";
+}
+
 export const Route = createFileRoute("/news/")({
+  validateSearch: zodValidator(searchSchema),
+  search: {
+    middlewares: [stripSearchParams({ category: "all" })],
+  },
   head: () => ({
     meta: [
       { title: "Новости — Федерация тенниса Санкт-Петербурга" },
       {
         name: "description",
         content:
-          "Все новости Федерации тенниса Санкт-Петербурга: турниры, сборные, судейская коллегия, клубы города.",
+          "Все новости Федерации тенниса Санкт-Петербурга: общая лента и официальные новости Федерации.",
       },
       {
         property: "og:title",
@@ -28,29 +55,18 @@ export const Route = createFileRoute("/news/")({
   component: NewsPage,
 });
 
-type Filter = "Все" | "Главные" | NewsCategory;
-
-const FILTERS: Filter[] = [
-  "Все",
-  "Главные",
-  "Федерация",
-  "Судьи",
-  "Турниры",
-  "Сборная",
-  "Клубы",
-];
-
 function NewsPage() {
-  const [filter, setFilter] = useState<Filter>("Все");
+  const { category } = Route.useSearch();
+  const active = normalize(category);
 
   const items = useMemo(() => {
     const sorted = [...allNews].sort(
       (a, b) => parseDate(b.date).getTime() - parseDate(a.date).getTime(),
     );
-    if (filter === "Все") return sorted;
-    if (filter === "Главные") return sorted.filter((n) => n.featured);
-    return sorted.filter((n) => n.category === filter);
-  }, [filter]);
+    if (active === "all") return sorted;
+    const cat = VALUE_TO_CATEGORY[active];
+    return sorted.filter((n) => n.category === cat);
+  }, [active]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -84,20 +100,20 @@ function NewsPage() {
 
         <div className="mb-8 flex flex-wrap gap-2 md:mb-10">
           {FILTERS.map((f) => {
-            const active = f === filter;
+            const isActive = f.value === active;
             return (
-              <button
-                key={f}
-                type="button"
-                onClick={() => setFilter(f)}
+              <Link
+                key={f.value}
+                to="/news"
+                search={{ category: f.value }}
                 className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
-                  active
+                  isActive
                     ? "bg-brand-navy text-brand-navy-foreground"
                     : "bg-muted text-brand-navy hover:bg-brand-orange/10 hover:text-brand-orange"
                 }`}
               >
-                {f}
-              </button>
+                {f.label}
+              </Link>
             );
           })}
         </div>
