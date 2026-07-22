@@ -139,7 +139,7 @@ function NewsDetailPage() {
           <aside className="lg:sticky lg:top-8 lg:self-start">
             <div className="rounded-2xl bg-muted/70 p-6 ring-1 ring-black/5">
               <h2 className="text-sm font-bold tracking-wide text-foreground/80">
-                Читайте так&#8209;же
+                Читайте также
               </h2>
               <ul className="mt-5 space-y-5">
                 {related.map((r: NewsItem) => (
