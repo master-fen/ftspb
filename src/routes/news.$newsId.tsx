@@ -89,7 +89,7 @@ function NewsDetailPage() {
 
             {item.body && item.body.length > 0 ? (
               <div className="mt-8 space-y-5 text-[15px] leading-relaxed text-foreground md:mt-10 md:text-base md:leading-[1.75]">
-                {item.body.map((p, i) => (
+                {item.body.map((p: string, i: number) => (
                   <p key={i}>{p}</p>
                 ))}
               </div>
