@@ -5,12 +5,7 @@ import serve from "@/assets/news-serve.jpg";
 import forehand from "@/assets/news-forehand.jpg";
 import juniors from "@/assets/news-juniors.jpg";
 
-export type NewsCategory =
-  | "Турниры"
-  | "Сборная"
-  | "Федерация"
-  | "Судьи"
-  | "Клубы";
+export type NewsCategory = "Общее" | "Федерация";
 
 export type NewsAttachment = {
   kind: "PDF" | "DOC" | "XLS";
