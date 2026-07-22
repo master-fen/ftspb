@@ -48,10 +48,9 @@ export function SiteHeader() {
   return (
     <header className="w-full bg-background">
       <div
-        className={`mx-auto flex max-w-7xl items-start gap-4 px-4 pt-2 md:px-6 md:pt-2.5 lg:px-10 ${
-          openMenu ? "pb-16" : "pb-2 md:pb-2.5"
-        }`}
+        className="mx-auto flex max-w-7xl items-start gap-4 px-4 pt-2 pb-2 md:px-6 md:pt-2.5 md:pb-2.5 lg:px-10"
       >
+
         <Link to="/" className="shrink-0">
           <Logo />
         </Link>
@@ -85,7 +84,7 @@ export function SiteHeader() {
                   </button>
 
                   {openMenu === s.label ? (
-                    <div className="absolute left-0 top-full mt-3 flex flex-col items-start gap-2 whitespace-nowrap">
+                    <div className="absolute left-0 top-full z-40 flex flex-col items-start gap-2 whitespace-nowrap pt-3 pb-2">
                       {s.children.map((c) => (
                         <a
                           key={c.label}
@@ -97,6 +96,7 @@ export function SiteHeader() {
                       ))}
                     </div>
                   ) : null}
+
                 </div>
               );
             }
