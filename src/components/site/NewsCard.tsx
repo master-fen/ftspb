@@ -35,21 +35,16 @@ export function NewsCard({ item, size = "default", priority }: NewsCardProps) {
           </div>
           <h3
             className={`font-bold leading-snug ${
-              isHero
-                ? "text-xl md:text-2xl lg:text-[26px]"
-                : "text-base md:text-lg"
+              isHero ? "text-xl md:text-2xl lg:text-[26px]" : "text-base md:text-lg"
             }`}
           >
             {item.title}
           </h3>
           {isHero && item.excerpt ? (
-            <p className="mt-1 max-w-xl text-sm text-white/85 md:text-[15px]">
-              {item.excerpt}
-            </p>
+            <p className="mt-1 max-w-xl text-sm text-white/85 md:text-[15px]">{item.excerpt}</p>
           ) : null}
         </div>
       </div>
     </Link>
   );
 }
-

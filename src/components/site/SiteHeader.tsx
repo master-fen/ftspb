@@ -42,15 +42,11 @@ export function SiteHeader() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const linkClass =
-    "text-sm font-bold text-brand-blue transition-colors hover:text-brand-orange";
+  const linkClass = "text-sm font-bold text-brand-blue transition-colors hover:text-brand-orange";
 
   return (
     <header className="w-full bg-background">
-      <div
-        className="mx-auto flex max-w-7xl items-start gap-4 px-4 pt-2 pb-2 md:px-6 md:pt-2.5 md:pb-2.5 lg:px-10"
-      >
-
+      <div className="mx-auto flex max-w-7xl items-start gap-4 px-4 pt-2 pb-2 md:px-6 md:pt-2.5 md:pb-2.5 lg:px-10">
         <Link to="/" className="shrink-0">
           <Logo />
         </Link>
@@ -58,8 +54,7 @@ export function SiteHeader() {
         <nav className="hidden flex-1 items-center justify-center gap-7 self-center lg:flex">
           {navSections.map((s) => {
             const active =
-              isSectionActive(s, pathname) ||
-              (s.children ? openMenu === s.label : false);
+              isSectionActive(s, pathname) || (s.children ? openMenu === s.label : false);
 
             if (s.children) {
               return (
@@ -67,17 +62,13 @@ export function SiteHeader() {
                   key={s.label}
                   className="relative"
                   onMouseEnter={() => setOpenMenu(s.label)}
-                  onMouseLeave={() =>
-                    setOpenMenu((cur) => (cur === s.label ? null : cur))
-                  }
+                  onMouseLeave={() => setOpenMenu((cur) => (cur === s.label ? null : cur))}
                 >
                   <button
                     type="button"
                     aria-haspopup="true"
                     aria-expanded={openMenu === s.label}
-                    onClick={() =>
-                      setOpenMenu((cur) => (cur === s.label ? null : s.label))
-                    }
+                    onClick={() => setOpenMenu((cur) => (cur === s.label ? null : s.label))}
                     className={linkClass}
                   >
                     <NavLabel label={s.label} active={active} />
@@ -96,7 +87,6 @@ export function SiteHeader() {
                       ))}
                     </div>
                   ) : null}
-
                 </div>
               );
             }
@@ -143,9 +133,7 @@ export function SiteHeader() {
                   <div key={s.label} className="border-b border-border last:border-b-0">
                     <button
                       type="button"
-                      onClick={() =>
-                        setMobileExpanded((cur) => (cur === s.label ? null : s.label))
-                      }
+                      onClick={() => setMobileExpanded((cur) => (cur === s.label ? null : s.label))}
                       className="flex w-full items-center justify-between py-3 text-base font-bold text-brand-blue transition-colors hover:text-brand-orange"
                       aria-expanded={expanded}
                     >

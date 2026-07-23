@@ -47,8 +47,7 @@ export const Route = createFileRoute("/news/")({
       },
       {
         property: "og:description",
-        content:
-          "Общая лента новостей Федерации тенниса Санкт-Петербурга с фильтром по разделам.",
+        content: "Общая лента новостей Федерации тенниса Санкт-Петербурга с фильтром по разделам.",
       },
     ],
   }),
@@ -78,10 +77,7 @@ function NewsPage() {
           aria-label="Хлебные крошки"
           className="flex items-center gap-1.5 text-sm text-muted-foreground"
         >
-          <Link
-            to="/"
-            className="transition-colors hover:text-brand-orange"
-          >
+          <Link to="/" className="transition-colors hover:text-brand-orange">
             Главная
           </Link>
           <ChevronRight className="h-4 w-4 opacity-60" aria-hidden />
@@ -93,8 +89,7 @@ function NewsPage() {
             Новости
           </h1>
           <p className="mt-3 max-w-2xl text-sm text-muted-foreground md:text-base">
-            Общая лента всех новостей Федерации. Фильтруйте по разделу, чтобы
-            увидеть только нужное.
+            Общая лента всех новостей Федерации. Фильтруйте по разделу, чтобы увидеть только нужное.
           </p>
         </header>
 
@@ -155,13 +150,9 @@ function NewsListCard({ item }: { item: NewsItem }) {
         <div className="text-[11px] font-semibold tracking-wide text-white/70 uppercase">
           {item.category} — {item.date}
         </div>
-        <h3 className="text-lg leading-snug font-bold text-white md:text-[19px]">
-          {item.title}
-        </h3>
+        <h3 className="text-lg leading-snug font-bold text-white md:text-[19px]">{item.title}</h3>
         {item.excerpt ? (
-          <p className="mt-1 text-sm leading-relaxed text-white/80">
-            {item.excerpt}
-          </p>
+          <p className="mt-1 text-sm leading-relaxed text-white/80">{item.excerpt}</p>
         ) : null}
       </div>
     </Link>

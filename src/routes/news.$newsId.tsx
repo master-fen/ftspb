@@ -101,34 +101,33 @@ function NewsDetailPage() {
                   Прикреплённые файлы
                 </h2>
                 <ul className="mt-4 space-y-2">
-                  {item.attachments.map((att: NonNullable<NewsItem["attachments"]>[number], i: number) => (
-                    <li key={i}>
-                      <a
-                        href="#"
-                        className="group flex items-center gap-3 rounded-xl bg-muted/60 px-4 py-3 ring-1 ring-black/5 transition-colors hover:bg-brand-orange/5"
-                      >
-                        <FileText
-                          className="h-5 w-5 text-brand-navy/70"
-                          aria-hidden
-                        />
-                        <span className="rounded-md bg-brand-navy px-2 py-0.5 text-[10px] font-bold tracking-wider text-white uppercase">
-                          {att.kind}
-                        </span>
-                        <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
-                          {att.title}
-                        </span>
-                        {att.size ? (
-                          <span className="hidden text-xs text-muted-foreground sm:inline">
-                            {att.size}
+                  {item.attachments.map(
+                    (att: NonNullable<NewsItem["attachments"]>[number], i: number) => (
+                      <li key={i}>
+                        <a
+                          href="#"
+                          className="group flex items-center gap-3 rounded-xl bg-muted/60 px-4 py-3 ring-1 ring-black/5 transition-colors hover:bg-brand-orange/5"
+                        >
+                          <FileText className="h-5 w-5 text-brand-navy/70" aria-hidden />
+                          <span className="rounded-md bg-brand-navy px-2 py-0.5 text-[10px] font-bold tracking-wider text-white uppercase">
+                            {att.kind}
                           </span>
-                        ) : null}
-                        <Download
-                          className="h-4 w-4 text-brand-navy/60 transition-colors group-hover:text-brand-orange"
-                          aria-hidden
-                        />
-                      </a>
-                    </li>
-                  ))}
+                          <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                            {att.title}
+                          </span>
+                          {att.size ? (
+                            <span className="hidden text-xs text-muted-foreground sm:inline">
+                              {att.size}
+                            </span>
+                          ) : null}
+                          <Download
+                            className="h-4 w-4 text-brand-navy/60 transition-colors group-hover:text-brand-orange"
+                            aria-hidden
+                          />
+                        </a>
+                      </li>
+                    ),
+                  )}
                 </ul>
               </section>
             ) : null}
@@ -137,9 +136,7 @@ function NewsDetailPage() {
           {/* Sidebar */}
           <aside className="lg:sticky lg:top-8 lg:self-start">
             <div className="rounded-2xl bg-muted/70 p-6 ring-1 ring-black/5">
-              <h2 className="text-sm font-bold tracking-wide text-foreground/80">
-                Читайте также
-              </h2>
+              <h2 className="text-sm font-bold tracking-wide text-foreground/80">Читайте также</h2>
               <ul className="mt-5 space-y-5">
                 {related.map((r: NewsItem) => (
                   <RelatedItem key={r.id} item={r} />
@@ -166,11 +163,7 @@ function NewsDetailPage() {
 function RelatedItem({ item }: { item: NewsItem }) {
   return (
     <li>
-      <Link
-        to="/news/$newsId"
-        params={{ newsId: item.id }}
-        className="group block"
-      >
+      <Link to="/news/$newsId" params={{ newsId: item.id }} className="group block">
         <div className="text-[10px] font-semibold tracking-[0.14em] text-brand-orange uppercase">
           {item.category} — {item.date}
         </div>
@@ -187,15 +180,9 @@ function NewsNotFound() {
     <div className="min-h-screen bg-background">
       <SiteHeader />
       <main className="mx-auto max-w-3xl px-4 py-20 text-center md:px-6">
-        <p className="text-sm font-semibold tracking-wide text-brand-orange uppercase">
-          404
-        </p>
-        <h1 className="mt-3 text-3xl font-black tracking-tight md:text-4xl">
-          Новость не найдена
-        </h1>
-        <p className="mt-4 text-muted-foreground">
-          Возможно, материал был перемещён или удалён.
-        </p>
+        <p className="text-sm font-semibold tracking-wide text-brand-orange uppercase">404</p>
+        <h1 className="mt-3 text-3xl font-black tracking-tight md:text-4xl">Новость не найдена</h1>
+        <p className="mt-4 text-muted-foreground">Возможно, материал был перемещён или удалён.</p>
         <Link
           to="/news"
           className="mt-8 inline-flex items-center gap-1.5 rounded-full bg-brand-navy px-5 py-2.5 text-sm font-semibold text-brand-navy-foreground transition-colors hover:bg-brand-orange"

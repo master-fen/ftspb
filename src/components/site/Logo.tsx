@@ -6,10 +6,7 @@ type LogoProps = {
   sizeClassName?: string;
 };
 
-export function Logo({
-  className,
-  sizeClassName = "h-28 md:h-36 lg:h-48",
-}: LogoProps) {
+export function Logo({ className, sizeClassName = "h-28 md:h-36 lg:h-48" }: LogoProps) {
   return (
     <img
       src={logoSrc}

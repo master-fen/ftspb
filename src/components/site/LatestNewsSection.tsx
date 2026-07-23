@@ -47,7 +47,6 @@ export function LatestNewsSection() {
         </Link>
       </div>
 
-
       {/* Desktop/tablet: 3-col grid of image cards */}
       <div className="mt-6 hidden grid-cols-2 gap-5 md:grid lg:grid-cols-3">
         {latestNews.map((item) => (

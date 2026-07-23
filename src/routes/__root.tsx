@@ -92,9 +92,21 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "Федерация тенниса Санкт-Петербурга" },
-      { name: "twitter:description", content: "Официальный сайт Федерации тенниса Санкт-Петербурга: новости, турниры, сборные команды, клубы города и документы." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/6e0d7ddc-fa22-4dc6-9679-cd9e6c53613d/id-preview-1c047ee8--4a7b7fda-4dd4-4ee4-b69b-93a9ba20b7f7.lovable.app-1783467176882.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/6e0d7ddc-fa22-4dc6-9679-cd9e6c53613d/id-preview-1c047ee8--4a7b7fda-4dd4-4ee4-b69b-93a9ba20b7f7.lovable.app-1783467176882.png" },
+      {
+        name: "twitter:description",
+        content:
+          "Официальный сайт Федерации тенниса Санкт-Петербурга: новости, турниры, сборные команды, клубы города и документы.",
+      },
+      {
+        property: "og:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/6e0d7ddc-fa22-4dc6-9679-cd9e6c53613d/id-preview-1c047ee8--4a7b7fda-4dd4-4ee4-b69b-93a9ba20b7f7.lovable.app-1783467176882.png",
+      },
+      {
+        name: "twitter:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/6e0d7ddc-fa22-4dc6-9679-cd9e6c53613d/id-preview-1c047ee8--4a7b7fda-4dd4-4ee4-b69b-93a9ba20b7f7.lovable.app-1783467176882.png",
+      },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
