@@ -1,41 +1,65 @@
-## Цель
+## Комбинированный подход к Prettier + Topology A (все правки внесены)
 
-Подключить Claude Code к тому же репозиторию параллельно с Lovable, без ломки Lovable-синхронизации. Topology A: Lovable пушит в `main` напрямую, Claude Code — через PR из веток `claude/*`.
+### Шаг 0. Расширить `.prettierignore`
 
-## Что создаётся
+Текущий файл уже содержит `routeTree.gen.ts` (без пути — покрывает файл в любой директории) и `bun.lock`. Добавляем только недостающее:
 
-### 1. `CLAUDE.md` в корне
+```
+.lovable/
+AGENTS.md
+src/routes/README.md
+```
 
-- **Стек.** TanStack Start (`@tanstack/react-start` 1.168, `@tanstack/react-router` 1.170), React 19, **Vite 8** (`^8.0.16`), Tailwind 4, bun. Конфиг сборки — `@lovable.dev/vite-tanstack-config` 2.7.7, все плагины внутри. Nitro preset — `node-server`.
-- **Менеджер пакетов — только bun.** Единственный lock — `bun.lock`. Команды: `bun install`, `bun run dev`, `bun run build`, `bun run build:dev`, `bun run lint`, `bun run format`, `bunx tsc --noEmit`, `bunx prettier --check .`. Никогда `npm`/`pnpm`/`yarn`.
-- **Первичная настройка репозитория (один раз на клоне):**
+`src/routeTree.gen.ts` дублировать не нужно — покрыт существующей строкой `routeTree.gen.ts`.
+
+### Шаг 1. Одноразовый форматирующий коммит
+
+```
+bunx prettier --write .
+```
+
+Список изменённых файлов из вывода приведу в отчёте. Коммит только с форматированием, без других правок.
+
+### Шаг 2. Проверка + честный отчёт по exit code
+
+```
+bunx prettier --check .
+echo $?
+```
+
+Дословно stdout+stderr и exit-код отдельной строкой. Про противоречие из прошлого отчёта (exit 0 при 12 файлах) — не выдумываю причину, назову по факту после запуска.
+
+### Шаг 3. CI сохраняет `bunx prettier --check .`
+
+Информационный, не блокирующий (см. 4.2).
+
+### Шаг 4. Topology A — файлы
+
+#### 4.1. `CLAUDE.md`
+
+- **Стек:** TanStack Start 1.168, React 19, Vite 8.0.16, Tailwind 4, Bun **1.3.3**, Nitro preset `node-server`.
+- **Git-правила:** запрет `rebase`, `push --force`, `commit --amend`, `merge --squash` над запушенной историей. Синхронизация с `main` — только `git merge origin/main`. Ссылка на `AGENTS.md` и его маркеры `<!-- LOVABLE:BEGIN --> … <!-- LOVABLE:END -->`.
+- **Топология:** Lovable пушит прямо в `main` (никаких «Lovable-веток»). Claude Code — ветки `claude/<feature>` и PR в `main`. `main` **не защищаем**.
+- **Первичная настройка клона (один раз):**
   ```
   git config merge.ours.driver true
   ```
-  Это объявляет драйвер `ours`, на который ссылается `.gitattributes` (встроенных драйверов у git всего три — `text`, `binary`, `union`; `ours` нужно объявлять локально). Конфиг не коммитится и на стороне Lovable не действует. **Поэтому основная защита `src/routeTree.gen.ts` — не `.gitattributes`, а обязательная регенерация: после каждого мерджа с `main` прогнать `bun run build:dev` и закоммитить обновлённый `routeTree.gen.ts` отдельным коммитом.**
-- **Ветки.** Lovable синхронизируется с `main` двусторонне. Claude Code работает в `claude/<feature>` и вливается через PR. `main` не защищаем (Lovable пушит напрямую). Свои PR не апрувить — GitHub блокирует.
-- **Запреты git.** Никаких `rebase`, `push --force`, `commit --amend`, `merge --squash` над уже запушенной историей. Синхронизация с `main` — только `git merge origin/main`. Ссылка на `AGENTS.md`.
+  На CI и у Lovable драйвер не объявлен — там `.gitattributes merge=ours` no-op, поэтому после мерджа с `main` обязательна регенерация `routeTree.gen.ts` через `bun run build:dev` отдельным коммитом.
+- **Локальные проверки перед пушем:** `bun run lint`, `bunx tsc --noEmit`, `bunx prettier --check .`, `bun run build`. (`tsc`, **не `tsgo`** — tsgo в devDependencies нет, ставить = трогать `bun.lock` без причины.)
 - **Зоны ответственности:**
-  - Lovable: `src/routes/*` (разметка/JSX/стили внутри маршрута), `src/components/**`, `src/styles.css`, `src/assets/**`, `src/data/mock.ts` (пока жив), `vite.config.ts`.
-  - Claude Code: `src/lib/**` (появится `api.ts`, `types/` для доменных типов), `loader` и `head()` внутри route-файлов — отдельным коммитом с префиксом `chore(loader):`, `public/robots.txt`, `public/sitemap.xml`, `.github/workflows/**`, `CLAUDE.md`, `.gitattributes`, deploy-артефакты (`Dockerfile`, systemd-юнит, скрипт запуска `node .output/server/index.mjs`).
-- **`src/data/mock.ts` — стратегия миграции:**
-  - (а) **Перед удалением моков** типы `NewsItem`, `NewsCategory`, `NewsAttachment`, `NewsAttachmentKind`, `NavSection`, `NavChild` выносятся в отдельный файл (`src/lib/types/news.ts` и `src/lib/types/nav.ts`). Типы переживают моки и становятся основой доменной модели.
-  - (б) **Fallback на моки при недоступном API не делаем.** Подмена данных скроет аварию; при ошибке — показываем error state / пустой список / сообщение об ошибке.
-- **Не трогать руками:**
-  - `src/routeTree.gen.ts` — автогенерация TanStack Router.
-  - `.lovable/`, `.workspace/skills/` (последний сбрасывается на каждое сообщение Lovable).
-  - `AGENTS.md` — файл полностью обёрнут маркерами `<!-- LOVABLE:BEGIN --> … <!-- LOVABLE:END -->`, редактируем только **снаружи** этих маркеров.
-  - `src/routes/README.md`.
-  - `src/lib/lovable-error-reporting.ts`, `src/lib/error-capture.ts`, `src/lib/error-page.ts`.
-  - `bun.lock` — только через `bun install` / `bun add`.
-  - `vite.config.ts` — не добавлять плагины (всё внутри `@lovable.dev/vite-tanstack-config`); смена nitro preset — только по согласованию.
-  - (`.tanstack/` из списка убран — уже покрыт `.gitignore`.)
-- **Правила PR.** Один PR — одна зона. `loader`/`head()` — отдельным коммитом. Префиксы сообщений: `feat:`, `fix:`, `chore(loader):`, `chore(deploy):`, `chore(ci):`.
-- **Локальные проверки перед пушем:** `bun run lint`, `bunx tsc --noEmit`, `bunx prettier --check .`, `bun run build`.
+  - **Lovable:** `src/routes/*` — **только JSX/разметка/стили внутри маршрута**, `src/components/**`, `src/styles.css`, `src/assets/**`, `src/data/mock.ts` (пока жив), `vite.config.ts`.
+  - **Claude Code:** `src/lib/**` (в т.ч. будущие `src/lib/api.ts` и `src/lib/types/**`), **`loader` и `head()` внутри route-файлов — отдельным коммитом с префиксом `chore(loader):`** (head() читает loaderData, разрывать их по владельцам вредно), `public/robots.txt`, `public/sitemap.xml`, `.github/workflows/**`, `CLAUDE.md`, `.gitattributes`, deploy-артефакты.
+- **TODO по `src/data/mock.ts` (владелец — Lovable, выполнить когда Claude Code начнёт `src/lib/api.ts`):**
+  1. Вынести типы `NewsItem`, `NewsCategory`, `NewsAttachment`, `NewsAttachment["kind"]`, `NavSection`, `NavChild` из `src/data/mock.ts` в `src/lib/types/news.ts` и `src/lib/types/nav.ts`.
+  2. Обновить все импорты `@/data/mock` в компонентах на новые пути типов.
+  3. Только после этого Claude Code пишет `src/lib/api.ts`, использующий эти типы, и подключает его через `loader` в route-файлах (`chore(loader):`).
+  4. Fallback на моки при недоступном API не делаем — при ошибке error state / пустой список / сообщение об ошибке.
+- **Не трогать руками:** `src/routeTree.gen.ts`, `.lovable/`, `.workspace/skills/`, `AGENTS.md` (только вне маркеров), `src/routes/README.md`, `src/lib/lovable-error-reporting.ts`, `src/lib/error-capture.ts`, `src/lib/error-page.ts`, `bun.lock` (только через `bun install`/`bun add`), `vite.config.ts` (плагины не добавляем, nitro preset — только по согласованию).
+- **PR:** один PR — одна зона. Префиксы: `feat:`, `fix:`, `chore(loader):`, `chore(deploy):`, `chore(ci):`.
 
-### 2. `.github/workflows/ci.yml`
+#### 4.2. `.github/workflows/ci.yml` — информационный, не блокирующий
 
-Информационный (не блокирующий), запускается на `push` в `main` и на все `pull_request`:
+Блокирующим CI становится только через branch protection / required status checks. `main` не защищаем — прямые пуши Lovable упрутся в защиту.
 
 ```yaml
 name: CI
@@ -49,7 +73,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
-        with: { bun-version: latest }
+        with:
+          bun-version: 1.3.3
       - run: bun install --frozen-lockfile
       - run: bun run lint
       - run: bunx prettier --check .
@@ -57,31 +82,22 @@ jobs:
       - run: bun run build
 ```
 
-Без required-status-checks на `main` — иначе прямые пуши Lovable упрутся в защиту.
+Bun зафиксирован по локальной версии (`bun --version` → `1.3.3`), чтобы `--frozen-lockfile` не сломался о плавающий формат `bun.lock`.
 
-### 3. `.gitattributes`
+#### 4.3. `.gitattributes`
 
 ```
 src/routeTree.gen.ts merge=ours linguist-generated=true
 bun.lock linguist-generated=true
 ```
 
-`merge=ours` работает только при выполненном `git config merge.ours.driver true` (см. шаг настройки в CLAUDE.md). На CI и у Lovable драйвер не объявлен — там `.gitattributes` для `routeTree.gen.ts` фактически no-op, поэтому регенерация после мерджа остаётся обязательной.
+- `bun.lock` — только `linguist-generated=true`, без `merge=ours` (для lock-файла опасно: молча оставит свою версию и разойдётся с `package.json` → `--frozen-lockfile` упадёт; конфликты решаются регенерацией через `bun install`).
+- `routeTree.gen.ts` — `merge=ours` + `linguist-generated=true`.
 
-### 4. Проверка Prettier — до записи файлов
+### Порядок применения
 
-Перед созданием файлов запускаю `bunx prettier --check .` на текущем состоянии и **привожу фактический вывод команды** (не «зелёное»). Если проверка красная — пишу это в отчёт и уточняю с тобой, добавлять ли пути в `.prettierignore` или просить Lovable сделать одноразовый форматирующий коммит.
-
-## Порядок применения (после переключения в build mode)
-
-1. `bunx prettier --check .` — фактический вывод в отчёт.
-2. Создаю `CLAUDE.md`, `.github/workflows/ci.yml`, `.gitattributes`.
-3. Прогоняю `bun run lint`, `bunx tsc --noEmit`, `bunx prettier --check .`, `bun run build` — привожу **фактический stdout/stderr** каждой команды (последние строки при длинном выводе).
-4. Если что-то красное — не «чиню молча», а показываю вывод и жду решения.
-
-## Что НЕ входит
-
-- Обкаточная задача (robots.txt + мелкая правка стилей) — следующим шагом, после того как Claude Code реально подключится.
-- Смена схемы URL для новостей — отдельно.
-- Deploy-конфиг (`Dockerfile`, systemd) — когда решится хостинг.
-- Topology B — только если найдёшь переключатель в Lovable Labs, тогда доработаем `CLAUDE.md` и включим branch protection.
+1. Правка `.prettierignore` (шаг 0) — коммит `chore: extend .prettierignore`.
+2. `bunx prettier --write .` (шаг 1) — коммит `style: apply prettier formatting`, только форматирование.
+3. `bunx prettier --check .` + `echo $?` (шаг 2) — привожу вывод и exit-код.
+4. Создание `CLAUDE.md`, `.github/workflows/ci.yml`, `.gitattributes` — коммит `chore(ci): add CLAUDE.md, CI workflow, .gitattributes`.
+5. Прогон `bun run lint`, `bunx tsc --noEmit`, `bunx prettier --check .`, `bun run build` — привожу фактический вывод. Если красное — не «чиню молча».
