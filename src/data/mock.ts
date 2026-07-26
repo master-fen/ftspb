@@ -142,11 +142,10 @@ export const navSections: NavSection[] = [
       { label: "Документы Федерации", href: "#" },
     ],
   },
-  { label: "Сборные команды", href: "#" },
-  { label: "Календарь турниров", href: "#" },
-  { label: "Документы", href: "#" },
   { label: "Коллегия судей", href: "#" },
-  { label: "Клубы города", href: "#" },
+  { label: "Турниры", href: "#" },
+  { label: "Корты", href: "#" },
+  { label: "Документы", href: "#" },
   { label: "Контакты", href: "#" },
 ];
 
