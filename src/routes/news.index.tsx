@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import { createFileRoute, Link, stripSearchParams } from "@tanstack/react-router";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
-import { ChevronRight } from "lucide-react";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { allNews } from "@/data/mock";
