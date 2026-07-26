@@ -77,7 +77,7 @@ export function SiteHeader() {
 
   return (
     <header className="w-full bg-background">
-      <div className="mx-auto flex max-w-7xl flex-wrap items-start gap-4 px-4 pt-2 pb-2 md:px-6 md:pt-2.5 md:pb-2.5 lg:px-10">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-start justify-between gap-4 px-4 pt-2 pb-2 md:px-6 md:pt-2.5 md:pb-2.5 lg:grid lg:grid-cols-[auto_1fr_auto] lg:items-start lg:justify-normal lg:px-10">
         <Link to="/" className="shrink-0">
           <Logo />
         </Link>
@@ -85,7 +85,7 @@ export function SiteHeader() {
         <nav
           ref={navRef}
           onMouseLeave={() => setHovered(null)}
-          className="relative hidden flex-auto flex-wrap items-center justify-center gap-4 self-center lg:flex xl:gap-6"
+          className="relative hidden min-w-0 flex-wrap items-center justify-center gap-4 lg:flex xl:gap-6"
         >
           {navSections.map((s) => {
             const setRef = (el: HTMLElement | null) => {
