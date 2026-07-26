@@ -41,7 +41,14 @@ export function SiteHeader() {
     }
     const navBox = nav.getBoundingClientRect();
     const box = el.getBoundingClientRect();
-    setIndicator({ left: box.left - navBox.left, width: box.width, visible: true });
+    const computed = window.getComputedStyle(el);
+    const paddingLeft = parseFloat(computed.paddingLeft) || 0;
+    const paddingRight = parseFloat(computed.paddingRight) || 0;
+    setIndicator({
+      left: box.left - navBox.left + paddingLeft,
+      width: box.width - paddingLeft - paddingRight,
+      visible: true,
+    });
   }, [target]);
 
   useLayoutEffect(() => {
@@ -61,20 +68,23 @@ export function SiteHeader() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const linkClass =
-    "font-ui text-[16px] font-bold leading-[19.25px] whitespace-nowrap text-brand-blue transition-colors hover:text-brand-orange";
+  const navItemClass =
+    "font-ui text-[15px] font-bold leading-[19.25px] text-brand-blue transition-colors hover:text-brand-orange inline-block text-center min-w-0 px-1 lg:px-1 lg:max-w-[7rem] xl:px-0 xl:text-[16px] xl:max-w-none";
+
+  const dropdownItemClass =
+    "font-ui text-[16px] leading-[19.25px] font-bold text-brand-blue transition-colors hover:text-brand-orange whitespace-nowrap";
 
   return (
     <header className="w-full bg-background">
-      <div className="mx-auto flex max-w-7xl items-start gap-4 px-4 pt-2 pb-2 md:px-6 md:pt-2.5 md:pb-2.5 lg:px-10">
+      <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 pt-2 pb-2 md:px-6 md:pt-2.5 md:pb-2.5 lg:gap-2 lg:px-6 xl:gap-4 xl:px-10">
         <Link to="/" className="shrink-0">
-          <Logo />
+          <Logo sizeClassName="h-28 md:h-36 lg:h-40 xl:h-48" />
         </Link>
 
         <nav
           ref={navRef}
           onMouseLeave={() => setHovered(null)}
-          className="relative hidden flex-1 items-center justify-center gap-4 self-center lg:flex xl:gap-6"
+          className="relative hidden flex-1 items-center justify-center gap-1 self-center lg:flex xl:gap-4"
         >
           {navSections.map((s) => {
             const setRef = (el: HTMLElement | null) => {
@@ -98,7 +108,7 @@ export function SiteHeader() {
                     aria-haspopup="true"
                     aria-expanded={openMenu === s.label}
                     onClick={() => setOpenMenu((cur) => (cur === s.label ? null : s.label))}
-                    className={linkClass}
+                    className={navItemClass}
                   >
                     {s.label}
                   </button>
@@ -106,11 +116,7 @@ export function SiteHeader() {
                   {openMenu === s.label ? (
                     <div className="absolute top-full left-0 z-40 flex flex-col items-start gap-2 pt-4 pb-2 whitespace-nowrap">
                       {s.children.map((c) => (
-                        <a
-                          key={c.label}
-                          href={c.href}
-                          className="font-ui text-[16px] leading-[19.25px] font-bold text-brand-blue transition-colors hover:text-brand-orange"
-                        >
+                        <a key={c.label} href={c.href} className={dropdownItemClass}>
                           {c.label}
                         </a>
                       ))}
@@ -126,7 +132,7 @@ export function SiteHeader() {
                 to={s.href}
                 ref={setRef}
                 onMouseEnter={() => setHovered(s.label)}
-                className={linkClass}
+                className={navItemClass}
               >
                 {s.label}
               </Link>
@@ -136,7 +142,7 @@ export function SiteHeader() {
                 href={s.href}
                 ref={setRef}
                 onMouseEnter={() => setHovered(s.label)}
-                className={linkClass}
+                className={navItemClass}
               >
                 {s.label}
               </a>
