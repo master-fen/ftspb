@@ -40,12 +40,9 @@ export function LatestNewsSection() {
       </ul>
 
       <div className="mt-4 md:hidden">
-        <Link
-          to="/news"
-          className="inline-flex text-base font-semibold text-brand-blue transition-colors hover:text-brand-orange"
-        >
-          Все новости…
-        </Link>
+        <Button asChild variant="outline">
+          <Link to="/news">Все новости</Link>
+        </Button>
       </div>
 
       {/* Desktop/tablet: 3-col grid of news cards */}
@@ -53,6 +50,12 @@ export function LatestNewsSection() {
         {latestNews.map((item) => (
           <NewsListCard key={item.id} item={item} />
         ))}
+      </div>
+
+      <div className="mt-8 hidden justify-center md:flex">
+        <Button asChild variant="outline" size="lg">
+          <Link to="/news">Все новости</Link>
+        </Button>
       </div>
     </section>
   );
