@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { latestNews } from "@/data/mock";
+import { Button } from "@/components/ui/button";
 import { NewsListCard } from "./NewsListCard";
 import { SectionHeading } from "./SectionHeading";
 
