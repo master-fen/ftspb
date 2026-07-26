@@ -62,7 +62,7 @@ export function SiteHeader() {
   }, []);
 
   const navItemClass =
-    "font-ui text-[16px] font-bold leading-[19.25px] text-brand-blue transition-colors hover:text-brand-orange inline-block text-center min-w-0 lg:max-w-[6rem] xl:max-w-none";
+    "font-ui text-[15px] font-bold leading-[19.25px] text-brand-blue transition-colors hover:text-brand-orange inline-block text-center min-w-0 lg:max-w-[7rem] xl:max-w-none xl:text-[16px]";
 
   const dropdownItemClass =
     "font-ui text-[16px] leading-[19.25px] font-bold text-brand-blue transition-colors hover:text-brand-orange whitespace-nowrap";
