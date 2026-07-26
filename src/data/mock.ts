@@ -7,7 +7,6 @@ import juniors from "@/assets/news-juniors.jpg";
 import type { NewsItem } from "@/lib/types/news";
 import type { NavSection } from "@/lib/types/nav";
 
-
 export const featuredNews: NewsItem[] = [
   {
     id: "kubok-severnoy-stolitsy-2026",
@@ -132,7 +131,6 @@ export const latestNews: NewsItem[] = [
 ];
 
 export const allNews: NewsItem[] = [...featuredNews, ...latestNews];
-
 
 export const navSections: NavSection[] = [
   { label: "Главная", href: "/" },
