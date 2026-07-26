@@ -155,7 +155,6 @@ export function SiteHeader() {
           />
         </nav>
 
-
         <div className="ml-auto flex items-center gap-2 self-center lg:ml-0">
           <button
             type="button"
