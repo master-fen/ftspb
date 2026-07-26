@@ -143,6 +143,7 @@ export const navSections: NavSection[] = [
     ],
   },
   { label: "Коллегия судей", href: "#" },
+  { label: "Сборные команды", href: "#" },
   { label: "Турниры", href: "#" },
   { label: "Корты", href: "#" },
   { label: "Документы", href: "#" },
