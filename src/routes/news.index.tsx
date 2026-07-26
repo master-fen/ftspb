@@ -133,6 +133,7 @@ function NewsPage() {
   );
 }
 
+
 function parseDate(s: string): Date {
   // dd.mm.yy
   const [d, m, y] = s.split(".").map((x) => parseInt(x, 10));
