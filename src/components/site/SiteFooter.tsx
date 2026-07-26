@@ -2,22 +2,30 @@ import { navSections, siteMeta } from "@/data/mock";
 import { Logo } from "./Logo";
 
 export function SiteFooter() {
-  const half = Math.ceil(navSections.length / 2);
-  const col1 = navSections.slice(0, half);
-  const col2 = navSections.slice(half);
-
   return (
     <footer className="bg-brand-navy text-brand-navy-foreground">
       <div className="mx-auto max-w-7xl px-4 pt-10 pb-8 md:px-6 md:pt-12 lg:px-10">
-        {/* Logo — on white plate to keep the navy PNG visible on navy footer */}
-        <div className="inline-block rounded-xl bg-white p-3 md:p-4">
-          <Logo sizeClassName="h-32 md:h-44 lg:h-52" />
-        </div>
+        <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between md:gap-12">
+          {/* Logo — on white plate to keep the navy PNG visible on navy footer */}
+          <div className="inline-block shrink-0 self-start rounded-xl bg-white p-3 md:p-4">
+            <Logo sizeClassName="h-32 md:h-44 lg:h-52" />
+          </div>
 
-        {/* Nav — stacked on mobile, two columns from md */}
-        <div className="mt-8 grid grid-cols-1 gap-x-10 gap-y-2 md:mt-10 md:grid-cols-2">
-          <FooterCol items={col1} />
-          <FooterCol items={col2} />
+          {/* Nav — right side */}
+          <nav className="md:pt-2">
+            <ul className="grid grid-cols-1 gap-x-12 gap-y-3 text-sm sm:grid-cols-2">
+              {navSections.map((s) => (
+                <li key={s.label}>
+                  <a
+                    href={s.href}
+                    className="font-ui font-bold text-white/90 transition-colors hover:text-brand-orange"
+                  >
+                    {s.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </nav>
         </div>
 
         <div className="mt-10 border-t border-white/15 pt-6">
@@ -58,19 +66,3 @@ export function SiteFooter() {
   );
 }
 
-function FooterCol({ items }: { items: { label: string; href: string }[] }) {
-  return (
-    <ul className="space-y-3 text-sm">
-      {items.map((s) => (
-        <li key={s.label}>
-          <a
-            href={s.href}
-            className="font-medium text-white/90 transition-colors hover:text-brand-orange"
-          >
-            {s.label}
-          </a>
-        </li>
-      ))}
-    </ul>
-  );
-}
