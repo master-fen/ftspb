@@ -41,7 +41,14 @@ export function SiteHeader() {
     }
     const navBox = nav.getBoundingClientRect();
     const box = el.getBoundingClientRect();
-    setIndicator({ left: box.left - navBox.left, width: box.width, visible: true });
+    const computed = window.getComputedStyle(el);
+    const paddingLeft = parseFloat(computed.paddingLeft) || 0;
+    const paddingRight = parseFloat(computed.paddingRight) || 0;
+    setIndicator({
+      left: box.left - navBox.left + paddingLeft,
+      width: box.width - paddingLeft - paddingRight,
+      visible: true,
+    });
   }, [target]);
 
   useLayoutEffect(() => {
