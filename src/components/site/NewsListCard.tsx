@@ -30,4 +30,3 @@ export function NewsListCard({ item }: { item: NewsItem }) {
     </Link>
   );
 }
-

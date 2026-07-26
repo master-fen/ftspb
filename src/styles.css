@@ -41,7 +41,6 @@
   --color-news-card-hover: var(--news-card-hover);
   --color-news-card-foreground: var(--news-card-foreground);
 
-
   --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Manrope", ui-sans-serif, system-ui, sans-serif;
 }
@@ -108,7 +107,6 @@
   --news-card-hover: oklch(0.36 0.07 245);
   --news-card-foreground: oklch(0.98 0.005 245);
 }
-
 
 @layer base {
   * {
