@@ -9,7 +9,7 @@ import { allNews } from "@/data/mock";
 import { NewsListCard } from "@/components/site/NewsListCard";
 import type { NewsCategory } from "@/lib/types/news";
 
-type FilterValue = "all" | "general" | "federation";
+type FilterValue = "all" | "general" | "federation" | "referees";
 
 const searchSchema = z.object({
   category: fallback(z.string(), "all").default("all"),
@@ -19,15 +19,17 @@ const FILTERS: { value: FilterValue; label: string }[] = [
   { value: "all", label: "Все" },
   { value: "general", label: "Общее" },
   { value: "federation", label: "Федерация" },
+  { value: "referees", label: "Коллегия судей" },
 ];
 
 const VALUE_TO_CATEGORY: Record<Exclude<FilterValue, "all">, NewsCategory> = {
   general: "Общее",
   federation: "Федерация",
+  referees: "Коллегия судей",
 };
 
 function normalize(raw: string): FilterValue {
-  return raw === "general" || raw === "federation" ? raw : "all";
+  return raw === "general" || raw === "federation" || raw === "referees" ? raw : "all";
 }
 
 export const Route = createFileRoute("/news/")({

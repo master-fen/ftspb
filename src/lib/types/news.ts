@@ -1,4 +1,4 @@
-export type NewsCategory = "Общее" | "Федерация";
+export type NewsCategory = "Общее" | "Федерация" | "Коллегия судей";
 
 export type NewsAttachment = {
   kind: "PDF" | "DOC" | "XLS";
