@@ -140,7 +140,6 @@ function NewsPage() {
           })}
         </div>
 
-
         {items.length === 0 ? (
           <p className="rounded-xl bg-muted p-8 text-center text-muted-foreground">
             В этом разделе пока нет новостей.
