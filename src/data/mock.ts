@@ -95,7 +95,7 @@ export const latestNews: NewsItem[] = [
   },
   {
     id: "referees-seminar",
-    category: "Общее",
+    category: "Коллегия судей",
     date: "20.04.26",
     title: "Семинар коллегии судей: новые правила сезона",
     excerpt: "Разбор изменений регламента и практикум по спорным ситуациям на корте.",
