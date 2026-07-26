@@ -74,6 +74,16 @@ function NewsPage() {
       <SiteHeader />
 
       <main className="mx-auto max-w-7xl px-4 pt-6 pb-12 md:px-6 md:pt-8 md:pb-16 lg:px-10">
+        <nav aria-label="Хлебные крошки" className="mb-4 flex items-center gap-2 text-sm text-muted-foreground md:mb-5">
+          <Link to="/" className="transition-colors hover:text-brand-navy">
+            Главная
+          </Link>
+          <ChevronRight className="h-4 w-4" aria-hidden="true" />
+          <span className="text-foreground" aria-current="page">
+            Новости
+          </span>
+        </nav>
+
         <header className="mb-6 md:mb-8">
           <h1 className="text-4xl font-black tracking-tight text-foreground md:text-5xl lg:text-6xl">
             Новости
