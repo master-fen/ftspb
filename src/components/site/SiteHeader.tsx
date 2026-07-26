@@ -95,7 +95,7 @@ export function SiteHeader() {
                   }}
                   onMouseLeave={() => setOpenMenu((cur) => (cur === s.label ? null : cur))}
                 >
-                    <button
+                  <button
                     ref={setRef}
                     type="button"
                     aria-haspopup="true"
@@ -109,11 +109,7 @@ export function SiteHeader() {
                   {openMenu === s.label ? (
                     <div className="absolute top-full left-0 z-40 flex flex-col items-start gap-2 pt-4 pb-2 whitespace-nowrap">
                       {s.children.map((c) => (
-                        <a
-                          key={c.label}
-                          href={c.href}
-                          className={dropdownItemClass}
-                        >
+                        <a key={c.label} href={c.href} className={dropdownItemClass}>
                           {c.label}
                         </a>
                       ))}
