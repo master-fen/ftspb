@@ -18,8 +18,14 @@ export function SiteHeader() {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [mobileExpanded, setMobileExpanded] = useState<string | null>(null);
   const [hovered, setHovered] = useState<string | null>(null);
-  const [indicator, setIndicator] = useState<{ left: number; width: number; visible: boolean }>({
+  const [indicator, setIndicator] = useState<{
+    left: number;
+    top: number;
+    width: number;
+    visible: boolean;
+  }>({
     left: 0,
+    top: 0,
     width: 0,
     visible: false,
   });
@@ -41,7 +47,12 @@ export function SiteHeader() {
     }
     const navBox = nav.getBoundingClientRect();
     const box = el.getBoundingClientRect();
-    setIndicator({ left: box.left - navBox.left, width: box.width, visible: true });
+    setIndicator({
+      left: box.left - navBox.left,
+      top: box.top - navBox.top + box.height + 8,
+      width: box.width,
+      visible: true,
+    });
   }, [target]);
 
   useLayoutEffect(() => {
@@ -66,7 +77,7 @@ export function SiteHeader() {
 
   return (
     <header className="w-full bg-background">
-      <div className="mx-auto flex max-w-7xl items-start gap-4 px-4 pt-2 pb-2 md:px-6 md:pt-2.5 md:pb-2.5 lg:px-10">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-start gap-4 px-4 pt-2 pb-2 md:px-6 md:pt-2.5 md:pb-2.5 lg:px-10">
         <Link to="/" className="shrink-0">
           <Logo />
         </Link>
@@ -74,7 +85,7 @@ export function SiteHeader() {
         <nav
           ref={navRef}
           onMouseLeave={() => setHovered(null)}
-          className="relative hidden flex-1 items-center justify-center gap-4 self-center lg:flex xl:gap-6"
+          className="relative hidden flex-auto flex-wrap items-center justify-center gap-4 self-center lg:flex xl:gap-6"
         >
           {navSections.map((s) => {
             const setRef = (el: HTMLElement | null) => {
@@ -145,17 +156,18 @@ export function SiteHeader() {
 
           <span
             aria-hidden
-            className="pointer-events-none absolute -bottom-2 h-[2px] rounded-full transition-all duration-300 ease-out"
+            className="pointer-events-none absolute h-[2px] rounded-full transition-all duration-300 ease-out"
             style={{
               backgroundColor: "var(--color-brand-blue)",
               left: indicator.left,
+              top: indicator.top,
               width: indicator.width,
               opacity: indicator.visible ? 1 : 0,
             }}
           />
         </nav>
 
-        <div className="ml-auto flex items-center gap-2 self-center lg:ml-0">
+        <div className="ml-auto flex shrink-0 items-center gap-2 self-center lg:ml-0">
           <button
             type="button"
             aria-label="Поиск"
