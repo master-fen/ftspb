@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { latestNews } from "@/data/mock";
-import { NewsCard } from "./NewsCard";
+import { NewsListCard } from "./NewsListCard";
 import { SectionHeading } from "./SectionHeading";
 
 export function LatestNewsSection() {
