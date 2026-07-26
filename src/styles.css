@@ -103,7 +103,12 @@
   --border: oklch(1 0 0 / 12%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.72 0.17 55);
+
+  --news-card: oklch(0.32 0.06 245);
+  --news-card-hover: oklch(0.36 0.07 245);
+  --news-card-foreground: oklch(0.98 0.005 245);
 }
+
 
 @layer base {
   * {
