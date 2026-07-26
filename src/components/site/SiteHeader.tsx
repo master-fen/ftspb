@@ -62,7 +62,7 @@ export function SiteHeader() {
   }, []);
 
   const linkClass =
-    "font-ui text-[16px] font-bold leading-[19.25px] text-brand-blue transition-colors hover:text-brand-orange";
+    "font-ui text-[16px] font-bold leading-[19.25px] whitespace-nowrap text-brand-blue transition-colors hover:text-brand-orange";
 
   return (
     <header className="w-full bg-background">
@@ -74,7 +74,7 @@ export function SiteHeader() {
         <nav
           ref={navRef}
           onMouseLeave={() => setHovered(null)}
-          className="relative hidden flex-1 items-center justify-center gap-7 self-center lg:flex"
+          className="relative hidden flex-1 items-center justify-center gap-4 self-center lg:flex xl:gap-6"
         >
           {navSections.map((s) => {
             const setRef = (el: HTMLElement | null) => {
