@@ -6,7 +6,7 @@ export function NewsListCard({ item }: { item: NewsItem }) {
     <Link
       to="/news/$newsId"
       params={{ newsId: item.id }}
-      className="group flex h-full flex-col overflow-hidden rounded-xl bg-brand-navy text-brand-navy-foreground shadow-sm ring-1 ring-black/5 transition-transform duration-300 hover:-translate-y-0.5"
+      className="group flex h-full flex-col overflow-hidden rounded-xl bg-news-card text-news-card-foreground shadow-sm ring-1 ring-black/5 transition-all duration-300 hover:-translate-y-0.5 hover:bg-news-card-hover"
     >
       <div className="aspect-[4/3] w-full overflow-hidden">
         <img
@@ -17,14 +17,17 @@ export function NewsListCard({ item }: { item: NewsItem }) {
         />
       </div>
       <div className="flex flex-1 flex-col gap-2 p-5 md:p-6">
-        <div className="text-[11px] font-semibold tracking-wide text-white/70 uppercase">
+        <div className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
           {item.category} — {item.date}
         </div>
-        <h3 className="text-lg leading-snug font-bold text-white md:text-[19px]">{item.title}</h3>
+        <h3 className="text-lg leading-snug font-bold text-news-card-foreground md:text-[19px]">
+          {item.title}
+        </h3>
         {item.excerpt ? (
-          <p className="mt-1 text-sm leading-relaxed text-white/80">{item.excerpt}</p>
+          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{item.excerpt}</p>
         ) : null}
       </div>
     </Link>
   );
 }
+
