@@ -167,7 +167,7 @@ export function SiteHeader() {
           />
         </nav>
 
-        <div className="ml-auto flex shrink-0 items-center gap-2 self-center lg:ml-0">
+        <div className="ml-auto flex shrink-0 items-center gap-2 lg:ml-0">
           <button
             type="button"
             aria-label="Поиск"
