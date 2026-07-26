@@ -1,35 +1,35 @@
 import { useMemo } from "react";
-import { createFileRoute, Link, stripSearchParams } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, stripSearchParams } from "@tanstack/react-router";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Check } from "lucide-react";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { allNews } from "@/data/mock";
 import { NewsListCard } from "@/components/site/NewsListCard";
 import type { NewsCategory } from "@/lib/types/news";
 
-type FilterValue = "all" | "general" | "federation" | "referees";
+type FilterValue = "general" | "federation" | "referees";
 
 const searchSchema = z.object({
-  category: fallback(z.string(), "all").default("all"),
+  category: fallback(z.string().array(), []).default([]),
 });
 
 const FILTERS: { value: FilterValue; label: string }[] = [
-  { value: "all", label: "Все" },
   { value: "general", label: "Общее" },
   { value: "federation", label: "Федерация" },
   { value: "referees", label: "Коллегия судей" },
 ];
 
-const VALUE_TO_CATEGORY: Record<Exclude<FilterValue, "all">, NewsCategory> = {
+const VALUE_TO_CATEGORY: Record<FilterValue, NewsCategory> = {
   general: "Общее",
   federation: "Федерация",
   referees: "Коллегия судей",
 };
 
-function normalize(raw: string): FilterValue {
-  return raw === "general" || raw === "federation" || raw === "referees" ? raw : "all";
+function normalize(raw: string[]): FilterValue[] {
+  const known = FILTERS.map((f) => f.value) as string[];
+  return Array.from(new Set(raw.filter((v) => known.includes(v)))) as FilterValue[];
 }
 
 export const Route = createFileRoute("/news/")({
