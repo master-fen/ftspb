@@ -15,10 +15,10 @@ export function LatestNewsSection() {
             <Link
               to="/news/$newsId"
               params={{ newsId: item.id }}
-              className="grid grid-cols-[minmax(0,1fr)_84px] items-center gap-3 rounded-xl bg-muted p-3 transition-colors hover:bg-secondary"
+              className="grid grid-cols-[minmax(0,1fr)_84px] items-center gap-3 rounded-xl bg-news-card p-3 transition-colors hover:bg-news-card-hover"
             >
               <div className="min-w-0">
-                <h3 className="line-clamp-2 text-[15px] font-semibold text-foreground">
+                <h3 className="line-clamp-2 text-[15px] font-semibold text-news-card-foreground">
                   {item.title}
                 </h3>
                 <div className="mt-1.5 text-xs text-muted-foreground">
@@ -47,7 +47,7 @@ export function LatestNewsSection() {
         </Link>
       </div>
 
-      {/* Desktop/tablet: 3-col grid of navy cards */}
+      {/* Desktop/tablet: 3-col grid of news cards */}
       <div className="mt-6 hidden grid-cols-2 gap-5 md:grid lg:grid-cols-3 lg:gap-6">
         {latestNews.map((item) => (
           <NewsListCard key={item.id} item={item} />

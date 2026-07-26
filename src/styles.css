@@ -37,6 +37,10 @@
   --color-brand-navy: var(--brand-navy);
   --color-brand-navy-foreground: var(--brand-navy-foreground);
 
+  --color-news-card: var(--news-card);
+  --color-news-card-hover: var(--news-card-hover);
+  --color-news-card-foreground: var(--news-card-foreground);
+
   --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Manrope", ui-sans-serif, system-ui, sans-serif;
 }
@@ -50,7 +54,12 @@
   --brand-navy: oklch(0.32 0.08 245);
   --brand-navy-foreground: oklch(0.98 0.005 245);
 
+  --news-card: oklch(0.94 0.015 245);
+  --news-card-hover: oklch(0.92 0.02 245);
+  --news-card-foreground: oklch(0.22 0.03 250);
+
   --surface: oklch(0.985 0.003 90);
+
   --background: oklch(0.985 0.003 90);
   --foreground: oklch(0.22 0.03 250);
 
@@ -93,6 +102,10 @@
   --border: oklch(1 0 0 / 12%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.72 0.17 55);
+
+  --news-card: oklch(0.32 0.06 245);
+  --news-card-hover: oklch(0.36 0.07 245);
+  --news-card-foreground: oklch(0.98 0.005 245);
 }
 
 @layer base {
