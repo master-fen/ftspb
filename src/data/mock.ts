@@ -133,7 +133,6 @@ export const latestNews: NewsItem[] = [
 export const allNews: NewsItem[] = [...featuredNews, ...latestNews];
 
 export const navSections: NavSection[] = [
-  { label: "Главная", href: "/" },
   { label: "Новости", href: "/news" },
   {
     label: "Федерация",
@@ -155,7 +154,7 @@ export const siteMeta = {
   name: "Федерация тенниса Санкт-Петербурга",
   shortName: "ФТ СПб",
   address: "193230, Санкт-Петербург, пер. Челиева, дом 13, корпус 3, литера Т, помещение 16",
-  copyright: "Copyright © Федерация тенниса Санкт-Петербурга, 2006",
+  copyright: "Copyright © Федерация тенниса Санкт-Петербурга, 2026",
   legal: [
     { label: "Политика конфиденциальности", href: "#" },
     { label: "Пользовательское соглашение", href: "#" },
