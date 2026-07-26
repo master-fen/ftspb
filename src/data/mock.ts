@@ -133,8 +133,6 @@ export const latestNews: NewsItem[] = [
 
 export const allNews: NewsItem[] = [...featuredNews, ...latestNews];
 
-export type NavChild = { label: string; href: string };
-export type NavSection = { label: string; href: string; children?: NavChild[] };
 
 export const navSections: NavSection[] = [
   { label: "Главная", href: "/" },

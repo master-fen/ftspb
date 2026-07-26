@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Search, Menu, X, ChevronDown } from "lucide-react";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { navSections, type NavSection } from "@/data/mock";
+import { navSections } from "@/data/mock";
+import type { NavSection } from "@/lib/types/nav";
 import { Logo } from "./Logo";
 
 function isSectionActive(section: NavSection, pathname: string): boolean {

@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import type { NewsItem } from "@/data/mock";
+import type { NewsItem } from "@/lib/types/news";
 
 type NewsCardProps = {
   item: NewsItem;
