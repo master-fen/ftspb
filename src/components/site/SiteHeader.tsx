@@ -95,13 +95,13 @@ export function SiteHeader() {
                   }}
                   onMouseLeave={() => setOpenMenu((cur) => (cur === s.label ? null : cur))}
                 >
-                  <button
+                    <button
                     ref={setRef}
                     type="button"
                     aria-haspopup="true"
                     aria-expanded={openMenu === s.label}
                     onClick={() => setOpenMenu((cur) => (cur === s.label ? null : s.label))}
-                    className={linkClass}
+                    className={navItemClass}
                   >
                     {s.label}
                   </button>
@@ -112,7 +112,7 @@ export function SiteHeader() {
                         <a
                           key={c.label}
                           href={c.href}
-                          className="font-ui text-[16px] leading-[19.25px] font-bold text-brand-blue transition-colors hover:text-brand-orange"
+                          className={dropdownItemClass}
                         >
                           {c.label}
                         </a>
