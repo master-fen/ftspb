@@ -5,7 +5,8 @@ import { z } from "zod";
 import { ChevronRight } from "lucide-react";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
-import { allNews, type NewsCategory, type NewsItem } from "@/data/mock";
+import { allNews } from "@/data/mock";
+import type { NewsCategory, NewsItem } from "@/lib/types/news";
 
 type FilterValue = "all" | "general" | "federation";
 

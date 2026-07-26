@@ -4,27 +4,8 @@ import podium from "@/assets/news-podium.jpg";
 import serve from "@/assets/news-serve.jpg";
 import forehand from "@/assets/news-forehand.jpg";
 import juniors from "@/assets/news-juniors.jpg";
-
-export type NewsCategory = "Общее" | "Федерация";
-
-export type NewsAttachment = {
-  kind: "PDF" | "DOC" | "XLS";
-  title: string;
-  size?: string;
-};
-
-export type NewsItem = {
-  id: string;
-  category: NewsCategory;
-  date: string; // dd.mm.yy
-  title: string;
-  excerpt?: string;
-  /** HTML string: p / strong / ul / ol / h2 / h3 / blockquote / a */
-  body?: string;
-  attachments?: NewsAttachment[];
-  cover: string;
-  featured?: boolean;
-};
+import type { NewsItem } from "@/lib/types/news";
+import type { NavSection } from "@/lib/types/nav";
 
 export const featuredNews: NewsItem[] = [
   {
@@ -150,9 +131,6 @@ export const latestNews: NewsItem[] = [
 ];
 
 export const allNews: NewsItem[] = [...featuredNews, ...latestNews];
-
-export type NavChild = { label: string; href: string };
-export type NavSection = { label: string; href: string; children?: NavChild[] };
 
 export const navSections: NavSection[] = [
   { label: "Главная", href: "/" },
