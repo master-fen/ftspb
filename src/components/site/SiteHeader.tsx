@@ -129,7 +129,7 @@ export function SiteHeader() {
                 to={s.href}
                 ref={setRef}
                 onMouseEnter={() => setHovered(s.label)}
-                className={linkClass}
+                className={navItemClass}
               >
                 {s.label}
               </Link>
@@ -139,7 +139,7 @@ export function SiteHeader() {
                 href={s.href}
                 ref={setRef}
                 onMouseEnter={() => setHovered(s.label)}
-                className={linkClass}
+                className={navItemClass}
               >
                 {s.label}
               </a>
