@@ -84,14 +84,15 @@ bun run build
 
 ## Стратегия миграции `src/data/mock.ts`
 
-Когда Claude Code начнёт `src/lib/api.ts`:
-
-1. **Владелец — Lovable.** Вынести типы из `src/data/mock.ts`:
-   - `NewsItem`, `NewsCategory`, `NewsAttachment`, `NewsAttachment["kind"]` → `src/lib/types/news.ts`
+1. ✅ **Сделано (Lovable).** Типы вынесены из `src/data/mock.ts`:
+   - `NewsItem`, `NewsCategory`, `NewsAttachment` → `src/lib/types/news.ts`
    - `NavSection`, `NavChild` → `src/lib/types/nav.ts`
-2. **Владелец — Lovable.** Обновить импорты `@/data/mock` во всех компонентах на новые пути типов.
-3. **Владелец — Claude Code.** Написать `src/lib/api.ts` поверх этих типов и подключить его через `loader` в route-файлах (`chore(loader):`).
+2. ✅ **Сделано (Lovable).** Импорты типов во всех компонентах и route-файлах переведены на `@/lib/types/*`; из `@/data/mock` импортируются только данные (`allNews`, `featuredNews`, `latestNews`, `navSections`, `siteMeta`).
+3. **Владелец — Claude Code.** Написать `src/lib/api.ts` поверх типов из `src/lib/types/**` и подключить его через `loader` в route-файлах (`chore(loader):`).
 4. **Fallback на моки при недоступном API не делаем.** Подмена данных скроет аварию. При ошибке — error state / пустой список / сообщение об ошибке.
+
+Исключение из зон: файлы `src/lib/types/**` уже созданы Lovable как часть шагов 1–2; дальше они в зоне Claude Code.
+
 
 ## CI
 
