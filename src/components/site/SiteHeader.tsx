@@ -85,7 +85,7 @@ export function SiteHeader() {
         <nav
           ref={navRef}
           onMouseLeave={() => setHovered(null)}
-          className="relative hidden min-w-0 flex-wrap items-center justify-center gap-4 lg:flex xl:gap-6"
+          className="relative hidden min-w-0 flex-wrap items-center justify-center gap-4 lg:flex"
         >
           {navSections.map((s) => {
             const setRef = (el: HTMLElement | null) => {
