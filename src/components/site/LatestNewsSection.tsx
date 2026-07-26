@@ -47,12 +47,10 @@ export function LatestNewsSection() {
         </Link>
       </div>
 
-      {/* Desktop/tablet: 3-col grid of image cards */}
-      <div className="mt-6 hidden grid-cols-2 gap-5 md:grid lg:grid-cols-3">
+      {/* Desktop/tablet: 3-col grid of navy cards */}
+      <div className="mt-6 hidden grid-cols-2 gap-5 md:grid lg:grid-cols-3 lg:gap-6">
         {latestNews.map((item) => (
-          <div key={item.id} className="aspect-[4/3]">
-            <NewsCard item={item} />
-          </div>
+          <NewsListCard key={item.id} item={item} />
         ))}
       </div>
     </section>
