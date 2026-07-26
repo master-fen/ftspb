@@ -1,41 +1,41 @@
 import { useMemo } from "react";
-import { createFileRoute, Link, stripSearchParams } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, stripSearchParams } from "@tanstack/react-router";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Check } from "lucide-react";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { allNews } from "@/data/mock";
 import { NewsListCard } from "@/components/site/NewsListCard";
 import type { NewsCategory } from "@/lib/types/news";
 
-type FilterValue = "all" | "general" | "federation" | "referees";
+type FilterValue = "general" | "federation" | "referees";
 
 const searchSchema = z.object({
-  category: fallback(z.string(), "all").default("all"),
+  category: fallback(z.string().array(), []).default([]),
 });
 
 const FILTERS: { value: FilterValue; label: string }[] = [
-  { value: "all", label: "Все" },
   { value: "general", label: "Общее" },
   { value: "federation", label: "Федерация" },
   { value: "referees", label: "Коллегия судей" },
 ];
 
-const VALUE_TO_CATEGORY: Record<Exclude<FilterValue, "all">, NewsCategory> = {
+const VALUE_TO_CATEGORY: Record<FilterValue, NewsCategory> = {
   general: "Общее",
   federation: "Федерация",
   referees: "Коллегия судей",
 };
 
-function normalize(raw: string): FilterValue {
-  return raw === "general" || raw === "federation" || raw === "referees" ? raw : "all";
+function normalize(raw: string[]): FilterValue[] {
+  const known = FILTERS.map((f) => f.value) as string[];
+  return Array.from(new Set(raw.filter((v) => known.includes(v)))) as FilterValue[];
 }
 
 export const Route = createFileRoute("/news/")({
   validateSearch: zodValidator(searchSchema),
   search: {
-    middlewares: [stripSearchParams({ category: "all" })],
+    middlewares: [stripSearchParams({ category: [] })],
   },
   head: () => ({
     meta: [
@@ -60,16 +60,22 @@ export const Route = createFileRoute("/news/")({
 
 function NewsPage() {
   const { category } = Route.useSearch();
+  const navigate = useNavigate({ from: "/news" });
   const active = normalize(category);
 
   const items = useMemo(() => {
     const sorted = [...allNews].sort(
       (a, b) => parseDate(b.date).getTime() - parseDate(a.date).getTime(),
     );
-    if (active === "all") return sorted;
-    const cat = VALUE_TO_CATEGORY[active];
-    return sorted.filter((n) => n.category === cat);
+    if (active.length === 0) return sorted;
+    const cats = active.map((v) => VALUE_TO_CATEGORY[v]);
+    return sorted.filter((n) => cats.includes(n.category));
   }, [active]);
+
+  const toggle = (value: FilterValue) => {
+    const next = active.includes(value) ? active.filter((v) => v !== value) : [...active, value];
+    navigate({ search: { category: next }, resetScroll: false });
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -95,22 +101,41 @@ function NewsPage() {
           </h1>
         </header>
 
-        <div className="mb-8 flex flex-wrap gap-2 md:mb-10">
+        <div
+          role="group"
+          aria-label="Фильтр по разделам"
+          className="mb-8 flex flex-wrap gap-2 md:mb-10"
+        >
+          <button
+            type="button"
+            aria-pressed={active.length === 0}
+            onClick={() => navigate({ search: { category: [] }, resetScroll: false })}
+            className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+              active.length === 0
+                ? "bg-brand-navy text-brand-navy-foreground"
+                : "bg-muted text-brand-navy hover:bg-brand-orange/10 hover:text-brand-orange"
+            }`}
+          >
+            Все
+          </button>
+
           {FILTERS.map((f) => {
-            const isActive = f.value === active;
+            const isActive = active.includes(f.value);
             return (
-              <Link
+              <button
                 key={f.value}
-                to="/news"
-                search={{ category: f.value }}
-                className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+                type="button"
+                aria-pressed={isActive}
+                onClick={() => toggle(f.value)}
+                className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
                   isActive
                     ? "bg-brand-navy text-brand-navy-foreground"
                     : "bg-muted text-brand-navy hover:bg-brand-orange/10 hover:text-brand-orange"
                 }`}
               >
+                {isActive && <Check className="h-4 w-4" aria-hidden="true" />}
                 {f.label}
-              </Link>
+              </button>
             );
           })}
         </div>
