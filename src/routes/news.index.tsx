@@ -6,7 +6,8 @@ import { ChevronRight } from "lucide-react";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { allNews } from "@/data/mock";
-import type { NewsCategory, NewsItem } from "@/lib/types/news";
+import { NewsListCard } from "@/components/site/NewsListCard";
+import type { NewsCategory } from "@/lib/types/news";
 
 type FilterValue = "all" | "general" | "federation";
 
