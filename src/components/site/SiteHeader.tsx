@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Search, Menu, X, ChevronDown } from "lucide-react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { navSections } from "@/data/mock";
@@ -13,27 +13,45 @@ function isSectionActive(section: NavSection, pathname: string): boolean {
   return false;
 }
 
-function NavLabel({ label, active }: { label: string; active: boolean }) {
-  return (
-    <span className="relative inline-flex flex-col items-center">
-      <span>{label}</span>
-      <span
-        aria-hidden
-        className={`mt-1.5 h-[2px] w-full rounded-full transition-opacity ${
-          active ? "opacity-100" : "opacity-0"
-        }`}
-        style={{ backgroundColor: "var(--color-brand-blue)" }}
-      />
-    </span>
-  );
-}
-
 export function SiteHeader() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [mobileExpanded, setMobileExpanded] = useState<string | null>(null);
+  const [hovered, setHovered] = useState<string | null>(null);
+  const [indicator, setIndicator] = useState<{ left: number; width: number; visible: boolean }>({
+    left: 0,
+    width: 0,
+    visible: false,
+  });
+
+  const navRef = useRef<HTMLElement | null>(null);
+  const itemRefs = useRef<Record<string, HTMLElement | null>>({});
 
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+
+  const activeLabel = navSections.find((s) => isSectionActive(s, pathname))?.label ?? null;
+  const target = hovered ?? openMenu ?? activeLabel;
+
+  const measure = useCallback(() => {
+    const nav = navRef.current;
+    const el = target ? itemRefs.current[target] : null;
+    if (!nav || !el) {
+      setIndicator((prev) => ({ ...prev, visible: false }));
+      return;
+    }
+    const navBox = nav.getBoundingClientRect();
+    const box = el.getBoundingClientRect();
+    setIndicator({ left: box.left - navBox.left, width: box.width, visible: true });
+  }, [target]);
+
+  useLayoutEffect(() => {
+    measure();
+  }, [measure, pathname]);
+
+  useEffect(() => {
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [measure]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -43,7 +61,8 @@ export function SiteHeader() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const linkClass = "text-sm font-bold text-brand-blue transition-colors hover:text-brand-orange";
+  const linkClass =
+    "font-ui text-[16px] font-bold leading-[19.25px] whitespace-nowrap text-brand-blue transition-colors hover:text-brand-orange";
 
   return (
     <header className="w-full bg-background">
@@ -52,36 +71,45 @@ export function SiteHeader() {
           <Logo />
         </Link>
 
-        <nav className="hidden flex-1 items-center justify-center gap-7 self-center lg:flex">
+        <nav
+          ref={navRef}
+          onMouseLeave={() => setHovered(null)}
+          className="relative hidden flex-1 items-center justify-center gap-4 self-center lg:flex xl:gap-6"
+        >
           {navSections.map((s) => {
-            const active =
-              isSectionActive(s, pathname) || (s.children ? openMenu === s.label : false);
+            const setRef = (el: HTMLElement | null) => {
+              itemRefs.current[s.label] = el;
+            };
 
             if (s.children) {
               return (
                 <div
                   key={s.label}
                   className="relative"
-                  onMouseEnter={() => setOpenMenu(s.label)}
+                  onMouseEnter={() => {
+                    setHovered(s.label);
+                    setOpenMenu(s.label);
+                  }}
                   onMouseLeave={() => setOpenMenu((cur) => (cur === s.label ? null : cur))}
                 >
                   <button
+                    ref={setRef}
                     type="button"
                     aria-haspopup="true"
                     aria-expanded={openMenu === s.label}
                     onClick={() => setOpenMenu((cur) => (cur === s.label ? null : s.label))}
                     className={linkClass}
                   >
-                    <NavLabel label={s.label} active={active} />
+                    {s.label}
                   </button>
 
                   {openMenu === s.label ? (
-                    <div className="absolute left-0 top-full z-40 flex flex-col items-start gap-2 whitespace-nowrap pt-3 pb-2">
+                    <div className="absolute top-full left-0 z-40 flex flex-col items-start gap-2 pt-4 pb-2 whitespace-nowrap">
                       {s.children.map((c) => (
                         <a
                           key={c.label}
                           href={c.href}
-                          className="text-sm font-bold text-brand-blue transition-colors hover:text-brand-orange"
+                          className="font-ui text-[16px] leading-[19.25px] font-bold text-brand-blue transition-colors hover:text-brand-orange"
                         >
                           {c.label}
                         </a>
@@ -93,15 +121,38 @@ export function SiteHeader() {
             }
 
             return s.href.startsWith("/") ? (
-              <Link key={s.label} to={s.href} className={linkClass}>
-                <NavLabel label={s.label} active={active} />
+              <Link
+                key={s.label}
+                to={s.href}
+                ref={setRef}
+                onMouseEnter={() => setHovered(s.label)}
+                className={linkClass}
+              >
+                {s.label}
               </Link>
             ) : (
-              <a key={s.label} href={s.href} className={linkClass}>
-                <NavLabel label={s.label} active={active} />
+              <a
+                key={s.label}
+                href={s.href}
+                ref={setRef}
+                onMouseEnter={() => setHovered(s.label)}
+                className={linkClass}
+              >
+                {s.label}
               </a>
             );
           })}
+
+          <span
+            aria-hidden
+            className="pointer-events-none absolute -bottom-2 h-[2px] rounded-full transition-all duration-300 ease-out"
+            style={{
+              backgroundColor: "var(--color-brand-blue)",
+              left: indicator.left,
+              width: indicator.width,
+              opacity: indicator.visible ? 1 : 0,
+            }}
+          />
         </nav>
 
         <div className="ml-auto flex items-center gap-2 self-center lg:ml-0">
