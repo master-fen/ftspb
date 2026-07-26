@@ -73,25 +73,10 @@ function NewsPage() {
       <SiteHeader />
 
       <main className="mx-auto max-w-7xl px-4 pt-6 pb-12 md:px-6 md:pt-8 md:pb-16 lg:px-10">
-        {/* Breadcrumbs */}
-        <nav
-          aria-label="Хлебные крошки"
-          className="flex items-center gap-1.5 text-sm text-muted-foreground"
-        >
-          <Link to="/" className="transition-colors hover:text-brand-orange">
-            Главная
-          </Link>
-          <ChevronRight className="h-4 w-4 opacity-60" aria-hidden />
-          <span className="text-foreground/80">Новости</span>
-        </nav>
-
-        <header className="mt-4 mb-6 md:mt-6 md:mb-8">
+        <header className="mb-6 md:mb-8">
           <h1 className="text-4xl font-black tracking-tight text-foreground md:text-5xl lg:text-6xl">
             Новости
           </h1>
-          <p className="mt-3 max-w-2xl text-sm text-muted-foreground md:text-base">
-            Общая лента всех новостей Федерации. Фильтруйте по разделу, чтобы увидеть только нужное.
-          </p>
         </header>
 
         <div className="mb-8 flex flex-wrap gap-2 md:mb-10">
