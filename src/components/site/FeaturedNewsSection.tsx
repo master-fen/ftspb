@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { ChevronRight, ChevronLeft } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { featuredNews } from "@/data/mock";
 import { NewsCard } from "./NewsCard";
 import { SectionHeading } from "./SectionHeading";
@@ -8,41 +7,62 @@ export function FeaturedNewsSection() {
   const [hero, second, third] = featuredNews;
   const [index, setIndex] = useState(0);
   const items = featuredNews;
+  const trackRef = useRef<HTMLDivElement>(null);
+  const pausedRef = useRef(false);
+
+  const scrollToIndex = (i: number) => {
+    const track = trackRef.current;
+    if (!track) return;
+    track.scrollTo({ left: i * track.clientWidth, behavior: "smooth" });
+  };
+
+  // Автопрокрутка — подсказывает, что карточки можно свайпать
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      if (pausedRef.current) return;
+      const track = trackRef.current;
+      if (!track || track.clientWidth === 0) return;
+      const next = (Math.round(track.scrollLeft / track.clientWidth) + 1) % items.length;
+      track.scrollTo({ left: next * track.clientWidth, behavior: "smooth" });
+    }, 4500);
+    return () => window.clearInterval(id);
+  }, [items.length]);
+
+  const handleScroll = () => {
+    const track = trackRef.current;
+    if (!track || track.clientWidth === 0) return;
+    setIndex(Math.round(track.scrollLeft / track.clientWidth));
+  };
 
   return (
     <section className="mx-auto max-w-7xl px-4 pt-8 md:px-6 md:pt-10 lg:px-10">
       <SectionHeading eyebrow="Новости" title="Главное" />
 
-      {/* Mobile: single-card carousel */}
+      {/* Mobile: swipeable auto-playing carousel */}
       <div className="mt-5 md:hidden">
-        <div className="relative">
-          <div className="aspect-[4/3] overflow-hidden rounded-xl">
-            <NewsCard item={items[index]} size="hero" priority={index === 0} />
-          </div>
-          <button
-            type="button"
-            aria-label="Предыдущая"
-            onClick={() => setIndex((i) => (i - 1 + items.length) % items.length)}
-            className="absolute top-1/2 left-2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-white/85 text-brand-navy shadow-md backdrop-blur-sm"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-          <button
-            type="button"
-            aria-label="Следующая"
-            onClick={() => setIndex((i) => (i + 1) % items.length)}
-            className="absolute top-1/2 right-2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-white/85 text-brand-navy shadow-md backdrop-blur-sm"
-          >
-            <ChevronRight className="h-5 w-5" />
-          </button>
+        <div
+          ref={trackRef}
+          onScroll={handleScroll}
+          onPointerDown={() => (pausedRef.current = true)}
+          onPointerUp={() => (pausedRef.current = false)}
+          onPointerCancel={() => (pausedRef.current = false)}
+          className="flex snap-x snap-mandatory overflow-x-auto scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          {items.map((item, i) => (
+            <div key={item.id} className="w-full shrink-0 snap-center px-0.5">
+              <div className="aspect-[4/3] overflow-hidden rounded-xl">
+                <NewsCard item={item} size="hero" priority={i === 0} />
+              </div>
+            </div>
+          ))}
         </div>
         <div className="mt-3 flex justify-center gap-1.5">
-          {items.map((_, i) => (
+          {items.map((item, i) => (
             <button
-              key={i}
+              key={item.id}
               type="button"
               aria-label={`Слайд ${i + 1}`}
-              onClick={() => setIndex(i)}
+              onClick={() => scrollToIndex(i)}
               className={`h-1.5 rounded-full transition-all ${
                 i === index ? "w-6 bg-brand-orange" : "w-1.5 bg-border"
               }`}
