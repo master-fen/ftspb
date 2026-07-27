@@ -71,7 +71,6 @@ export function FeaturedNewsSection() {
         </div>
       </div>
 
-
       {/* Desktop/tablet: 2/3 hero + stacked pair */}
       <div className="mt-6 hidden gap-5 md:grid md:grid-cols-3 md:grid-rows-2 md:[grid-auto-rows:1fr]">
         <div className="md:col-span-2 md:row-span-2 md:aspect-[4/3]">
