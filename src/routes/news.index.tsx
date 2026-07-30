@@ -63,20 +63,19 @@ export const Route = createFileRoute("/news/")({
 function NewsPage() {
   const { category } = Route.useSearch();
   const navigate = useNavigate({ from: "/news/" });
-  const active = normalize(category);
+  const active: FilterValue = category;
 
   const items = useMemo(() => {
     const sorted = [...allNews].sort(
       (a, b) => parseDate(b.date).getTime() - parseDate(a.date).getTime(),
     );
-    if (active.length === 0) return sorted;
-    const cats = active.map((v) => VALUE_TO_CATEGORY[v]);
-    return sorted.filter((n) => cats.includes(n.category));
+    if (active === "all") return sorted;
+    const cat = VALUE_TO_CATEGORY[active];
+    return sorted.filter((n) => n.category === cat);
   }, [active]);
 
-  const toggle = (value: FilterValue) => {
-    const next = active.includes(value) ? active.filter((v) => v !== value) : [...active, value];
-    navigate({ search: { category: next }, resetScroll: false });
+  const select = (value: FilterValue) => {
+    navigate({ search: { category: value }, resetScroll: false });
   };
 
   return (
@@ -108,39 +107,26 @@ function NewsPage() {
           aria-label="Фильтр по разделам"
           className="mb-8 flex flex-wrap gap-2 md:mb-10"
         >
-          <button
-            type="button"
-            aria-pressed={active.length === 0}
-            onClick={() => navigate({ search: { category: [] }, resetScroll: false })}
-            className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
-              active.length === 0
-                ? "bg-brand-navy text-brand-navy-foreground"
-                : "bg-muted text-brand-navy hover:bg-brand-orange/10 hover:text-brand-orange"
-            }`}
-          >
-            Все
-          </button>
-
           {FILTERS.map((f) => {
-            const isActive = active.includes(f.value);
+            const isActive = active === f.value;
             return (
               <button
                 key={f.value}
                 type="button"
                 aria-pressed={isActive}
-                onClick={() => toggle(f.value)}
-                className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+                onClick={() => select(f.value)}
+                className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
                   isActive
                     ? "bg-brand-navy text-brand-navy-foreground"
                     : "bg-muted text-brand-navy hover:bg-brand-orange/10 hover:text-brand-orange"
                 }`}
               >
-                {isActive && <Check className="h-4 w-4" aria-hidden="true" />}
                 {f.label}
               </button>
             );
           })}
         </div>
+
 
         {items.length === 0 ? (
           <p className="rounded-xl bg-muted p-8 text-center text-muted-foreground">
