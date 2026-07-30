@@ -42,6 +42,20 @@ export const Route = createFileRoute("/news/$newsId")({
 function NewsDetailPage() {
   const { item, related } = Route.useLoaderData();
 
+  // Не показываем анонс, если он дублирует начало текста новости.
+  const normalize = (s: string) =>
+    s
+      .replace(/<[^>]*>/g, " ")
+      .replace(/[«»"'“”]/g, "")
+      .replace(/[…]/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+  const excerptNorm = item.excerpt ? normalize(item.excerpt) : "";
+  const bodyNorm = item.body ? normalize(item.body) : "";
+  const probe = excerptNorm.slice(0, 60);
+  const showLead = Boolean(excerptNorm && !(probe.length > 20 && bodyNorm.startsWith(probe)));
+
   return (
     <div className="min-h-screen bg-background">
       <SiteHeader />
@@ -70,7 +84,7 @@ function NewsDetailPage() {
           <h1 className="mt-3 text-3xl leading-tight font-black tracking-tight text-foreground md:text-4xl lg:text-5xl">
             {item.title}
           </h1>
-          {item.excerpt ? (
+          {showLead ? (
             <p className="mt-4 max-w-3xl text-base leading-relaxed text-muted-foreground md:text-lg">
               {item.excerpt}
             </p>
