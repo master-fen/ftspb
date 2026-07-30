@@ -25,7 +25,7 @@ export function NewsCard({ item, size = "default", priority }: NewsCardProps) {
             src={item.cover}
             alt={item.title}
             loading={priority ? "eager" : "lazy"}
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+            className="h-full w-full object-cover object-[50%_25%] transition-transform duration-500 group-hover:scale-[1.03]"
           />
         ) : (
           <NewsCoverPlaceholder />
