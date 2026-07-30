@@ -1,22 +1,31 @@
-import { useEffect, type ReactNode } from "react";
+import { useLayoutEffect, useState, type ReactNode } from "react";
 import { useRouterState } from "@tanstack/react-router";
 
 /**
- * Плавное появление контента при смене маршрута + мягкая прокрутка вверх.
- * Никаких таймеров и задержек: анимация запускается сразу после монтирования
- * нового маршрута, загрузка данных не блокируется.
+ * Единая плавная анимация появления новой страницы.
+ * Ключевые моменты:
+ * - прокрутка вверх выполняется синхронно ДО первой отрисовки нового маршрута,
+ *   поэтому старый контент не может «мигнуть» на прежней позиции;
+ * - fade-in запускается на уже проскроллённом контенте — переход воспринимается
+ *   как одно непрерывное движение, без скачков и мерцания;
+ * - никаких таймеров и искусственных задержек: загрузка данных не блокируется.
  */
 export function PageTransition({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const [current, setCurrent] = useState(pathname);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    window.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" });
-  }, [pathname]);
+  useLayoutEffect(() => {
+    if (pathname === current) return;
+    // Синхронно, до paint: новая страница сразу показывается сверху.
+    window.scrollTo(0, 0);
+    setCurrent(pathname);
+  }, [pathname, current]);
 
   return (
-    <div key={pathname} className="animate-in fade-in-0 duration-200 ease-out motion-reduce:animate-none">
+    <div
+      key={pathname}
+      className="motion-safe:animate-page-in [backface-visibility:hidden] [transform:translateZ(0)]"
+    >
       {children}
     </div>
   );
