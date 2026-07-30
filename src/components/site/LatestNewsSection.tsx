@@ -33,7 +33,7 @@ export function LatestNewsSection() {
               </div>
               <div className="aspect-square h-[84px] w-[84px] shrink-0 overflow-hidden rounded-lg">
                 {item.cover ? (
-                  <NewsImage src={item.cover} alt="" className="h-full w-full object-cover" />
+                  <NewsImage src={item.cover} alt="" className="h-full w-full object-cover object-[50%_25%]" />
                 ) : (
                   <NewsCoverPlaceholder withBackground={false} />
                 )}

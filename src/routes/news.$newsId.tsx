@@ -96,11 +96,11 @@ function NewsDetailPage() {
           {/* Main column */}
           <div className="min-w-0">
             {item.cover ? (
-              <figure className="overflow-hidden rounded-2xl bg-muted shadow-sm ring-1 ring-black/5">
+              <figure className="flex justify-center overflow-hidden rounded-2xl bg-muted shadow-sm ring-1 ring-black/5">
                 <img
                   src={item.cover}
                   alt={item.title}
-                  className="aspect-[16/10] w-full object-cover"
+                  className="max-h-[680px] w-auto max-w-full object-contain"
                 />
               </figure>
             ) : null}
