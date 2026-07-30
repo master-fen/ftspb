@@ -171,6 +171,7 @@ export function SiteHeader() {
           <button
             type="button"
             aria-label="Поиск"
+            onClick={() => toast("Пока не готово")}
             className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-brand-blue text-primary-foreground transition-opacity hover:opacity-90"
           >
             <Search className="h-4 w-4" />
