@@ -4,6 +4,7 @@ import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { allNews } from "@/data/mock";
 import type { NewsItem } from "@/lib/types/news";
+import { newsMetaLine } from "@/lib/news-meta";
 
 export const Route = createFileRoute("/news/$newsId")({
   loader: ({ params }) => {
@@ -79,7 +80,7 @@ function NewsDetailPage() {
 
         <header className="mt-5 md:mt-7">
           <div className="text-[11px] font-semibold tracking-[0.14em] text-brand-orange uppercase">
-            {item.category} — {item.date}
+            {newsMetaLine(item.category, item.date)}
           </div>
           <h1 className="mt-3 text-3xl leading-tight font-black tracking-tight text-foreground md:text-4xl lg:text-5xl">
             {item.title}
@@ -182,7 +183,7 @@ function RelatedItem({ item }: { item: NewsItem }) {
     <li>
       <Link to="/news/$newsId" params={{ newsId: item.id }} className="group block">
         <div className="text-[10px] font-semibold tracking-[0.14em] text-brand-orange uppercase">
-          {item.category} — {item.date}
+          {newsMetaLine(item.category, item.date)}
         </div>
         <div className="mt-1 text-sm leading-snug font-semibold text-foreground transition-colors group-hover:text-brand-navy">
           {item.title}

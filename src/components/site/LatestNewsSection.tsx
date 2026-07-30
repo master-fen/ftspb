@@ -3,6 +3,7 @@ import { latestNews } from "@/data/mock";
 import { NewsListCard } from "./NewsListCard";
 import { NewsCoverPlaceholder } from "./NewsCoverPlaceholder";
 import { SectionHeading } from "./SectionHeading";
+import { newsMetaLine } from "@/lib/news-meta";
 
 const allNewsLinkClass =
   "font-ui text-[15px] font-bold leading-[19.25px] text-brand-blue transition-colors hover:text-brand-orange inline-block xl:text-[16px]";
@@ -26,7 +27,7 @@ export function LatestNewsSection() {
                   {item.title}
                 </h3>
                 <div className="mt-1.5 text-xs text-muted-foreground">
-                  {item.category} — {item.date}
+                  {newsMetaLine(item.category, item.date)}
                 </div>
               </div>
               <div className="aspect-square h-[84px] w-[84px] shrink-0 overflow-hidden rounded-lg">
