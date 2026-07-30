@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Search, Menu, X, ChevronDown } from "lucide-react";
 import { Link, useRouterState } from "@tanstack/react-router";
+import { toast } from "sonner";
 import { navSections } from "@/data/mock";
 import type { NavSection } from "@/lib/types/nav";
 import { Logo } from "./Logo";
