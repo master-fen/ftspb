@@ -1,8 +1,10 @@
 import { Link } from "@tanstack/react-router";
 import { latestNews } from "@/data/mock";
-import { Button } from "@/components/ui/button";
 import { NewsListCard } from "./NewsListCard";
 import { SectionHeading } from "./SectionHeading";
+
+const allNewsLinkClass =
+  "font-ui text-[15px] font-bold leading-[19.25px] text-brand-blue transition-colors hover:text-brand-orange inline-block xl:text-[16px]";
 
 export function LatestNewsSection() {
   return (
@@ -40,9 +42,9 @@ export function LatestNewsSection() {
       </ul>
 
       <div className="mt-4 md:hidden">
-        <Button asChild variant="outline">
-          <Link to="/news">Все новости</Link>
-        </Button>
+        <Link to="/news" className={allNewsLinkClass}>
+          Все новости…
+        </Link>
       </div>
 
       {/* Desktop/tablet: 3-col grid of news cards */}
@@ -52,10 +54,10 @@ export function LatestNewsSection() {
         ))}
       </div>
 
-      <div className="mt-8 hidden justify-center md:flex">
-        <Button asChild variant="outline" size="lg">
-          <Link to="/news">Все новости</Link>
-        </Button>
+      <div className="mt-8 hidden md:flex">
+        <Link to="/news" className={allNewsLinkClass}>
+          Все новости…
+        </Link>
       </div>
     </section>
   );
