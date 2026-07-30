@@ -70,7 +70,7 @@ function NewsDetailPage() {
           <h1 className="mt-3 text-3xl leading-tight font-black tracking-tight text-foreground md:text-4xl lg:text-5xl">
             {item.title}
           </h1>
-          {item.excerpt ? (
+          {showLead ? (
             <p className="mt-4 max-w-3xl text-base leading-relaxed text-muted-foreground md:text-lg">
               {item.excerpt}
             </p>
