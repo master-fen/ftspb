@@ -12,7 +12,9 @@ const featuredSet = new Set<string>(FEATURED_IDS);
 
 export const allNews: NewsItem[] = archiveNews;
 
-export const featuredNews: NewsItem[] = FEATURED_IDS.map((id) => archiveNews.find((n) => n.id === id))
+export const featuredNews: NewsItem[] = FEATURED_IDS.map((id) =>
+  archiveNews.find((n) => n.id === id),
+)
   .filter((n): n is NewsItem => Boolean(n))
   .map((n) => ({ ...n, featured: true }));
 
