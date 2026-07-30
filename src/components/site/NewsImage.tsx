@@ -9,7 +9,9 @@ type NewsImageProps = {
 
 /**
  * Изображение новости со skeleton-заглушкой на время загрузки.
- * Skeleton занимает всю область изображения и плавно исчезает после onLoad.
+ * Skeleton занимает всю область изображения и плавно исчезает после загрузки,
+ * само изображение проявляется через keyframe-анимацию (надёжнее CSS-transition,
+ * который может не сработать на только что смонтированном элементе).
  */
 export function NewsImage({ src, alt, className = "", loading = "lazy" }: NewsImageProps) {
   const [loaded, setLoaded] = useState(false);
@@ -26,8 +28,8 @@ export function NewsImage({ src, alt, className = "", loading = "lazy" }: NewsIm
     <div className="relative h-full w-full overflow-hidden">
       <div
         aria-hidden="true"
-        className={`absolute inset-0 animate-pulse bg-brand-navy/10 transition-opacity duration-500 ${
-          loaded ? "opacity-0" : "opacity-100"
+        className={`absolute inset-0 bg-brand-navy/10 ${
+          loaded ? "animate-out fade-out-0 fill-mode-forwards duration-700" : "animate-pulse"
         }`}
       />
       <img
@@ -38,7 +40,9 @@ export function NewsImage({ src, alt, className = "", loading = "lazy" }: NewsIm
         decoding="async"
         onLoad={() => setLoaded(true)}
         onError={() => setLoaded(true)}
-        className={`${className} transition-opacity duration-500 ${loaded ? "opacity-100" : "opacity-0"}`}
+        className={`${className} ${
+          loaded ? "animate-in fade-in-0 duration-700 ease-out" : "opacity-0"
+        }`}
       />
     </div>
   );
