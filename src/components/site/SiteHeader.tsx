@@ -209,14 +209,14 @@ export function SiteHeader() {
                     {expanded ? (
                       <div className="flex flex-col pb-2 pl-4">
                         {s.children.map((c) => (
-                          <a
+                          <Link
                             key={c.label}
-                            href={c.href}
+                            to={c.href}
                             onClick={() => setMobileOpen(false)}
                             className="py-2 text-sm font-bold text-brand-blue transition-colors hover:text-brand-orange"
                           >
                             {c.label}
-                          </a>
+                          </Link>
                         ))}
                       </div>
                     ) : null}
