@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { navSections, siteMeta } from "@/data/mock";
 import { Logo } from "./Logo";
 
