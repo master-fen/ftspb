@@ -54,10 +54,7 @@ function NewsDetailPage() {
   const excerptNorm = item.excerpt ? normalize(item.excerpt) : "";
   const bodyNorm = item.body ? normalize(item.body) : "";
   const probe = excerptNorm.slice(0, 60);
-  const showLead = Boolean(
-    excerptNorm && !(probe.length > 20 && bodyNorm.startsWith(probe)),
-  );
-
+  const showLead = Boolean(excerptNorm && !(probe.length > 20 && bodyNorm.startsWith(probe)));
 
   return (
     <div className="min-h-screen bg-background">
