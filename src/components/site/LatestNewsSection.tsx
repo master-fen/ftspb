@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { latestNews } from "@/data/mock";
 import { NewsListCard } from "./NewsListCard";
 import { NewsCoverPlaceholder } from "./NewsCoverPlaceholder";
+import { NewsImage } from "./NewsImage";
 import { SectionHeading } from "./SectionHeading";
 import { newsMetaLine } from "@/lib/news-meta";
 
