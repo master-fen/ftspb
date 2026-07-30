@@ -18,7 +18,7 @@ export function NewsListCard({ item }: { item: NewsItem }) {
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
           />
         ) : (
-          <NewsCoverPlaceholder />
+          <NewsCoverPlaceholder withBackground={false} />
         )}
       </div>
       <div className="flex flex-1 flex-col gap-2 p-5 md:p-6">
