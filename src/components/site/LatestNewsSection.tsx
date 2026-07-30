@@ -38,7 +38,7 @@ export function LatestNewsSection() {
                     className="h-full w-full object-cover"
                   />
                 ) : (
-                  <NewsCoverPlaceholder />
+                  <NewsCoverPlaceholder withBackground={false} />
                 )}
               </div>
             </Link>
