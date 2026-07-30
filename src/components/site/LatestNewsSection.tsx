@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { latestNews } from "@/data/mock";
 import { NewsListCard } from "./NewsListCard";
+import { NewsCoverPlaceholder } from "./NewsCoverPlaceholder";
 import { SectionHeading } from "./SectionHeading";
 
 const allNewsLinkClass =
