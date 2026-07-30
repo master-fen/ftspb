@@ -9,10 +9,49 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TournamentsRouteImport } from './routes/tournaments'
+import { Route as TeamsRouteImport } from './routes/teams'
+import { Route as RefereesRouteImport } from './routes/referees'
+import { Route as DocumentsRouteImport } from './routes/documents'
+import { Route as CourtsRouteImport } from './routes/courts'
+import { Route as ContactsRouteImport } from './routes/contacts'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as NewsIndexRouteImport } from './routes/news.index'
+import { Route as FederationIndexRouteImport } from './routes/federation.index'
 import { Route as NewsNewsIdRouteImport } from './routes/news.$newsId'
+import { Route as FederationEventsRouteImport } from './routes/federation.events'
+import { Route as FederationDocumentsRouteImport } from './routes/federation.documents'
 
+const TournamentsRoute = TournamentsRouteImport.update({
+  id: '/tournaments',
+  path: '/tournaments',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TeamsRoute = TeamsRouteImport.update({
+  id: '/teams',
+  path: '/teams',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RefereesRoute = RefereesRouteImport.update({
+  id: '/referees',
+  path: '/referees',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocumentsRoute = DocumentsRouteImport.update({
+  id: '/documents',
+  path: '/documents',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CourtsRoute = CourtsRouteImport.update({
+  id: '/courts',
+  path: '/courts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContactsRoute = ContactsRouteImport.update({
+  id: '/contacts',
+  path: '/contacts',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -23,44 +62,174 @@ const NewsIndexRoute = NewsIndexRouteImport.update({
   path: '/news/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FederationIndexRoute = FederationIndexRouteImport.update({
+  id: '/federation/',
+  path: '/federation/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const NewsNewsIdRoute = NewsNewsIdRouteImport.update({
   id: '/news/$newsId',
   path: '/news/$newsId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FederationEventsRoute = FederationEventsRouteImport.update({
+  id: '/federation/events',
+  path: '/federation/events',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FederationDocumentsRoute = FederationDocumentsRouteImport.update({
+  id: '/federation/documents',
+  path: '/federation/documents',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/contacts': typeof ContactsRoute
+  '/courts': typeof CourtsRoute
+  '/documents': typeof DocumentsRoute
+  '/referees': typeof RefereesRoute
+  '/teams': typeof TeamsRoute
+  '/tournaments': typeof TournamentsRoute
+  '/federation/documents': typeof FederationDocumentsRoute
+  '/federation/events': typeof FederationEventsRoute
   '/news/$newsId': typeof NewsNewsIdRoute
+  '/federation/': typeof FederationIndexRoute
   '/news/': typeof NewsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/contacts': typeof ContactsRoute
+  '/courts': typeof CourtsRoute
+  '/documents': typeof DocumentsRoute
+  '/referees': typeof RefereesRoute
+  '/teams': typeof TeamsRoute
+  '/tournaments': typeof TournamentsRoute
+  '/federation/documents': typeof FederationDocumentsRoute
+  '/federation/events': typeof FederationEventsRoute
   '/news/$newsId': typeof NewsNewsIdRoute
+  '/federation': typeof FederationIndexRoute
   '/news': typeof NewsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/contacts': typeof ContactsRoute
+  '/courts': typeof CourtsRoute
+  '/documents': typeof DocumentsRoute
+  '/referees': typeof RefereesRoute
+  '/teams': typeof TeamsRoute
+  '/tournaments': typeof TournamentsRoute
+  '/federation/documents': typeof FederationDocumentsRoute
+  '/federation/events': typeof FederationEventsRoute
   '/news/$newsId': typeof NewsNewsIdRoute
+  '/federation/': typeof FederationIndexRoute
   '/news/': typeof NewsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/news/$newsId' | '/news/'
+  fullPaths:
+    | '/'
+    | '/contacts'
+    | '/courts'
+    | '/documents'
+    | '/referees'
+    | '/teams'
+    | '/tournaments'
+    | '/federation/documents'
+    | '/federation/events'
+    | '/news/$newsId'
+    | '/federation/'
+    | '/news/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/news/$newsId' | '/news'
-  id: '__root__' | '/' | '/news/$newsId' | '/news/'
+  to:
+    | '/'
+    | '/contacts'
+    | '/courts'
+    | '/documents'
+    | '/referees'
+    | '/teams'
+    | '/tournaments'
+    | '/federation/documents'
+    | '/federation/events'
+    | '/news/$newsId'
+    | '/federation'
+    | '/news'
+  id:
+    | '__root__'
+    | '/'
+    | '/contacts'
+    | '/courts'
+    | '/documents'
+    | '/referees'
+    | '/teams'
+    | '/tournaments'
+    | '/federation/documents'
+    | '/federation/events'
+    | '/news/$newsId'
+    | '/federation/'
+    | '/news/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ContactsRoute: typeof ContactsRoute
+  CourtsRoute: typeof CourtsRoute
+  DocumentsRoute: typeof DocumentsRoute
+  RefereesRoute: typeof RefereesRoute
+  TeamsRoute: typeof TeamsRoute
+  TournamentsRoute: typeof TournamentsRoute
+  FederationDocumentsRoute: typeof FederationDocumentsRoute
+  FederationEventsRoute: typeof FederationEventsRoute
   NewsNewsIdRoute: typeof NewsNewsIdRoute
+  FederationIndexRoute: typeof FederationIndexRoute
   NewsIndexRoute: typeof NewsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/tournaments': {
+      id: '/tournaments'
+      path: '/tournaments'
+      fullPath: '/tournaments'
+      preLoaderRoute: typeof TournamentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/teams': {
+      id: '/teams'
+      path: '/teams'
+      fullPath: '/teams'
+      preLoaderRoute: typeof TeamsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/referees': {
+      id: '/referees'
+      path: '/referees'
+      fullPath: '/referees'
+      preLoaderRoute: typeof RefereesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/documents': {
+      id: '/documents'
+      path: '/documents'
+      fullPath: '/documents'
+      preLoaderRoute: typeof DocumentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/courts': {
+      id: '/courts'
+      path: '/courts'
+      fullPath: '/courts'
+      preLoaderRoute: typeof CourtsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contacts': {
+      id: '/contacts'
+      path: '/contacts'
+      fullPath: '/contacts'
+      preLoaderRoute: typeof ContactsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -75,6 +244,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof NewsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/federation/': {
+      id: '/federation/'
+      path: '/federation'
+      fullPath: '/federation/'
+      preLoaderRoute: typeof FederationIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/news/$newsId': {
       id: '/news/$newsId'
       path: '/news/$newsId'
@@ -82,12 +258,35 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof NewsNewsIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/federation/events': {
+      id: '/federation/events'
+      path: '/federation/events'
+      fullPath: '/federation/events'
+      preLoaderRoute: typeof FederationEventsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/federation/documents': {
+      id: '/federation/documents'
+      path: '/federation/documents'
+      fullPath: '/federation/documents'
+      preLoaderRoute: typeof FederationDocumentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ContactsRoute: ContactsRoute,
+  CourtsRoute: CourtsRoute,
+  DocumentsRoute: DocumentsRoute,
+  RefereesRoute: RefereesRoute,
+  TeamsRoute: TeamsRoute,
+  TournamentsRoute: TournamentsRoute,
+  FederationDocumentsRoute: FederationDocumentsRoute,
+  FederationEventsRoute: FederationEventsRoute,
   NewsNewsIdRoute: NewsNewsIdRoute,
+  FederationIndexRoute: FederationIndexRoute,
   NewsIndexRoute: NewsIndexRoute,
 }
 export const routeTree = rootRouteImport

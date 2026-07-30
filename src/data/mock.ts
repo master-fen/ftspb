@@ -24,18 +24,18 @@ export const navSections: NavSection[] = [
   { label: "Новости", href: "/news" },
   {
     label: "Федерация",
-    href: "#",
+    href: "/federation",
     children: [
-      { label: "Мероприятия", href: "#" },
-      { label: "Документы Федерации", href: "#" },
+      { label: "Мероприятия", href: "/federation/events" },
+      { label: "Документы Федерации", href: "/federation/documents" },
     ],
   },
-  { label: "Коллегия судей", href: "#" },
-  { label: "Сборные команды", href: "#" },
-  { label: "Турниры", href: "#" },
-  { label: "Корты", href: "#" },
-  { label: "Документы", href: "#" },
-  { label: "Контакты", href: "#" },
+  { label: "Коллегия судей", href: "/referees" },
+  { label: "Сборные команды", href: "/teams" },
+  { label: "Турниры", href: "/tournaments" },
+  { label: "Корты", href: "/courts" },
+  { label: "Документы", href: "/documents" },
+  { label: "Контакты", href: "/contacts" },
 ];
 
 export const siteMeta = {
