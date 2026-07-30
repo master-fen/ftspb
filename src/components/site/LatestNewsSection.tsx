@@ -42,7 +42,7 @@ export function LatestNewsSection() {
       </ul>
 
       <div className="mt-4 md:hidden">
-        <Link to="/news/" className={allNewsLinkClass}>
+        <Link to="/news" className={allNewsLinkClass}>
           Все новости…
         </Link>
       </div>
@@ -55,7 +55,7 @@ export function LatestNewsSection() {
       </div>
 
       <div className="mt-8 hidden md:flex">
-        <Link to="/news/" className={allNewsLinkClass}>
+        <Link to="/news" className={allNewsLinkClass}>
           Все новости…
         </Link>
       </div>
