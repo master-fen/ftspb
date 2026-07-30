@@ -15,6 +15,7 @@ export type NewsItem = {
   /** HTML string: p / strong / ul / ol / h2 / h3 / blockquote / a */
   body?: string;
   attachments?: NewsAttachment[];
-  cover: string;
+  /** Отсутствует, если у новости нет изображения — в списках показывается заглушка. */
+  cover?: string;
   featured?: boolean;
 };
