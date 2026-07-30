@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import type { NewsItem } from "@/lib/types/news";
 import { NewsCoverPlaceholder } from "./NewsCoverPlaceholder";
+import { NewsImage } from "./NewsImage";
 import { newsMetaLine } from "@/lib/news-meta";
 
 export function NewsListCard({ item }: { item: NewsItem }) {
@@ -12,16 +13,16 @@ export function NewsListCard({ item }: { item: NewsItem }) {
     >
       <div className="aspect-[4/3] w-full overflow-hidden">
         {item.cover ? (
-          <img
+          <NewsImage
             src={item.cover}
             alt={item.title}
-            loading="lazy"
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
           />
         ) : (
           <NewsCoverPlaceholder withBackground={false} />
         )}
       </div>
+
       <div className="flex flex-1 flex-col gap-2 p-5 md:p-6">
         <div className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
           {newsMetaLine(item.category, item.date)}
