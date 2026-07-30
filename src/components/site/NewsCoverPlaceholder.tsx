@@ -1,4 +1,4 @@
-import logoSrc from "@/assets/logo.png";
+import logoTransparentSrc from "@/assets/logo-transparent.png";
 
 /**
  * Заглушка для новостей без изображения.
@@ -11,7 +11,7 @@ export function NewsCoverPlaceholder({ className }: { className?: string }) {
       className={`flex h-full w-full items-center justify-center bg-news-card ${className ?? ""}`}
     >
       <img
-        src={logoSrc}
+        src={logoTransparentSrc}
         alt=""
         loading="lazy"
         className="h-[70%] max-h-full w-auto max-w-[70%] object-contain opacity-35 saturate-[0.35]"
@@ -19,3 +19,4 @@ export function NewsCoverPlaceholder({ className }: { className?: string }) {
     </div>
   );
 }
+
