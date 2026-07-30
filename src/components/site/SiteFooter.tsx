@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { navSections, siteMeta } from "@/data/mock";
 import { Logo } from "./Logo";
 
@@ -16,12 +17,12 @@ export function SiteFooter() {
             <ul className="grid grid-cols-1 gap-x-12 gap-y-3 text-sm sm:grid-cols-2">
               {navSections.map((s) => (
                 <li key={s.label}>
-                  <a
-                    href={s.href}
+                  <Link
+                    to={s.href}
                     className="font-ui font-bold text-white/90 transition-colors hover:text-brand-orange"
                   >
                     {s.label}
-                  </a>
+                  </Link>
                 </li>
               ))}
             </ul>

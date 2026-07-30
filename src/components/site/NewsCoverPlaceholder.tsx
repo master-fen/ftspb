@@ -1,14 +1,20 @@
 import logoTransparentSrc from "@/assets/logo-transparent.png";
 
 /**
- * Заглушка для новостей без изображения.
- * Используется только в карточках и списках — на странице новости обложка просто отсутствует.
+ * Заглушка для новостей без изображения и для разделов «в разработке».
+ * withBackground={false} — логотип прямо на белом фоне страницы.
  */
-export function NewsCoverPlaceholder({ className }: { className?: string }) {
+export function NewsCoverPlaceholder({
+  className,
+  withBackground = true,
+}: {
+  className?: string;
+  withBackground?: boolean;
+}) {
   return (
     <div
       aria-hidden
-      className={`flex h-full w-full items-center justify-center bg-news-card ${className ?? ""}`}
+      className={`flex h-full w-full items-center justify-center ${withBackground ? "bg-news-card" : ""} ${className ?? ""}`}
     >
       <img
         src={logoTransparentSrc}

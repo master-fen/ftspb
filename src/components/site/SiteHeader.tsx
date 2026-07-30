@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Search, Menu, X, ChevronDown } from "lucide-react";
 import { Link, useRouterState } from "@tanstack/react-router";
+import { toast } from "sonner";
 import { navSections } from "@/data/mock";
 import type { NavSection } from "@/lib/types/nav";
 import { Logo } from "./Logo";
@@ -115,11 +116,17 @@ export function SiteHeader() {
 
                   {openMenu === s.label ? (
                     <div className="absolute top-full left-0 z-40 flex flex-col items-start gap-2 pt-4 pb-2 whitespace-nowrap">
-                      {s.children.map((c) => (
-                        <a key={c.label} href={c.href} className={dropdownItemClass}>
-                          {c.label}
-                        </a>
-                      ))}
+                      {s.children.map((c) =>
+                        c.href.startsWith("/") ? (
+                          <Link key={c.label} to={c.href} className={dropdownItemClass}>
+                            {c.label}
+                          </Link>
+                        ) : (
+                          <a key={c.label} href={c.href} className={dropdownItemClass}>
+                            {c.label}
+                          </a>
+                        ),
+                      )}
                     </div>
                   ) : null}
                 </div>
@@ -165,6 +172,7 @@ export function SiteHeader() {
           <button
             type="button"
             aria-label="Поиск"
+            onClick={() => toast("Пока не готово")}
             className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-brand-blue text-primary-foreground transition-opacity hover:opacity-90"
           >
             <Search className="h-4 w-4" />
@@ -203,14 +211,14 @@ export function SiteHeader() {
                     {expanded ? (
                       <div className="flex flex-col pb-2 pl-4">
                         {s.children.map((c) => (
-                          <a
+                          <Link
                             key={c.label}
-                            href={c.href}
+                            to={c.href}
                             onClick={() => setMobileOpen(false)}
                             className="py-2 text-sm font-bold text-brand-blue transition-colors hover:text-brand-orange"
                           >
                             {c.label}
-                          </a>
+                          </Link>
                         ))}
                       </div>
                     ) : null}
