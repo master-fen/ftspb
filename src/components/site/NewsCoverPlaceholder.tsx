@@ -19,4 +19,3 @@ export function NewsCoverPlaceholder({ className }: { className?: string }) {
     </div>
   );
 }
-
