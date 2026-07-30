@@ -94,13 +94,15 @@ function NewsDetailPage() {
         <div className="mt-8 grid grid-cols-1 gap-8 md:mt-10 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-10">
           {/* Main column */}
           <div className="min-w-0">
-            <figure className="overflow-hidden rounded-2xl bg-muted shadow-sm ring-1 ring-black/5">
-              <img
-                src={item.cover}
-                alt={item.title}
-                className="aspect-[16/10] w-full object-cover"
-              />
-            </figure>
+            {item.cover ? (
+              <figure className="overflow-hidden rounded-2xl bg-muted shadow-sm ring-1 ring-black/5">
+                <img
+                  src={item.cover}
+                  alt={item.title}
+                  className="aspect-[16/10] w-full object-cover"
+                />
+              </figure>
+            ) : null}
 
             {item.body ? (
               <div

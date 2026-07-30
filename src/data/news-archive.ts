@@ -1,6 +1,3 @@
-import team from "@/assets/news-team.jpg";
-import podium from "@/assets/news-podium.jpg";
-import serve from "@/assets/news-serve.jpg";
 import type { NewsItem } from "@/lib/types/news";
 import img_2026_07_mosfest from "@/assets/news/2026-07-mosfest.jpg";
 import img_2026_01_india1 from "@/assets/news/2026-01-india1.jpg";
@@ -460,7 +457,6 @@ export const archiveNews: NewsItem[] = [
     body: `
       <p>14 апреля 2026 года состоялось собрание Правления Санкт-Петербургской региональной общественной организации "Спортивная Федерация тенниса".</p>
     `,
-    cover: team,
   },
   {
     id: "seminar-dlya-sudey-po-tennisu",
@@ -487,7 +483,6 @@ export const archiveNews: NewsItem[] = [
       <p>https://forms.gle/VTDJ2qecRcUqTmhMA</p>
     `,
     attachments: [{ kind: "PDF", title: "seminar.pdf" }],
-    cover: podium,
   },
   {
     id: "plyazhnyy-tennis-rezultaty-2-etapa-kubka-rossii",
@@ -741,7 +736,6 @@ export const archiveNews: NewsItem[] = [
       <p>* * *</p>
       <p>Актуальное расписание и турнирные сетки смотрите на сайте Федерации тенниса России: tennis-russia.ru</p>
     `,
-    cover: team,
   },
   {
     id: "pamyati-natali-borisovny-vetoshnikovoy",
@@ -948,7 +942,6 @@ export const archiveNews: NewsItem[] = [
       <p>СПИСОК кандидатов</p>
     `,
     attachments: [{ kind: "PDF", title: "team.pdf" }],
-    cover: podium,
   },
   {
     id: "informatsionnoe-pismo-dlya-chlenov-sbornoy-sankt-peterburga",
@@ -964,7 +957,6 @@ export const archiveNews: NewsItem[] = [
       <p>ФТ СПб</p>
     `,
     attachments: [{ kind: "PDF", title: "evsk.pdf" }],
-    cover: serve,
   },
   {
     id: "80-let-velikoy-pobedy",

@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import type { NewsItem } from "@/lib/types/news";
+import { NewsCoverPlaceholder } from "./NewsCoverPlaceholder";
 
 type NewsCardProps = {
   item: NewsItem;
@@ -17,12 +18,16 @@ export function NewsCard({ item, size = "default", priority }: NewsCardProps) {
       className="group relative block h-full w-full overflow-hidden rounded-xl bg-card shadow-sm ring-1 ring-black/5 transition-transform duration-300 hover:-translate-y-0.5"
     >
       <div className="relative h-full w-full">
-        <img
-          src={item.cover}
-          alt={item.title}
-          loading={priority ? "eager" : "lazy"}
-          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-        />
+        {item.cover ? (
+          <img
+            src={item.cover}
+            alt={item.title}
+            loading={priority ? "eager" : "lazy"}
+            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+          />
+        ) : (
+          <NewsCoverPlaceholder />
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent" />
 
         <div
