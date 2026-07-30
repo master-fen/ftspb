@@ -60,7 +60,7 @@ export const Route = createFileRoute("/news/")({
 
 function NewsPage() {
   const { category } = Route.useSearch();
-  const navigate = useNavigate({ from: "/news" });
+  const navigate = useNavigate({ from: "/news/" });
   const active = normalize(category);
 
   const items = useMemo(() => {
