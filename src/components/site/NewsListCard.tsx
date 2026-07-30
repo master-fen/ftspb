@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import type { NewsItem } from "@/lib/types/news";
 import { NewsCoverPlaceholder } from "./NewsCoverPlaceholder";
+import { newsMetaLine } from "@/lib/news-meta";
 
 export function NewsListCard({ item }: { item: NewsItem }) {
   return (
@@ -23,7 +24,7 @@ export function NewsListCard({ item }: { item: NewsItem }) {
       </div>
       <div className="flex flex-1 flex-col gap-2 p-5 md:p-6">
         <div className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
-          {item.category} — {item.date}
+          {newsMetaLine(item.category, item.date)}
         </div>
         <h3 className="text-lg leading-snug font-bold text-news-card-foreground md:text-[19px]">
           {item.title}

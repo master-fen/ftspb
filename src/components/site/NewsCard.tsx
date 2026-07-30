@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import type { NewsItem } from "@/lib/types/news";
 import { NewsCoverPlaceholder } from "./NewsCoverPlaceholder";
+import { newsMetaLine } from "@/lib/news-meta";
 
 type NewsCardProps = {
   item: NewsItem;
@@ -36,7 +37,7 @@ export function NewsCard({ item, size = "default", priority }: NewsCardProps) {
           }`}
         >
           <div className="text-[11px] font-medium tracking-wide text-white/75 uppercase">
-            {item.category} — {item.date}
+            {newsMetaLine(item.category, item.date)}
           </div>
           <h3
             className={`font-bold leading-snug ${
