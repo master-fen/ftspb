@@ -2,11 +2,21 @@ import { archiveNews } from "@/data/news-archive";
 import type { NewsItem } from "@/lib/types/news";
 import type { NavSection } from "@/lib/types/nav";
 
+const FEATURED_IDS = [
+  "kubok-severnoy-stolitsy",
+  "14-y-chempionat-sankt-peterburga-po-tennisu-sredi-veteranov",
+  "match-sankt-peterburg-moskva",
+] as const;
+
+const featuredSet = new Set<string>(FEATURED_IDS);
+
 export const allNews: NewsItem[] = archiveNews;
 
-export const featuredNews: NewsItem[] = allNews.slice(0, 3).map((n) => ({ ...n, featured: true }));
+export const featuredNews: NewsItem[] = FEATURED_IDS.map((id) => archiveNews.find((n) => n.id === id))
+  .filter((n): n is NewsItem => Boolean(n))
+  .map((n) => ({ ...n, featured: true }));
 
-export const latestNews: NewsItem[] = allNews.slice(3, 9);
+export const latestNews: NewsItem[] = archiveNews.filter((n) => !featuredSet.has(n.id)).slice(0, 6);
 
 export const navSections: NavSection[] = [
   { label: "Новости", href: "/news" },
