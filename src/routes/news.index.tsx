@@ -37,7 +37,7 @@ const VALUE_TO_CATEGORY: Record<Exclude<FilterValue, "all">, NewsCategory> = {
 export const Route = createFileRoute("/news/")({
   validateSearch: zodValidator(searchSchema),
   search: {
-    middlewares: [stripSearchParams({ category: [] })],
+    middlewares: [stripSearchParams({ category: DEFAULT_FILTER })],
   },
   head: () => ({
     meta: [
