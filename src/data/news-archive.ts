@@ -2,6 +2,42 @@ import team from "@/assets/news-team.jpg";
 import podium from "@/assets/news-podium.jpg";
 import serve from "@/assets/news-serve.jpg";
 import type { NewsItem } from "@/lib/types/news";
+import img_2026_07_mosfest from "@/assets/news/2026-07-mosfest.jpg";
+import img_2026_01_india1 from "@/assets/news/2026-01-india1.jpg";
+import img_2025_12_ny2 from "@/assets/news/2025-12-ny2.jpg";
+import img_2026_06_sohor from "@/assets/news/2026-06-sohor.jpg";
+import img_2026_04_ter1 from "@/assets/news/2026-04-ter1.jpg";
+import img_2026_04_ter_sporta from "@/assets/news/2026-04-ter-sporta.jpg";
+import img_2026_06_kaluga_beach_01 from "@/assets/news/2026-06-kaluga-beach-01.jpg";
+import img_2026_04_ter_sporta1 from "@/assets/news/2026-04-ter-sporta1.jpg";
+import img_2025_12_ny4 from "@/assets/news/2025-12-ny4.jpg";
+import img_2026_02_mas1 from "@/assets/news/2026-02-mas1.jpg";
+import img_2026_02_kamelzon from "@/assets/news/2026-02-kamelzon.jpg";
+import img_2026_03_vas1 from "@/assets/news/2026-03-vas1.jpg";
+import img_2026_02_beach2 from "@/assets/news/2026-02-beach2.jpg";
+import img_2026_03_u10 from "@/assets/news/2026-03-u10.jpg";
+import img_2026_03_sobr1 from "@/assets/news/2026-03-sobr1.jpg";
+import img_2026_03_neyalov from "@/assets/news/2026-03-neyalov.jpg";
+import img_2026_03_mas1 from "@/assets/news/2026-03-mas1.jpg";
+import img_2026_07_samara11 from "@/assets/news/2026-07-samara11.jpg";
+import img_2026_06_spb_moscow_01 from "@/assets/news/2026-06-spb-moscow-01.jpg";
+import img_2026_02_vet from "@/assets/news/2026-02-vet.jpg";
+import img_2026_06_komarovy from "@/assets/news/2026-06-komarovy.jpg";
+import img_2026_07_samara06 from "@/assets/news/2026-07-samara06.jpg";
+import img_2026_02_masters1 from "@/assets/news/2026-02-masters1.jpg";
+import img_2026_07_vet01 from "@/assets/news/2026-07-vet01.jpg";
+import img_2026_03_champ1 from "@/assets/news/2026-03-champ1.jpg";
+import img_2025_12_ny3 from "@/assets/news/2025-12-ny3.jpg";
+import img_2026_07_sevcup from "@/assets/news/2026-07-sevcup.jpg";
+import img_2026_07_samara01 from "@/assets/news/2026-07-samara01.jpg";
+import img_2026_04_beach01 from "@/assets/news/2026-04-beach01.jpg";
+import img_2026_05_georgia from "@/assets/news/2026-05-georgia.jpg";
+import img_2026_05_beach01 from "@/assets/news/2026-05-beach01.jpg";
+import img_2025_02_proud from "@/assets/news/2025-02-proud.jpg";
+import img_2026_01_lutkov from "@/assets/news/2026-01-lutkov.jpg";
+import img_2026_01_suevalov from "@/assets/news/2026-01-suevalov.jpg";
+import img_2026_05_vet1 from "@/assets/news/2026-05-vet1.jpg";
+import img_2026_04_u19_1 from "@/assets/news/2026-04-u19-1.jpg";
 
 /** Реальные новости, импортированные из архива сайта Федерации. */
 export const archiveNews: NewsItem[] = [
@@ -22,7 +58,7 @@ export const archiveNews: NewsItem[] = [
       <p>Таким образом, «Кубок Северной Столицы» станет не только крупнейшим спортивным событием летнего сезона в Санкт-Петербурге, но и уникальной площадкой, объединяющей профессиональный и любительский теннис, в котором примут участие около 300 теннисистов!</p>
       <p>Турнир призван способствовать развитию тенниса в России, популяризации здорового образа жизни и укреплению спортивных традиций города на Неве.</p>
     `,
-    cover: "/__l5e/assets-v1/d46a4bb2-d56f-4edd-8f0c-10049ed3117b/2026-07-sevcup.jpg",
+    cover: img_2026_07_sevcup,
   },
   {
     id: "pervenstvo-rossii-po-plyazhnomu-tennisu-do-17-let",
@@ -38,7 +74,7 @@ export const archiveNews: NewsItem[] = [
       <p>В смешанном парном разряде на высшую ступень пьедестала поднялись Злата Шибалова и Николай Колайдо.</p>
       <p>Поздравляем наших теннисистов-пляжников и их тренеров с успешным выступлением! Молодцы!</p>
     `,
-    cover: "/__l5e/assets-v1/7cf09986-010f-433f-b8bf-ca487e2fb3d9/2026-07-samara11.jpg",
+    cover: img_2026_07_samara11,
   },
   {
     id: "4-etap-kubka-rossii-po-plyazhnomu-tennisu",
@@ -55,7 +91,7 @@ export const archiveNews: NewsItem[] = [
       <p>В мужском парном разряде 2 место занял Никита Осокин в паре со Львом Филаткином из Москвы.</p>
       <p>Следим за дальнейшими успехами наших теннисистов-пляжников!</p>
     `,
-    cover: "/__l5e/assets-v1/9ed635a2-92c6-4ff0-8b73-789f78c0a22e/2026-07-samara06.jpg",
+    cover: img_2026_07_samara06,
   },
   {
     id: "festival-tennisa-v-moskve",
@@ -72,7 +108,7 @@ export const archiveNews: NewsItem[] = [
       <p>Болельщиков ждет яркое спортивное событие, которое объединит высокий уровень игры, зрелищные розыгрыши и праздничную атмосферу.</p>
       <p>Подробнее о Фестивале тенниса в Москве</p>
     `,
-    cover: "/__l5e/assets-v1/043d200d-0daf-4e93-a810-a9856b32dbf9/2026-07-mosfest.jpg",
+    cover: img_2026_07_mosfest,
   },
   {
     id: "14-y-chempionat-sankt-peterburga-po-tennisu-sredi-veteranov",
@@ -184,7 +220,7 @@ export const archiveNews: NewsItem[] = [
       <p>2. Архипенкова Наталия (Санкт-Петербург) + Тиханович Анатолий</p>
       <p>3. Воднев Владимир (Санкт-Петербург) + Смирнова Лариса (Санкт-Петербург)</p>
     `,
-    cover: "/__l5e/assets-v1/ce789d8a-3e8a-48a6-a639-48973754ea3f/2026-07-vet01.jpg",
+    cover: img_2026_07_vet01,
   },
   {
     id: "chempionat-rossii-po-plyazhnomu-tennisu-v-g-rybinske",
@@ -197,7 +233,7 @@ export const archiveNews: NewsItem[] = [
       <p>Поздравляем наших спортсменов с успешным выступлением на Чемпионате России по пляжному теннису в г.Рыбинске!</p>
       <p>В женском парном разряде Андреева Юлиана в паре с Тарасовой Софьей из Самары поднялись на высшую ступень пьедестала! В мужском парном разряде 2 место занял Никита Осокин в паре со Львом Филаткиным из Москвы. "Бронзовыми" призерами в мужском парном разряде стали Савва Развозов и Михаил Макаров.</p>
     `,
-    cover: "/__l5e/assets-v1/d6bfa2ef-a58a-4938-b812-99cfb7a40eb2/2026-07-samara01.jpg",
+    cover: img_2026_07_samara01,
   },
   {
     id: "yubiley-yuriya-sohora",
@@ -224,7 +260,7 @@ export const archiveNews: NewsItem[] = [
       <p>и желают ему здоровья, отличной спортивной формы</p>
       <p>и семейного благополучия!</p>
     `,
-    cover: "/__l5e/assets-v1/0ec857d5-5f46-4f4f-b878-b18c0627db1b/2026-06-sohor.jpg",
+    cover: img_2026_06_sohor,
   },
   {
     id: "yubiley-iriny-komarovoy",
@@ -245,7 +281,7 @@ export const archiveNews: NewsItem[] = [
       <p>И ЖЕЛАЕТ ЗДОРОВЬЯ, УДАЧИ,</p>
       <p>ГРЯДУЩИХ ПОБЕД НА КОРТЕ ЕЙ И ЕЕ УЧЕНИКАМ!</p>
     `,
-    cover: "/__l5e/assets-v1/8b235797-5613-471a-a8a8-1d0cfea727a7/2026-06-komarovy.jpg",
+    cover: img_2026_06_komarovy,
   },
   {
     id: "3-etap-kubka-rossii-po-plyazhnomu-tennisu",
@@ -261,7 +297,7 @@ export const archiveNews: NewsItem[] = [
       <p>В смешанном парном разряде серебряные медали получили Михаил Макаров и Ангелина Климук из Самары.</p>
       <p>Впереди новые важные старты. Пожелаем успехов всем спортсменам!</p>
     `,
-    cover: "/__l5e/assets-v1/1af94d30-7cb8-488e-9140-4ba8e0f88d45/2026-06-kaluga-beach-01.jpg",
+    cover: img_2026_06_kaluga_beach_01,
   },
   {
     id: "match-sankt-peterburg-moskva",
@@ -278,7 +314,7 @@ export const archiveNews: NewsItem[] = [
       <p>Посмотрите московский фотоотчёт о матче городов Санкт-Петербург - Москва на сайте московской федерации тенниса (Фото: Александр Бондарев/фотослужба ФТМ):</p>
       <p>Фотографии в облачном хранилище: https://cloud.mail.ru/public/tY7B/gqwE3hq6N</p>
     `,
-    cover: "/__l5e/assets-v1/815259fb-2202-47a1-afe6-668b3f814648/2026-06-spb-moscow-01.jpg",
+    cover: img_2026_06_spb_moscow_01,
   },
   {
     id: "pozdravlyaem-mariyu-golovinu-s-pobedoy-v-gruzii",
@@ -290,7 +326,7 @@ export const archiveNews: NewsItem[] = [
     body: `
       <p>Поздравляем петербурженку Марию Головину (тренер Александр Василенко) с победой на турнире категории ITF W50 в парном разряде с Екатериной Маклаковой в Грузии! Желаем дальнейших побед!</p>
     `,
-    cover: "/__l5e/assets-v1/def2d8d7-6d3a-433b-83c1-b258f2d216cb/2026-05-georgia.jpg",
+    cover: img_2026_05_georgia,
   },
   {
     id: "den-pobedy-2026",
@@ -328,7 +364,7 @@ export const archiveNews: NewsItem[] = [
       <p>Владимиру Николаевичу ПРОКОФЬЕВУ!</p>
       <p>СПАСИБО ВСЕМ!</p>
     `,
-    cover: "/__l5e/assets-v1/f63df2cf-7e26-4321-9641-9a1734583d65/2026-05-vet1.jpg",
+    cover: img_2026_05_vet1,
   },
   {
     id: "rezultaty-chempionata-i-pervenstv-spb-po-plyazhnomu-tennisu",
@@ -412,7 +448,7 @@ export const archiveNews: NewsItem[] = [
       <p>3 место: Поповская София/Проничев Матвей</p>
       <p>Поздравляем наших ребят с отличными результатами!</p>
     `,
-    cover: "/__l5e/assets-v1/ea31c40d-e262-414a-a1a9-f35ce73c08ac/2026-05-beach01.jpg",
+    cover: img_2026_05_beach01,
   },
   {
     id: "sobranie-pravleniya-ft-spb",
@@ -473,7 +509,7 @@ export const archiveNews: NewsItem[] = [
       <p>2 место - Макаров Михаил с Климук Ангелиной /Самара/</p>
       <p>Поздравляем наших ребят с отличными результатами!</p>
     `,
-    cover: "/__l5e/assets-v1/d7204d6d-fbb7-41a5-8bfe-ec36cdca0595/2026-04-beach01.jpg",
+    cover: img_2026_04_beach01,
   },
   {
     id: "moskva-ural-1-1",
@@ -496,7 +532,7 @@ export const archiveNews: NewsItem[] = [
       <p>На торжественной церемонии закрытия турнира заместитель председателя Комитета по физической культуре и спорту Санкт-Петербурга Елена Павлова отметила важность подобных соревнований: «Сейчас ребята только в начале своего пути, но я верю, что в будущем они завоют немало наград и прославят нашу страну на международных соревнованиях».</p>
       <p>Директор турнира, Алексей Кузнецов , подвёл его итоги: «Всю неделю мы наблюдали настоящую, бескомпромиссную борьбу, зрелищные волевые победы. Слезы, улыбки, смех — искренние эмоции после побед и поражений — все это, несомненно, добавило красок соревнованиям. Очень важно, что многие ребята дружат и переходят на новую теннисную ступень вместе. В здоровой конкуренции и общении юноши и девушки становятся сильнее. Мы же, как организаторы, создали все условия, чтобы им было комфортно и — очень важно — интересно, чтобы участие в наших соревнованиях запомнилось надолго как главная стартовая площадка их карьеры».</p>
     `,
-    cover: "/__l5e/assets-v1/16c4f5f2-0af3-4388-9b9f-701fca592146/2026-04-ter1.jpg",
+    cover: img_2026_04_ter1,
   },
   {
     id: "yunosheskiy-tennis-po-vzroslomu",
@@ -516,7 +552,7 @@ export const archiveNews: NewsItem[] = [
       <p>Владимир Прокофьев, президент Федерации тенниса Санкт-Петербурга, член правления ФТР: считаю, что Всероссийские соревнования на призы АНО «Развитие ракеточных видов спорта» — это важный шаг в возрождении большого тенниса Санкт-Петербурга. Такие состязания крайне важны с точки зрения развития наших юных теннисистов, сильнейшие из которых представлены сегодня на кортах турнира. Уверен, что по уровню организации турнир — один из лучших в России.</p>
       <p>Алексей Кузнецов, директор турнира: мы гордимся, что в соревнованиях принимают участие лучшие из лучших — как сборники своих регионов, так и игроки сборной России в разных возрастных категориях. Организовывая подобные турниры, мы работаем на профессиональный рост наших талантливых ребят, будущего российского тенниса.</p>
     `,
-    cover: "/__l5e/assets-v1/328fd163-dcf5-4b2a-b6da-46dbdf3f96af/2026-04-ter-sporta1.jpg",
+    cover: img_2026_04_ter_sporta1,
   },
   {
     id: "vserossiyskie-sorevnovaniya-po-tennisu",
@@ -536,7 +572,7 @@ export const archiveNews: NewsItem[] = [
       <p>В турнире примут участие более 100 юных спортсменов со всей России - от Крыма и Калининграда до Благовещенска и Хабаровска. Соревнования пройдут в одиночных и парных разрядах среди юношей и девушек. Турниру присвоена высшая категория РТТ 1А. По сути, это одно из первых юношеских соревнований подобного масштаба в Санкт-Петербурге, своего рода крупнейший теннисный форум для юниоров России. Соревнования проводятся под эгидой Министерства спорта, Российского спортивного фонда и Федерации тенниса России, по инициативе которой право его организовывать было предоставлено АНО «Развитие ракеточных видов спорта».</p>
       <p>По положению Минспорта РФ участвовать в турнире смогут лучшие из лучших - только члены сборных команд и лидеры рейтинга своих регионов. Все восходящие звёздочки российского и петербургского тенниса будут представлены на турнире — члены сборных команд России в своих возрастных категориях. Турнир на призы АНО «Развитие ракеточных видов спорта» — важный шаг к теннисному олимпу для юных спортсменов со всей страны.</p>
     `,
-    cover: "/__l5e/assets-v1/17783a38-3539-4fa1-936b-cd5c8c0e437d/2026-04-ter-sporta.jpg",
+    cover: img_2026_04_ter_sporta,
   },
   {
     id: "pervenstvo-sankt-peterburga-sredi-yuniorov-i-yuniorok-do-19",
@@ -560,7 +596,7 @@ export const archiveNews: NewsItem[] = [
       <p>2 место -Васильцова Софья Игоревна / Медведев Демьян Дмитриевич</p>
       <p>3 место - Шляпникова Полина Валерьевна / Юзов Савелий Дмитриевич</p>
     `,
-    cover: "/__l5e/assets-v1/fc5ea48c-cb88-404d-866f-36484fce9de3/2026-04-u19-1.jpg",
+    cover: img_2026_04_u19_1,
   },
   {
     id: "regionalnye-sorevnovaniya-goroda-sankt-peterburga-9-10-let",
@@ -580,7 +616,7 @@ export const archiveNews: NewsItem[] = [
       <p>2 место - Егорова Милана Тимофеевна</p>
       <p>3 место- Чумак Анастасия Дмитриевна</p>
     `,
-    cover: "/__l5e/assets-v1/5270ad7c-6706-4e92-bf1e-8ed7c1c2ecc0/2026-03-u10.jpg",
+    cover: img_2026_03_u10,
   },
   {
     id: "torzhestvennoe-vruchenie-nagrudnogo-znaka-za-zaslugi-v-razvi",
@@ -596,7 +632,7 @@ export const archiveNews: NewsItem[] = [
       <p>Почётного знака был удостоен Неялов Илья Сергеевич — вице-президент Федерации тенниса Санкт-Петербурга. Награда стала признанием его вклада в развитие физической культуры и популяризацию тенниса в Северной столице.</p>
       <p>От всей души поздравляем Неялова Илью Сергеевича с заслуженной наградой! Желаем крепкого здоровья, неиссякаемой энергии, новых профессиональных достижений и успехов во всех начинаниях на благо спорта Санкт-Петербурга!</p>
     `,
-    cover: "/__l5e/assets-v1/64e23214-5912-424e-9a87-2454265d77ca/2026-03-neyalov.jpg",
+    cover: img_2026_03_neyalov,
   },
   {
     id: "rezultaty-chempionata-sankt-peterburga",
@@ -621,7 +657,7 @@ export const archiveNews: NewsItem[] = [
       <p>2 место - Герасименко Елизавета Андреевна / Павлов Владимир Романович</p>
       <p>3 место - Цапинская Марьяна Владимировна / Николаев Иван Денисович</p>
     `,
-    cover: "/__l5e/assets-v1/d124d692-3743-4776-9161-7f4f62df5fb9/2026-03-champ1.jpg",
+    cover: img_2026_03_champ1,
   },
   {
     id: "otchetno-vybornoe-sobranie-chlenov-federatsii-tennisa-sankt",
@@ -656,7 +692,7 @@ export const archiveNews: NewsItem[] = [
       <p>Сохор Юрий Арнольдович,</p>
       <p>Щеголева Лариса Николаевна.</p>
     `,
-    cover: "/__l5e/assets-v1/60f4c67e-231a-4b7d-a41b-0a2a6622bf26/2026-03-sobr1.jpg",
+    cover: img_2026_03_sobr1,
   },
   {
     id: "chestvovanie-masterov-sporta-rossii",
@@ -670,7 +706,7 @@ export const archiveNews: NewsItem[] = [
       <p>Ряды мастеров пополнил представитель нашего вида спорта. Удостоверение и значок "Мастер спорта России" получил Богдан Никифоров.</p>
       <p>Поздравляем Богдана с получением награды и желаем ему дальнейших спортивных успехов!</p>
     `,
-    cover: "/__l5e/assets-v1/75fe2338-8bb7-449c-bfaa-91d1df574205/2026-03-mas1.jpg",
+    cover: img_2026_03_mas1,
   },
   {
     id: "pervenstva-i-chempionat-sankt-peterburga-po-tennisu",
@@ -721,7 +757,7 @@ export const archiveNews: NewsItem[] = [
       <p>Прощание (отпевание) состоится в храме Большеохтинского кладбища (пр. Металлистов, 5) 18 марта 2026 г., в 13 часов.</p>
       <p>О захоронении праха с возложением венков на этом кладбище будет объявлено позже.</p>
     `,
-    cover: "/__l5e/assets-v1/88e27e66-d070-4c2c-b61c-762457b6ac22/2026-02-vet.jpg",
+    cover: img_2026_02_vet,
   },
   {
     id: "chestvovanie-masterov-sporta-rossii-2",
@@ -738,7 +774,7 @@ export const archiveNews: NewsItem[] = [
       <p>- Осокин Никита (пляжный теннис).</p>
       <p>Поздравляем наших теннисистов с получением наград и желаем им дальнейших спортивных успехов!</p>
     `,
-    cover: "/__l5e/assets-v1/3912a36e-e646-496a-802d-2c99fc36a1e3/2026-02-mas1.jpg",
+    cover: img_2026_02_mas1,
   },
   {
     id: "rezultaty-pervenstva-gbu-do-ssh-2-vasileostrovskogo-rayona",
@@ -766,7 +802,7 @@ export const archiveNews: NewsItem[] = [
       <p>2 место -Назарова Зарина Асимовна (Санкт-Петербург)</p>
       <p>3 место - Егорова Милана Тимофеевна (Санкт-Петербург)</p>
     `,
-    cover: "/__l5e/assets-v1/47e15805-38cd-4b99-ba3e-6dcaae1b51b7/2026-03-vas1.jpg",
+    cover: img_2026_03_vas1,
   },
   {
     id: "s-pobedami-nashih-tennisistov-plyazhnikov-na-kubke-rossii",
@@ -784,7 +820,7 @@ export const archiveNews: NewsItem[] = [
       <p>- 3место в смешанном парном разряде: Развозов Савва, в паре с Романовой Софьей (Москва)</p>
       <p>Поздравляем наших спортсменов с отличными результатами и желаем дальнейших теннисных успехов!</p>
     `,
-    cover: "/__l5e/assets-v1/4a978833-4e86-431a-99a7-692301d22c03/2026-02-beach2.jpg",
+    cover: img_2026_02_beach2,
   },
   {
     id: "chestvovanie-masterov-sporta-rossii-2-2",
@@ -800,7 +836,7 @@ export const archiveNews: NewsItem[] = [
       <p>- Арина Безуглая (пляжный теннис).</p>
       <p>Поздравляем наших теннисисток с получением наград и желаем им дальнейших спортивных успехов!</p>
     `,
-    cover: "/__l5e/assets-v1/bd6ed180-1ff9-4646-b74f-9d75a00c1294/2026-02-masters1.jpg",
+    cover: img_2026_02_masters1,
   },
   {
     id: "ushel-iz-zhizni-zasluzhennyy-trener-v-n-kamelzon",
@@ -825,7 +861,7 @@ export const archiveNews: NewsItem[] = [
       <p>в Зале прощаний Троекуровского кладбища,</p>
       <p>Москва, ул. Рябиновая, вл.24</p>
     `,
-    cover: "/__l5e/assets-v1/416f1852-052c-40a7-83dc-5a02045012be/2026-02-kamelzon.jpg",
+    cover: img_2026_02_kamelzon,
   },
   {
     id: "pozdravlyaem-s-yubileem-ms-a-l-suevalova",
@@ -837,7 +873,7 @@ export const archiveNews: NewsItem[] = [
     body: `
       <p>28 января свой семьдесят пятый день рождения празднует Александр Леонидович Суевалов, мастер спорта СССР по теннису, многократный победитель и призёр чемпионатов Ленинграда.</p>
     `,
-    cover: "/__l5e/assets-v1/f5ef762a-e0a2-4cbf-9448-47a56ba2c2f1/2026-01-suevalov.jpg",
+    cover: img_2026_01_suevalov,
   },
   {
     id: "pamyati-v-f-lutkova",
@@ -850,7 +886,7 @@ export const archiveNews: NewsItem[] = [
       <p>Начало года принесло неутешительную новость. 9 января 2026 года, на 86-м году жизни, от нас ушел Валерий Федорович Лутков. Спортивный врач, Заслуженный работник высшей школы РФ, кандидат медицинских наук, доцент, профессор кафедры спортивной медицины и комплексной реабилитации НГУ им. П.Ф.Лесгафта. Он долгие годы работал со сборными командами страны по волейболу, в том числе и на серебряной для наших девушек Олимпиаде в Сиднее-2000.</p>
       <p>Но мы знаем Валерия Федоровича как врача на бесчисленном количестве теннисных турниров: среди любителей, на матчах Санкт-Петербург – Москва, первенствах и Чемпионатах Санкт-Петербурга, международных под эгидой ITF среди юниоров и профессионалов, и, конечно, на ATP St. Petersburg Open. Мы запомним его как искренне преданного своему делу интеллигентного человека с неограниченным кругозором, добрыми глазами, мягким голосом и потрясающим чувством юмора. Соболезнования всей семье и близким. Покойтесь с миром, Валерий Федорович!</p>
     `,
-    cover: "/__l5e/assets-v1/f1c1890b-fd7f-4608-b9ef-3278e33ca255/2026-01-lutkov.jpg",
+    cover: img_2026_01_lutkov,
   },
   {
     id: "pozdravlyaem-mariyu-golovinu-s-otlichnym-nachalom-goda",
@@ -863,14 +899,14 @@ export const archiveNews: NewsItem[] = [
       <p>на турнире W15 в Ахмедабаде (Индия) она дважды поднялась на первую ступень пьедестала почёта, в одиночном женском разряде и в паре с Аружан Сагандыковой из Казахстана.</p>
       <p>Поздравляем Марию и желаем ей дальнейших спортивных успехов!</p>
     `,
-    cover: "/__l5e/assets-v1/07cd9a11-c972-40a8-8543-24d4b7c683ac/2026-01-india1.jpg",
+    cover: img_2026_01_india1,
   },
   {
     id: "federatsiya-tennisa-spb-pozdravlyaet-vseh-s-novym-godom",
     category: "Общее",
     date: "31.12.25",
     title: "Федерация тенниса СПб поздравляет всех с Новым Годом!",
-    cover: "/__l5e/assets-v1/d347e6b6-98ce-4608-926c-fa40bd4642ff/2025-12-ny3.jpg",
+    cover: img_2025_12_ny3,
   },
   {
     id: "kollektiv-turnira-formula-th-pozdravlyaet-s-novym-godom",
@@ -882,7 +918,7 @@ export const archiveNews: NewsItem[] = [
       <p>От всей души поздравляем Вас с наступающим Новым 2026 годом!</p>
       <p>Наталия Камельзон</p>
     `,
-    cover: "/__l5e/assets-v1/352e76bb-d9b5-4bac-9255-b32eb09e5222/2025-12-ny4.jpg",
+    cover: img_2025_12_ny4,
   },
   {
     id: "kollektiv-rtt-pozdravlyaet-vseh-s-novym-godom",
@@ -898,7 +934,7 @@ export const archiveNews: NewsItem[] = [
       <p>Пусть сбудутся ваши заветные мечты, в доме будут достаток и процветание, любовь и взаимопонимание, душевное и финансовое здоровье!</p>
       <p>И пусть с нами вместе будет шириться и процветать наша любимая игра – теннис!</p>
     `,
-    cover: "/__l5e/assets-v1/0a1c4dd1-a943-4c4e-9952-4298c984e6c9/2025-12-ny2.jpg",
+    cover: img_2025_12_ny2,
   },
   {
     id: "spisok-kandidatov-v-sbornuyu-spb",
@@ -943,6 +979,6 @@ export const archiveNews: NewsItem[] = [
       <p>Отчёты о мероприятиях отражаются в</p>
       <p>Новостной ленте юбилейных праздничных мероприятий</p>
     `,
-    cover: "/__l5e/assets-v1/eed991d1-cda4-46b2-8bd4-eaf00d11e2bb/2025-02-proud.jpg",
+    cover: img_2025_02_proud,
   },
 ];
