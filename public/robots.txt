@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://ftspb.lovable.app/sitemap.xml
+Sitemap: https://spbtennisfed.ru/sitemap.xml
