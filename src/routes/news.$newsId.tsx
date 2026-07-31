@@ -98,7 +98,8 @@ function NewsDetailPage() {
           <div className="text-[11px] font-semibold tracking-[0.14em] text-brand-orange uppercase">
             {newsMetaLine(item.category, item.date)}
           </div>
-          <h1 className="mt-3 text-3xl leading-tight font-black tracking-tight text-foreground md:text-4xl lg:text-5xl">
+          <h1 className="mt-3 text-[1.35rem] leading-tight font-black tracking-tight text-foreground md:text-4xl lg:text-5xl">
+
             {item.title}
           </h1>
           {showLead ? (
