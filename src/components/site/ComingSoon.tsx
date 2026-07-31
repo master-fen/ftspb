@@ -6,13 +6,7 @@ import { NewsCoverPlaceholder } from "@/components/site/NewsCoverPlaceholder";
 const linkClass =
   "font-ui text-[16px] font-bold leading-[19.25px] text-brand-blue transition-colors hover:text-brand-orange";
 
-export function ComingSoon({
-  title,
-  description,
-}: {
-  title: string;
-  description?: string;
-}) {
+export function ComingSoon({ title, description }: { title: string; description?: string }) {
   return (
     <div className="min-h-screen bg-background">
       <SiteHeader />
