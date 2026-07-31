@@ -1,12 +1,12 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { ChevronRight, Download, FileText } from "lucide-react";
 import { SiteHeader } from "@/components/site/SiteHeader";
+import { NewsGallery } from "@/components/site/NewsGallery";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { allNews } from "@/data/mock";
 import type { NewsItem } from "@/lib/types/news";
 import { newsMetaLine } from "@/lib/news-meta";
 import { OG_IMAGE_URL, SITE_URL, toAbsoluteUrl } from "@/lib/site";
-
 
 export const Route = createFileRoute("/news/$newsId")({
   loader: ({ params }) => {
@@ -69,6 +69,9 @@ function NewsDetailPage() {
   const probe = excerptNorm.slice(0, 60);
   const showLead = Boolean(excerptNorm && !(probe.length > 20 && bodyNorm.startsWith(probe)));
 
+  // Фотографии новости: галерея, либо одна обложка.
+  const images = item.gallery?.length ? item.gallery : item.cover ? [item.cover] : [];
+
   return (
     <div className="min-h-screen bg-background">
       <SiteHeader />
@@ -95,7 +98,6 @@ function NewsDetailPage() {
             {newsMetaLine(item.category, item.date)}
           </div>
           <h1 className="mt-3 text-[1.35rem] leading-tight font-black tracking-tight text-foreground md:text-4xl lg:text-5xl">
-
             {item.title}
           </h1>
           {showLead ? (
@@ -108,15 +110,7 @@ function NewsDetailPage() {
         <div className="mt-8 grid grid-cols-1 gap-8 md:mt-10 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-10">
           {/* Main column */}
           <div className="min-w-0">
-            {item.cover ? (
-              <figure className="flex justify-center overflow-hidden rounded-2xl bg-muted shadow-sm ring-1 ring-black/5">
-                <img
-                  src={item.cover}
-                  alt={item.title}
-                  className="max-h-[680px] w-auto max-w-full object-contain"
-                />
-              </figure>
-            ) : null}
+            {images.length > 0 ? <NewsGallery images={images} title={item.title} /> : null}
 
             {item.body ? (
               <div
