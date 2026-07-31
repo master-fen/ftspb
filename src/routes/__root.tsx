@@ -13,6 +13,8 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
 import { PageTransition } from "@/components/site/PageTransition";
+import { OG_IMAGE_URL, SITE_NAME, SITE_URL } from "@/lib/site";
+
 
 function NotFoundComponent() {
   return (
@@ -96,6 +98,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           "Официальный сайт Федерации тенниса Санкт-Петербурга: новости, турниры, сборные команды, клубы города и документы.",
       },
       { property: "og:type", content: "website" },
+      { property: "og:url", content: SITE_URL },
+      { property: "og:site_name", content: SITE_NAME },
+      { property: "og:locale", content: "ru_RU" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "Федерация тенниса Санкт-Петербурга" },
       {
@@ -105,12 +110,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       {
         property: "og:image",
-        content: "https://ftspb.lovable.app/logo.png",
+        content: OG_IMAGE_URL,
       },
       {
         name: "twitter:image",
-        content: "https://ftspb.lovable.app/logo.png",
+        content: OG_IMAGE_URL,
       },
+
     ],
     links: [
       { rel: "stylesheet", href: appCss },
@@ -134,7 +140,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="ru">
       <head>
         <HeadContent />
       </head>
