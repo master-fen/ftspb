@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://ftspb.lovable.app/sitemap.xml
