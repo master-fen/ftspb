@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TournamentsRouteImport } from './routes/tournaments'
 import { Route as TeamsRouteImport } from './routes/teams'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as RefereesRouteImport } from './routes/referees'
 import { Route as DocumentsRouteImport } from './routes/documents'
 import { Route as CourtsRouteImport } from './routes/courts'
@@ -30,6 +31,11 @@ const TournamentsRoute = TournamentsRouteImport.update({
 const TeamsRoute = TeamsRouteImport.update({
   id: '/teams',
   path: '/teams',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RefereesRoute = RefereesRouteImport.update({
@@ -89,6 +95,7 @@ export interface FileRoutesByFullPath {
   '/courts': typeof CourtsRoute
   '/documents': typeof DocumentsRoute
   '/referees': typeof RefereesRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/teams': typeof TeamsRoute
   '/tournaments': typeof TournamentsRoute
   '/federation/documents': typeof FederationDocumentsRoute
@@ -103,6 +110,7 @@ export interface FileRoutesByTo {
   '/courts': typeof CourtsRoute
   '/documents': typeof DocumentsRoute
   '/referees': typeof RefereesRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/teams': typeof TeamsRoute
   '/tournaments': typeof TournamentsRoute
   '/federation/documents': typeof FederationDocumentsRoute
@@ -118,6 +126,7 @@ export interface FileRoutesById {
   '/courts': typeof CourtsRoute
   '/documents': typeof DocumentsRoute
   '/referees': typeof RefereesRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/teams': typeof TeamsRoute
   '/tournaments': typeof TournamentsRoute
   '/federation/documents': typeof FederationDocumentsRoute
@@ -134,6 +143,7 @@ export interface FileRouteTypes {
     | '/courts'
     | '/documents'
     | '/referees'
+    | '/sitemap.xml'
     | '/teams'
     | '/tournaments'
     | '/federation/documents'
@@ -148,6 +158,7 @@ export interface FileRouteTypes {
     | '/courts'
     | '/documents'
     | '/referees'
+    | '/sitemap.xml'
     | '/teams'
     | '/tournaments'
     | '/federation/documents'
@@ -162,6 +173,7 @@ export interface FileRouteTypes {
     | '/courts'
     | '/documents'
     | '/referees'
+    | '/sitemap.xml'
     | '/teams'
     | '/tournaments'
     | '/federation/documents'
@@ -177,6 +189,7 @@ export interface RootRouteChildren {
   CourtsRoute: typeof CourtsRoute
   DocumentsRoute: typeof DocumentsRoute
   RefereesRoute: typeof RefereesRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TeamsRoute: typeof TeamsRoute
   TournamentsRoute: typeof TournamentsRoute
   FederationDocumentsRoute: typeof FederationDocumentsRoute
@@ -200,6 +213,13 @@ declare module '@tanstack/react-router' {
       path: '/teams'
       fullPath: '/teams'
       preLoaderRoute: typeof TeamsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/referees': {
@@ -281,6 +301,7 @@ const rootRouteChildren: RootRouteChildren = {
   CourtsRoute: CourtsRoute,
   DocumentsRoute: DocumentsRoute,
   RefereesRoute: RefereesRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
   TeamsRoute: TeamsRoute,
   TournamentsRoute: TournamentsRoute,
   FederationDocumentsRoute: FederationDocumentsRoute,
@@ -292,13 +313,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
