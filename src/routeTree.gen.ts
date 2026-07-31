@@ -18,6 +18,7 @@ import { Route as ContactsRouteImport } from './routes/contacts'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as NewsIndexRouteImport } from './routes/news.index'
 import { Route as FederationIndexRouteImport } from './routes/federation.index'
+import { Route as SitemapXmlRouteImport } from './routes/sitemap.xml'
 import { Route as NewsNewsIdRouteImport } from './routes/news.$newsId'
 import { Route as FederationEventsRouteImport } from './routes/federation.events'
 import { Route as FederationDocumentsRouteImport } from './routes/federation.documents'
@@ -67,6 +68,11 @@ const FederationIndexRoute = FederationIndexRouteImport.update({
   path: '/federation/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SitemapXmlRoute = SitemapXmlRouteImport.update({
+  id: '/sitemap/xml',
+  path: '/sitemap/xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const NewsNewsIdRoute = NewsNewsIdRouteImport.update({
   id: '/news/$newsId',
   path: '/news/$newsId',
@@ -94,6 +100,7 @@ export interface FileRoutesByFullPath {
   '/federation/documents': typeof FederationDocumentsRoute
   '/federation/events': typeof FederationEventsRoute
   '/news/$newsId': typeof NewsNewsIdRoute
+  '/sitemap/xml': typeof SitemapXmlRoute
   '/federation/': typeof FederationIndexRoute
   '/news/': typeof NewsIndexRoute
 }
@@ -108,6 +115,7 @@ export interface FileRoutesByTo {
   '/federation/documents': typeof FederationDocumentsRoute
   '/federation/events': typeof FederationEventsRoute
   '/news/$newsId': typeof NewsNewsIdRoute
+  '/sitemap/xml': typeof SitemapXmlRoute
   '/federation': typeof FederationIndexRoute
   '/news': typeof NewsIndexRoute
 }
@@ -123,6 +131,7 @@ export interface FileRoutesById {
   '/federation/documents': typeof FederationDocumentsRoute
   '/federation/events': typeof FederationEventsRoute
   '/news/$newsId': typeof NewsNewsIdRoute
+  '/sitemap/xml': typeof SitemapXmlRoute
   '/federation/': typeof FederationIndexRoute
   '/news/': typeof NewsIndexRoute
 }
@@ -139,6 +148,7 @@ export interface FileRouteTypes {
     | '/federation/documents'
     | '/federation/events'
     | '/news/$newsId'
+    | '/sitemap/xml'
     | '/federation/'
     | '/news/'
   fileRoutesByTo: FileRoutesByTo
@@ -153,6 +163,7 @@ export interface FileRouteTypes {
     | '/federation/documents'
     | '/federation/events'
     | '/news/$newsId'
+    | '/sitemap/xml'
     | '/federation'
     | '/news'
   id:
@@ -167,6 +178,7 @@ export interface FileRouteTypes {
     | '/federation/documents'
     | '/federation/events'
     | '/news/$newsId'
+    | '/sitemap/xml'
     | '/federation/'
     | '/news/'
   fileRoutesById: FileRoutesById
@@ -182,6 +194,7 @@ export interface RootRouteChildren {
   FederationDocumentsRoute: typeof FederationDocumentsRoute
   FederationEventsRoute: typeof FederationEventsRoute
   NewsNewsIdRoute: typeof NewsNewsIdRoute
+  SitemapXmlRoute: typeof SitemapXmlRoute
   FederationIndexRoute: typeof FederationIndexRoute
   NewsIndexRoute: typeof NewsIndexRoute
 }
@@ -251,6 +264,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FederationIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/sitemap/xml': {
+      id: '/sitemap/xml'
+      path: '/sitemap/xml'
+      fullPath: '/sitemap/xml'
+      preLoaderRoute: typeof SitemapXmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/news/$newsId': {
       id: '/news/$newsId'
       path: '/news/$newsId'
@@ -286,6 +306,7 @@ const rootRouteChildren: RootRouteChildren = {
   FederationDocumentsRoute: FederationDocumentsRoute,
   FederationEventsRoute: FederationEventsRoute,
   NewsNewsIdRoute: NewsNewsIdRoute,
+  SitemapXmlRoute: SitemapXmlRoute,
   FederationIndexRoute: FederationIndexRoute,
   NewsIndexRoute: NewsIndexRoute,
 }
