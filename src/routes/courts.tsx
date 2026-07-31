@@ -14,5 +14,10 @@ export const Route = createFileRoute("/courts")({
       { property: "og:description", content: DESCRIPTION },
     ],
   }),
-  component: () => <ComingSoon title="Корты" />,
+  component: () => (
+    <ComingSoon
+      title="Корты"
+      description="Здесь появится справочник теннисных кортов и клубов Санкт-Петербурга с информацией о покрытиях, адресах, режиме работы и возможностях бронирования для игроков любого уровня."
+    />
+  ),
 });

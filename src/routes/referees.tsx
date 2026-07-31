@@ -14,5 +14,10 @@ export const Route = createFileRoute("/referees")({
       { property: "og:description", content: DESCRIPTION },
     ],
   }),
-  component: () => <ComingSoon title="Коллегия судей" />,
+  component: () => (
+    <ComingSoon
+      title="Коллегия судей"
+      description="На странице разместим состав Коллегии судей, информацию о правилах, аттестации, судейских семинарах и календарь соревнований, где требуется судейская бригада."
+    />
+  ),
 });

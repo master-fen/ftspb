@@ -14,5 +14,10 @@ export const Route = createFileRoute("/contacts")({
       { property: "og:description", content: DESCRIPTION },
     ],
   }),
-  component: () => <ComingSoon title="Контакты" />,
+  component: () => (
+    <ComingSoon
+      title="Контакты"
+      description="На этой странице мы соберём актуальные контакты Федерации тенниса Санкт-Петербурга, включая адрес, телефон, электронную почту и часы приёма, чтобы вы могли быстро связаться с нами."
+    />
+  ),
 });

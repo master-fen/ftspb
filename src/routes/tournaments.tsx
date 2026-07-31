@@ -14,5 +14,10 @@ export const Route = createFileRoute("/tournaments")({
       { property: "og:description", content: DESCRIPTION },
     ],
   }),
-  component: () => <ComingSoon title="Турниры" />,
+  component: () => (
+    <ComingSoon
+      title="Турниры"
+      description="В этом разделе будет опубликован календарь теннисных турниров Санкт-Петербурга: расписание соревнований, регламенты, условия участия и ссылки на подачу заявок."
+    />
+  ),
 });

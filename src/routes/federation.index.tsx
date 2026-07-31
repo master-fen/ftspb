@@ -14,5 +14,10 @@ export const Route = createFileRoute("/federation/")({
       { property: "og:description", content: DESCRIPTION },
     ],
   }),
-  component: () => <ComingSoon title="Федерация" />,
+  component: () => (
+    <ComingSoon
+      title="Федерация"
+      description="На этой странице мы расскажем об истории и миссии Федерации тенниса Санкт-Петербурга, руководстве, структуре и направлениях работы."
+    />
+  ),
 });

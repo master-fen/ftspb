@@ -14,5 +14,10 @@ export const Route = createFileRoute("/teams")({
       { property: "og:description", content: DESCRIPTION },
     ],
   }),
-  component: () => <ComingSoon title="Сборные команды" />,
+  component: () => (
+    <ComingSoon
+      title="Сборные команды"
+      description="Здесь будет информация о сборных командах Санкт-Петербурга по теннису: составы, тренерский штаб, расписание учебно-тренировочных сборов и результаты выступлений."
+    />
+  ),
 });
