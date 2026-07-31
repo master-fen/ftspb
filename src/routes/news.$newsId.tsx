@@ -26,7 +26,11 @@ export const Route = createFileRoute("/news/$newsId")({
     const desc = item.excerpt ?? item.title;
     const SITE_URL = "https://ftspb.lovable.app";
     const toAbsolute = (src?: string) =>
-      !src ? undefined : /^https?:\/\//.test(src) ? src : `${SITE_URL}${src.startsWith("/") ? "" : "/"}${src}`;
+      !src
+        ? undefined
+        : /^https?:\/\//.test(src)
+          ? src
+          : `${SITE_URL}${src.startsWith("/") ? "" : "/"}${src}`;
     const image = toAbsolute(item.cover) ?? `${SITE_URL}/logo.png`;
     const url = `${SITE_URL}/news/${item.id}`;
     return {
