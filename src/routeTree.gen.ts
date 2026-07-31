@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TournamentsRouteImport } from './routes/tournaments'
 import { Route as TeamsRouteImport } from './routes/teams'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as RefereesRouteImport } from './routes/referees'
 import { Route as DocumentsRouteImport } from './routes/documents'
 import { Route as CourtsRouteImport } from './routes/courts'
@@ -18,7 +19,6 @@ import { Route as ContactsRouteImport } from './routes/contacts'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as NewsIndexRouteImport } from './routes/news.index'
 import { Route as FederationIndexRouteImport } from './routes/federation.index'
-import { Route as SitemapXmlRouteImport } from './routes/sitemap.xml'
 import { Route as NewsNewsIdRouteImport } from './routes/news.$newsId'
 import { Route as FederationEventsRouteImport } from './routes/federation.events'
 import { Route as FederationDocumentsRouteImport } from './routes/federation.documents'
@@ -31,6 +31,11 @@ const TournamentsRoute = TournamentsRouteImport.update({
 const TeamsRoute = TeamsRouteImport.update({
   id: '/teams',
   path: '/teams',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RefereesRoute = RefereesRouteImport.update({
@@ -68,11 +73,6 @@ const FederationIndexRoute = FederationIndexRouteImport.update({
   path: '/federation/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SitemapXmlRoute = SitemapXmlRouteImport.update({
-  id: '/sitemap/xml',
-  path: '/sitemap/xml',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const NewsNewsIdRoute = NewsNewsIdRouteImport.update({
   id: '/news/$newsId',
   path: '/news/$newsId',
@@ -95,12 +95,12 @@ export interface FileRoutesByFullPath {
   '/courts': typeof CourtsRoute
   '/documents': typeof DocumentsRoute
   '/referees': typeof RefereesRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/teams': typeof TeamsRoute
   '/tournaments': typeof TournamentsRoute
   '/federation/documents': typeof FederationDocumentsRoute
   '/federation/events': typeof FederationEventsRoute
   '/news/$newsId': typeof NewsNewsIdRoute
-  '/sitemap/xml': typeof SitemapXmlRoute
   '/federation/': typeof FederationIndexRoute
   '/news/': typeof NewsIndexRoute
 }
@@ -110,12 +110,12 @@ export interface FileRoutesByTo {
   '/courts': typeof CourtsRoute
   '/documents': typeof DocumentsRoute
   '/referees': typeof RefereesRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/teams': typeof TeamsRoute
   '/tournaments': typeof TournamentsRoute
   '/federation/documents': typeof FederationDocumentsRoute
   '/federation/events': typeof FederationEventsRoute
   '/news/$newsId': typeof NewsNewsIdRoute
-  '/sitemap/xml': typeof SitemapXmlRoute
   '/federation': typeof FederationIndexRoute
   '/news': typeof NewsIndexRoute
 }
@@ -126,12 +126,12 @@ export interface FileRoutesById {
   '/courts': typeof CourtsRoute
   '/documents': typeof DocumentsRoute
   '/referees': typeof RefereesRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/teams': typeof TeamsRoute
   '/tournaments': typeof TournamentsRoute
   '/federation/documents': typeof FederationDocumentsRoute
   '/federation/events': typeof FederationEventsRoute
   '/news/$newsId': typeof NewsNewsIdRoute
-  '/sitemap/xml': typeof SitemapXmlRoute
   '/federation/': typeof FederationIndexRoute
   '/news/': typeof NewsIndexRoute
 }
@@ -143,12 +143,12 @@ export interface FileRouteTypes {
     | '/courts'
     | '/documents'
     | '/referees'
+    | '/sitemap.xml'
     | '/teams'
     | '/tournaments'
     | '/federation/documents'
     | '/federation/events'
     | '/news/$newsId'
-    | '/sitemap/xml'
     | '/federation/'
     | '/news/'
   fileRoutesByTo: FileRoutesByTo
@@ -158,12 +158,12 @@ export interface FileRouteTypes {
     | '/courts'
     | '/documents'
     | '/referees'
+    | '/sitemap.xml'
     | '/teams'
     | '/tournaments'
     | '/federation/documents'
     | '/federation/events'
     | '/news/$newsId'
-    | '/sitemap/xml'
     | '/federation'
     | '/news'
   id:
@@ -173,12 +173,12 @@ export interface FileRouteTypes {
     | '/courts'
     | '/documents'
     | '/referees'
+    | '/sitemap.xml'
     | '/teams'
     | '/tournaments'
     | '/federation/documents'
     | '/federation/events'
     | '/news/$newsId'
-    | '/sitemap/xml'
     | '/federation/'
     | '/news/'
   fileRoutesById: FileRoutesById
@@ -189,12 +189,12 @@ export interface RootRouteChildren {
   CourtsRoute: typeof CourtsRoute
   DocumentsRoute: typeof DocumentsRoute
   RefereesRoute: typeof RefereesRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TeamsRoute: typeof TeamsRoute
   TournamentsRoute: typeof TournamentsRoute
   FederationDocumentsRoute: typeof FederationDocumentsRoute
   FederationEventsRoute: typeof FederationEventsRoute
   NewsNewsIdRoute: typeof NewsNewsIdRoute
-  SitemapXmlRoute: typeof SitemapXmlRoute
   FederationIndexRoute: typeof FederationIndexRoute
   NewsIndexRoute: typeof NewsIndexRoute
 }
@@ -213,6 +213,13 @@ declare module '@tanstack/react-router' {
       path: '/teams'
       fullPath: '/teams'
       preLoaderRoute: typeof TeamsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/referees': {
@@ -264,13 +271,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FederationIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/sitemap/xml': {
-      id: '/sitemap/xml'
-      path: '/sitemap/xml'
-      fullPath: '/sitemap/xml'
-      preLoaderRoute: typeof SitemapXmlRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/news/$newsId': {
       id: '/news/$newsId'
       path: '/news/$newsId'
@@ -301,15 +301,25 @@ const rootRouteChildren: RootRouteChildren = {
   CourtsRoute: CourtsRoute,
   DocumentsRoute: DocumentsRoute,
   RefereesRoute: RefereesRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
   TeamsRoute: TeamsRoute,
   TournamentsRoute: TournamentsRoute,
   FederationDocumentsRoute: FederationDocumentsRoute,
   FederationEventsRoute: FederationEventsRoute,
   NewsNewsIdRoute: NewsNewsIdRoute,
-  SitemapXmlRoute: SitemapXmlRoute,
   FederationIndexRoute: FederationIndexRoute,
   NewsIndexRoute: NewsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
