@@ -1,29 +1,28 @@
-import { useLayoutEffect, useState, type ReactNode } from "react";
+import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { useRouterState } from "@tanstack/react-router";
 
 /**
  * Единая плавная анимация появления новой страницы.
- * Ключевые моменты:
- * - прокрутка вверх выполняется синхронно ДО первой отрисовки нового маршрута,
- *   поэтому старый контент не может «мигнуть» на прежней позиции;
- * - fade-in запускается на уже проскроллённом контенте — переход воспринимается
- *   как одно непрерывное движение, без скачков и мерцания;
- * - никаких таймеров и искусственных задержек: загрузка данных не блокируется.
+ * Ключ берётся из последнего фактически отрисованного match, а не из location:
+ * location меняется в момент клика, когда Outlet ещё может содержать предыдущую
+ * страницу. Это не позволяет старой странице повторно смонтироваться и мигнуть.
  */
 export function PageTransition({ children }: { children: ReactNode }) {
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const [current, setCurrent] = useState(pathname);
+  const renderedPathname = useRouterState({
+    select: (state) => state.matches.at(-1)?.pathname ?? state.location.pathname,
+  });
+  const previousPathname = useRef(renderedPathname);
 
   useLayoutEffect(() => {
-    if (pathname === current) return;
-    // Синхронно, до paint: новая страница сразу показывается сверху.
-    window.scrollTo(0, 0);
-    setCurrent(pathname);
-  }, [pathname, current]);
+    if (renderedPathname === previousPathname.current) return;
+
+    previousPathname.current = renderedPathname;
+    window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+  }, [renderedPathname]);
 
   return (
     <div
-      key={pathname}
+      key={renderedPathname}
       className="motion-safe:animate-page-in [backface-visibility:hidden] [transform:translateZ(0)]"
     >
       {children}
