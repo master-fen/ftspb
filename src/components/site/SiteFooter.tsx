@@ -32,13 +32,13 @@ export function SiteFooter() {
         <div className="mt-10 border-t border-white/15 pt-6">
           <div className="flex flex-col gap-2 text-xs text-white/75 md:hidden">
             {siteMeta.legal.map((l) => (
-              <a
+              <Link
                 key={l.label}
-                href={l.href}
+                to={l.href}
                 className="text-sm font-medium text-white/90 transition-colors hover:text-brand-orange"
               >
                 {l.label}
-              </a>
+              </Link>
             ))}
             <div className="mt-4 leading-relaxed">{siteMeta.address}</div>
             <div>{siteMeta.copyright}</div>
@@ -51,13 +51,13 @@ export function SiteFooter() {
             </div>
             <div className="flex flex-col gap-1.5">
               {siteMeta.legal.map((l) => (
-                <a
+                <Link
                   key={l.label}
-                  href={l.href}
+                  to={l.href}
                   className="transition-colors hover:text-brand-orange"
                 >
                   {l.label}
-                </a>
+                </Link>
               ))}
             </div>
           </div>
