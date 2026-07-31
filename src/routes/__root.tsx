@@ -105,13 +105,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       {
         property: "og:image",
-        content:
-          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/6e0d7ddc-fa22-4dc6-9679-cd9e6c53613d/id-preview-1c047ee8--4a7b7fda-4dd4-4ee4-b69b-93a9ba20b7f7.lovable.app-1783467176882.png",
+        content: "https://ftspb.lovable.app/logo.png",
       },
       {
         name: "twitter:image",
-        content:
-          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/6e0d7ddc-fa22-4dc6-9679-cd9e6c53613d/id-preview-1c047ee8--4a7b7fda-4dd4-4ee4-b69b-93a9ba20b7f7.lovable.app-1783467176882.png",
+        content: "https://ftspb.lovable.app/logo.png",
       },
     ],
     links: [
