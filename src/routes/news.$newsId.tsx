@@ -24,6 +24,15 @@ export const Route = createFileRoute("/news/$newsId")({
     }
     const { item } = loaderData;
     const desc = item.excerpt ?? item.title;
+    const SITE_URL = "https://ftspb.lovable.app";
+    const toAbsolute = (src?: string) =>
+      !src
+        ? undefined
+        : /^https?:\/\//.test(src)
+          ? src
+          : `${SITE_URL}${src.startsWith("/") ? "" : "/"}${src}`;
+    const image = toAbsolute(item.cover) ?? `${SITE_URL}/logo.png`;
+    const url = `${SITE_URL}/news/${item.id}`;
     return {
       meta: [
         { title: `${item.title} — Федерация тенниса Санкт-Петербурга` },
@@ -31,10 +40,17 @@ export const Route = createFileRoute("/news/$newsId")({
         { property: "og:title", content: item.title },
         { property: "og:description", content: desc },
         { property: "og:type", content: "article" },
+        { property: "og:url", content: url },
+        { property: "og:image", content: image },
         { name: "twitter:card", content: "summary_large_image" },
+        { name: "twitter:title", content: item.title },
+        { name: "twitter:description", content: desc },
+        { name: "twitter:image", content: image },
       ],
+      links: [{ rel: "canonical", href: url }],
     };
   },
+
   notFoundComponent: NewsNotFound,
   errorComponent: NewsError,
   component: NewsDetailPage,
