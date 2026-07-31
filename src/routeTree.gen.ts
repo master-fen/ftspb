@@ -10,9 +10,11 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TournamentsRouteImport } from './routes/tournaments'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as TeamsRouteImport } from './routes/teams'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as RefereesRouteImport } from './routes/referees'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as DocumentsRouteImport } from './routes/documents'
 import { Route as CourtsRouteImport } from './routes/courts'
 import { Route as ContactsRouteImport } from './routes/contacts'
@@ -28,6 +30,11 @@ const TournamentsRoute = TournamentsRouteImport.update({
   path: '/tournaments',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TeamsRoute = TeamsRouteImport.update({
   id: '/teams',
   path: '/teams',
@@ -41,6 +48,11 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
 const RefereesRoute = RefereesRouteImport.update({
   id: '/referees',
   path: '/referees',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DocumentsRoute = DocumentsRouteImport.update({
@@ -94,9 +106,11 @@ export interface FileRoutesByFullPath {
   '/contacts': typeof ContactsRoute
   '/courts': typeof CourtsRoute
   '/documents': typeof DocumentsRoute
+  '/privacy': typeof PrivacyRoute
   '/referees': typeof RefereesRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/teams': typeof TeamsRoute
+  '/terms': typeof TermsRoute
   '/tournaments': typeof TournamentsRoute
   '/federation/documents': typeof FederationDocumentsRoute
   '/federation/events': typeof FederationEventsRoute
@@ -109,9 +123,11 @@ export interface FileRoutesByTo {
   '/contacts': typeof ContactsRoute
   '/courts': typeof CourtsRoute
   '/documents': typeof DocumentsRoute
+  '/privacy': typeof PrivacyRoute
   '/referees': typeof RefereesRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/teams': typeof TeamsRoute
+  '/terms': typeof TermsRoute
   '/tournaments': typeof TournamentsRoute
   '/federation/documents': typeof FederationDocumentsRoute
   '/federation/events': typeof FederationEventsRoute
@@ -125,9 +141,11 @@ export interface FileRoutesById {
   '/contacts': typeof ContactsRoute
   '/courts': typeof CourtsRoute
   '/documents': typeof DocumentsRoute
+  '/privacy': typeof PrivacyRoute
   '/referees': typeof RefereesRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/teams': typeof TeamsRoute
+  '/terms': typeof TermsRoute
   '/tournaments': typeof TournamentsRoute
   '/federation/documents': typeof FederationDocumentsRoute
   '/federation/events': typeof FederationEventsRoute
@@ -142,9 +160,11 @@ export interface FileRouteTypes {
     | '/contacts'
     | '/courts'
     | '/documents'
+    | '/privacy'
     | '/referees'
     | '/sitemap.xml'
     | '/teams'
+    | '/terms'
     | '/tournaments'
     | '/federation/documents'
     | '/federation/events'
@@ -157,9 +177,11 @@ export interface FileRouteTypes {
     | '/contacts'
     | '/courts'
     | '/documents'
+    | '/privacy'
     | '/referees'
     | '/sitemap.xml'
     | '/teams'
+    | '/terms'
     | '/tournaments'
     | '/federation/documents'
     | '/federation/events'
@@ -172,9 +194,11 @@ export interface FileRouteTypes {
     | '/contacts'
     | '/courts'
     | '/documents'
+    | '/privacy'
     | '/referees'
     | '/sitemap.xml'
     | '/teams'
+    | '/terms'
     | '/tournaments'
     | '/federation/documents'
     | '/federation/events'
@@ -188,9 +212,11 @@ export interface RootRouteChildren {
   ContactsRoute: typeof ContactsRoute
   CourtsRoute: typeof CourtsRoute
   DocumentsRoute: typeof DocumentsRoute
+  PrivacyRoute: typeof PrivacyRoute
   RefereesRoute: typeof RefereesRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TeamsRoute: typeof TeamsRoute
+  TermsRoute: typeof TermsRoute
   TournamentsRoute: typeof TournamentsRoute
   FederationDocumentsRoute: typeof FederationDocumentsRoute
   FederationEventsRoute: typeof FederationEventsRoute
@@ -206,6 +232,13 @@ declare module '@tanstack/react-router' {
       path: '/tournaments'
       fullPath: '/tournaments'
       preLoaderRoute: typeof TournamentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/teams': {
@@ -227,6 +260,13 @@ declare module '@tanstack/react-router' {
       path: '/referees'
       fullPath: '/referees'
       preLoaderRoute: typeof RefereesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/documents': {
@@ -300,9 +340,11 @@ const rootRouteChildren: RootRouteChildren = {
   ContactsRoute: ContactsRoute,
   CourtsRoute: CourtsRoute,
   DocumentsRoute: DocumentsRoute,
+  PrivacyRoute: PrivacyRoute,
   RefereesRoute: RefereesRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   TeamsRoute: TeamsRoute,
+  TermsRoute: TermsRoute,
   TournamentsRoute: TournamentsRoute,
   FederationDocumentsRoute: FederationDocumentsRoute,
   FederationEventsRoute: FederationEventsRoute,
@@ -313,3 +355,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
