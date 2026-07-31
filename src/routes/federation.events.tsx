@@ -14,5 +14,10 @@ export const Route = createFileRoute("/federation/events")({
       { property: "og:description", content: DESCRIPTION },
     ],
   }),
-  component: () => <ComingSoon title="Мероприятия" />,
+  component: () => (
+    <ComingSoon
+      title="Мероприятия"
+      description="Здесь будет календарь городских теннисных мероприятий: семинары, показательные матчи, праздники спорта и другие события Федерации и партнёров."
+    />
+  ),
 });

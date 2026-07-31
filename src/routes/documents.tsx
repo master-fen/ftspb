@@ -2,7 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { ComingSoon } from "@/components/site/ComingSoon";
 
 const TITLE = "Документы — Федерация тенниса Санкт-Петербурга";
-const DESCRIPTION = "Документы и регламенты Федерации тенниса Санкт-Петербурга. Раздел в разработке.";
+const DESCRIPTION =
+  "Документы и регламенты Федерации тенниса Санкт-Петербурга. Раздел в разработке.";
 
 export const Route = createFileRoute("/documents")({
   head: () => ({
@@ -14,5 +15,10 @@ export const Route = createFileRoute("/documents")({
       { property: "og:description", content: DESCRIPTION },
     ],
   }),
-  component: () => <ComingSoon title="Документы" />,
+  component: () => (
+    <ComingSoon
+      title="Документы"
+      description="В разделе будут размещены уставные и регламентные документы Федерации, протоколы заседаний, нормативные акты и другие официальные материалы."
+    />
+  ),
 });

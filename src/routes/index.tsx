@@ -13,7 +13,7 @@ function HomePage() {
     <div className="flex min-h-screen flex-col bg-surface">
       <SiteHeader />
       <main className="flex-1">
-        <h1 className="sr-only">Федерация тенниса Санкт-Петербурга</h1>
+        <h1 className="sr-only">Федерация тенниса Санкт-Петербурга — официальный сайт и новости</h1>
         <FeaturedNewsSection />
         <LatestNewsSection />
       </main>
