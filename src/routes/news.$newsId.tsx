@@ -5,6 +5,8 @@ import { SiteFooter } from "@/components/site/SiteFooter";
 import { allNews } from "@/data/mock";
 import type { NewsItem } from "@/lib/types/news";
 import { newsMetaLine } from "@/lib/news-meta";
+import { OG_IMAGE_URL, SITE_URL, toAbsoluteUrl } from "@/lib/site";
+
 
 export const Route = createFileRoute("/news/$newsId")({
   loader: ({ params }) => {
@@ -24,15 +26,9 @@ export const Route = createFileRoute("/news/$newsId")({
     }
     const { item } = loaderData;
     const desc = item.excerpt ?? item.title;
-    const SITE_URL = "https://ftspb.lovable.app";
-    const toAbsolute = (src?: string) =>
-      !src
-        ? undefined
-        : /^https?:\/\//.test(src)
-          ? src
-          : `${SITE_URL}${src.startsWith("/") ? "" : "/"}${src}`;
-    const image = toAbsolute(item.cover) ?? `${SITE_URL}/logo.png`;
+    const image = toAbsoluteUrl(item.cover) ?? OG_IMAGE_URL;
     const url = `${SITE_URL}/news/${item.id}`;
+
     return {
       meta: [
         { title: `${item.title} — Федерация тенниса Санкт-Петербурга` },
