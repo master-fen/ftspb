@@ -15,7 +15,6 @@ import { Toaster } from "@/components/ui/sonner";
 import { PageTransition } from "@/components/site/PageTransition";
 import { OG_IMAGE_URL, SITE_NAME, SITE_URL } from "@/lib/site";
 
-
 function NotFoundComponent() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -116,7 +115,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         name: "twitter:image",
         content: OG_IMAGE_URL,
       },
-
     ],
     links: [
       { rel: "stylesheet", href: appCss },

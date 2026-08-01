@@ -14,10 +14,9 @@ type FilterValue = "all" | "general" | "federation" | "referees";
 const DEFAULT_FILTER: FilterValue = "general";
 
 const searchSchema = z.object({
-  category: fallback(
-    z.enum(["all", "general", "federation", "referees"]),
+  category: fallback(z.enum(["all", "general", "federation", "referees"]), DEFAULT_FILTER).default(
     DEFAULT_FILTER,
-  ).default(DEFAULT_FILTER),
+  ),
 });
 
 const FILTERS: { value: FilterValue; label: string }[] = [
@@ -32,7 +31,6 @@ const VALUE_TO_CATEGORY: Record<Exclude<FilterValue, "all">, NewsCategory> = {
   federation: "Федерация",
   referees: "Коллегия судей",
 };
-
 
 export const Route = createFileRoute("/news/")({
   validateSearch: zodValidator(searchSchema),
@@ -126,7 +124,6 @@ function NewsPage() {
             );
           })}
         </div>
-
 
         {items.length === 0 ? (
           <p className="rounded-xl bg-muted p-8 text-center text-muted-foreground">
