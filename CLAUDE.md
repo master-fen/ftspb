@@ -110,3 +110,10 @@ bun run build
 - `src/lib/lovable-error-reporting.ts`, `src/lib/error-capture.ts`, `src/lib/error-page.ts`.
 - `bun.lock` — только через `bun install` / `bun add`.
 - `vite.config.ts` — не добавлять плагины (всё внутри `@lovable.dev/vite-tanstack-config`); смена nitro preset — только по согласованию.
+
+## Зоны владения
+
+- **Lovable**: публичные страницы и компоненты.
+- **Claude Code**: `/admin`, `src/server/**`, `src/db/**`, `drizzle/**`, `scripts/**`.
+- **Lovable не изменяет**: `src/routes/admin/**`, `src/server/**`, `src/db/**`, `drizzle/**`, `scripts/**`, `src/data/**`.
+- Синхронизация — только через merge, без rebase и force-push.
