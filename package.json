@@ -12,7 +12,8 @@
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
+    "postdb:generate": "bun run scripts/strip-migration-schema.ts",
+    "db:migrate": "bun run scripts/migrate.ts",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {

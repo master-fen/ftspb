@@ -1,5 +1,5 @@
-CREATE TYPE "public"."section_enum" AS ENUM('federation', 'referees');--> statement-breakpoint
-CREATE TYPE "public"."status_enum" AS ENUM('draft', 'published');--> statement-breakpoint
+CREATE TYPE "section_enum" AS ENUM('federation', 'referees');--> statement-breakpoint
+CREATE TYPE "status_enum" AS ENUM('draft', 'published');--> statement-breakpoint
 CREATE TABLE "admin_session" (
 	"id" text PRIMARY KEY NOT NULL,
 	"user_id" uuid NOT NULL,
@@ -70,10 +70,10 @@ CREATE TABLE "news_photo" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-ALTER TABLE "admin_session" ADD CONSTRAINT "admin_session_user_id_admin_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."admin_user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "news" ADD CONSTRAINT "news_cover_photo_id_news_photo_id_fk" FOREIGN KEY ("cover_photo_id") REFERENCES "public"."news_photo"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "news_document" ADD CONSTRAINT "news_document_news_id_news_id_fk" FOREIGN KEY ("news_id") REFERENCES "public"."news"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "news_document" ADD CONSTRAINT "news_document_document_id_document_id_fk" FOREIGN KEY ("document_id") REFERENCES "public"."document"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "news_photo" ADD CONSTRAINT "news_photo_news_id_news_id_fk" FOREIGN KEY ("news_id") REFERENCES "public"."news"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "admin_session" ADD CONSTRAINT "admin_session_user_id_admin_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "admin_user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "news" ADD CONSTRAINT "news_cover_photo_id_news_photo_id_fk" FOREIGN KEY ("cover_photo_id") REFERENCES "news_photo"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "news_document" ADD CONSTRAINT "news_document_news_id_news_id_fk" FOREIGN KEY ("news_id") REFERENCES "news"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "news_document" ADD CONSTRAINT "news_document_document_id_document_id_fk" FOREIGN KEY ("document_id") REFERENCES "document"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "news_photo" ADD CONSTRAINT "news_photo_news_id_news_id_fk" FOREIGN KEY ("news_id") REFERENCES "news"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "news_status_published_at_idx" ON "news" USING btree ("status","published_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "news_section_idx" ON "news" USING btree ("section");

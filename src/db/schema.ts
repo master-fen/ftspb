@@ -1,4 +1,3 @@
-import process from "node:process";
 import {
   bigint,
   boolean,
@@ -6,7 +5,6 @@ import {
   index,
   integer,
   pgEnum,
-  pgSchema,
   pgTable,
   primaryKey,
   text,
@@ -19,25 +17,15 @@ import {
  * Одна база `default_db`, изоляция боевых/черновых данных — через схему
  * Postgres, а не через отдельную БД. См. docs/schema.md.
  *
- * drizzle-orm запрещает `pgSchema("public")` — это schema по умолчанию,
- * для неё нужно использовать голые `pgTable`/`pgEnum`. Поэтому схема
- * выбирается на рантайме: `dev` идёт через `pgSchema(...)`, `public` —
- * через обычные `pgTable`/`pgEnum`.
+ * Имя схемы (`DB_SCHEMA`) нигде здесь не участвует: таблицы объявлены без
+ * привязки к схеме (`pgTable`/`pgEnum`), выбор схемы — только через
+ * `search_path` подключения (см. src/db/client.ts, drizzle.config.ts).
+ * Это позволяет применять одну и ту же SQL-миграцию к любой схеме.
  */
-const schemaName = process.env.DB_SCHEMA ?? "public";
-const namedSchema = schemaName === "public" ? null : pgSchema(schemaName);
+export const sectionEnum = pgEnum("section_enum", ["federation", "referees"]);
+export const statusEnum = pgEnum("status_enum", ["draft", "published"]);
 
-const table: typeof pgTable = namedSchema
-  ? (namedSchema.table as unknown as typeof pgTable)
-  : pgTable;
-const dbEnum: typeof pgEnum = namedSchema
-  ? (namedSchema.enum.bind(namedSchema) as unknown as typeof pgEnum)
-  : pgEnum;
-
-export const sectionEnum = dbEnum("section_enum", ["federation", "referees"]);
-export const statusEnum = dbEnum("status_enum", ["draft", "published"]);
-
-export const news = table(
+export const news = pgTable(
   "news",
   {
     id: uuid("id").primaryKey().defaultRandom(),
@@ -64,7 +52,7 @@ export const news = table(
   ],
 );
 
-export const newsPhoto = table("news_photo", {
+export const newsPhoto = pgTable("news_photo", {
   id: uuid("id").primaryKey().defaultRandom(),
   newsId: uuid("news_id")
     .notNull()
@@ -77,7 +65,7 @@ export const newsPhoto = table("news_photo", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-export const document = table("document", {
+export const document = pgTable("document", {
   id: uuid("id").primaryKey().defaultRandom(),
   title: text("title").notNull(),
   s3Key: text("s3_key").notNull(),
@@ -90,7 +78,7 @@ export const document = table("document", {
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
-export const newsDocument = table(
+export const newsDocument = pgTable(
   "news_document",
   {
     newsId: uuid("news_id")
@@ -104,7 +92,7 @@ export const newsDocument = table(
   (table) => [primaryKey({ columns: [table.newsId, table.documentId] })],
 );
 
-export const adminUser = table("admin_user", {
+export const adminUser = pgTable("admin_user", {
   id: uuid("id").primaryKey().defaultRandom(),
   login: text("login").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
@@ -114,7 +102,7 @@ export const adminUser = table("admin_user", {
   lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
 });
 
-export const adminSession = table("admin_session", {
+export const adminSession = pgTable("admin_session", {
   id: text("id").primaryKey(),
   userId: uuid("user_id")
     .notNull()
