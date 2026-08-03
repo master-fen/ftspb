@@ -1,8 +1,7 @@
-import fs from "node:fs";
-import path from "node:path";
 import process from "node:process";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
+import { TIMEWEB_CA } from "./ca";
 import * as schema from "./schema";
 
 /**
@@ -13,8 +12,8 @@ const connectionString = process.env.DATABASE_URL;
 const schemaName = process.env.DB_SCHEMA || "public";
 
 /**
- * CA лежит в репозитории (`certs/timeweb-ca.crt`, публичный сертификат) —
- * не полагаемся на NODE_EXTRA_CA_CERTS, в проде его не будет.
+ * CA вшит в код (`src/db/ca.ts`) — не полагаемся на NODE_EXTRA_CA_CERTS,
+ * в проде его не будет.
  * `sslmode=verify-full` в DATABASE_URL всё ещё нужен: без него postgres.js
  * не включит проверку сертификата вовсе.
  */
@@ -26,7 +25,7 @@ const queryClient = connectionString
       // см. src/db/schema.ts.
       connection: { search_path: schemaName },
       ssl: {
-        ca: fs.readFileSync(path.resolve(process.cwd(), "certs/timeweb-ca.crt"), "utf8"),
+        ca: TIMEWEB_CA,
         rejectUnauthorized: true,
       },
     })
