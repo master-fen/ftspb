@@ -1,9 +1,8 @@
-import fs from "node:fs";
-import path from "node:path";
 import process from "node:process";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
+import { TIMEWEB_CA } from "../src/db/ca";
 
 /**
  * drizzle-kit ("drizzle-kit migrate") валидирует dbCredentials через
@@ -24,7 +23,7 @@ const sql = postgres(connectionString, {
   max: 1,
   connection: { search_path: schemaName },
   ssl: {
-    ca: fs.readFileSync(path.resolve(process.cwd(), "certs/timeweb-ca.crt"), "utf8"),
+    ca: TIMEWEB_CA,
     rejectUnauthorized: true,
   },
 });

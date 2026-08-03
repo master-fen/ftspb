@@ -1,7 +1,6 @@
-import fs from "node:fs";
-import path from "node:path";
 import process from "node:process";
 import { defineConfig } from "drizzle-kit";
+import { TIMEWEB_CA } from "./src/db/ca";
 
 const rawUrl = process.env.DATABASE_URL;
 
@@ -27,7 +26,7 @@ function buildDbCredentials() {
     password: decodeURIComponent(url.password),
     database: url.pathname.replace(/^\//, ""),
     ssl: {
-      ca: fs.readFileSync(path.resolve(process.cwd(), "certs/timeweb-ca.crt"), "utf8"),
+      ca: TIMEWEB_CA,
       rejectUnauthorized: true,
     },
   };
