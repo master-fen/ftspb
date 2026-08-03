@@ -9,6 +9,15 @@
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
 
+## Не трогать руками
+
+- `src/routeTree.gen.ts` — автогенерация TanStack Router.
+- `.lovable/`, `.workspace/skills/` (последнее сбрасывается на каждое сообщение Lovable).
+- `src/routes/README.md`.
+- `src/lib/lovable-error-reporting.ts`, `src/lib/error-capture.ts`, `src/lib/error-page.ts`.
+- `bun.lock` — только через `bun install` / `bun add`.
+- `vite.config.ts` — не добавлять плагины (всё внутри `@lovable.dev/vite-tanstack-config`); смена nitro preset — только по согласованию.
+
 ## Зоны владения
 
 - **Lovable**: публичные страницы и компоненты.
