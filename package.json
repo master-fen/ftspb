@@ -14,9 +14,11 @@
     "db:generate": "drizzle-kit generate",
     "postdb:generate": "bun run scripts/strip-migration-schema.ts",
     "db:migrate": "bun run scripts/migrate.ts",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "migrate:archive": "bun run scripts/migrate-archive.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1101.0",
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.15",
