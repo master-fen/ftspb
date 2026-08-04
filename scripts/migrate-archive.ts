@@ -9,6 +9,7 @@ import * as schema from "../src/db/schema";
 import { allNews, featuredNews } from "../src/data/mock";
 import { slugify } from "../src/server/slug";
 import { uploadObject } from "../src/server/storage";
+import { textToHtml } from "./text-to-html";
 
 const { news, newsPhoto, document, newsDocument } = schema;
 
@@ -293,7 +294,7 @@ function buildPlan(record: ArchiveRecord, slug: string): Plan {
     slug,
     title,
     excerpt: record["Анонс"]?.trim() || null,
-    body: record["Текст"] || null,
+    body: record["Текст"] ? textToHtml(record["Текст"]) : null,
     section: matched?.section ?? null,
     publishedAt,
     featured: matched?.featured ?? false,

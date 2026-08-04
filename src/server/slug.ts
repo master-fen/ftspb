@@ -47,3 +47,17 @@ export function slugify(title: string): string {
     .replace(/^-+|-+$/g, "")
     .replace(/-{2,}/g, "-");
 }
+
+/**
+ * Лимит длины slug на старом сайте (архив до PR B этапа 3) — установлен по
+ * данным трёх «длинных» slug из mock.ts, см. docs/schema.md. Не применяется
+ * к 41 записи, уже смигрированной migrate-archive.ts (их slug в БД полный,
+ * без обрезки, менять задним числом не стали) — только для этапа 8 (полный
+ * архив 2006–2025), чтобы новые slug совпадали со старым сайтом.
+ */
+export const LEGACY_SLUG_MAX_LENGTH = 60;
+
+/** Обрезка до `maxLength` символов с удалением хвостового дефиса после среза. */
+export function truncateSlug(slug: string, maxLength = LEGACY_SLUG_MAX_LENGTH): string {
+  return slug.slice(0, maxLength).replace(/-+$/, "");
+}
