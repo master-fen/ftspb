@@ -5,7 +5,7 @@ import { z } from "zod";
 import { ChevronRight } from "lucide-react";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
-import { allNews } from "@/data/mock";
+import { listNews } from "@/lib/news-server-fn";
 import { NewsListCard } from "@/components/site/NewsListCard";
 import type { NewsCategory } from "@/lib/types/news";
 
@@ -37,6 +37,7 @@ export const Route = createFileRoute("/news/")({
   search: {
     middlewares: [stripSearchParams({ category: DEFAULT_FILTER })],
   },
+  loader: () => listNews(),
   head: () => ({
     meta: [
       { title: "Новости — Федерация тенниса Санкт-Петербурга" },
@@ -59,18 +60,19 @@ export const Route = createFileRoute("/news/")({
 });
 
 function NewsPage() {
+  const news = Route.useLoaderData();
   const { category } = Route.useSearch();
   const navigate = useNavigate({ from: "/news/" });
   const active: FilterValue = category;
 
   const items = useMemo(() => {
-    const sorted = [...allNews].sort(
+    const sorted = [...news].sort(
       (a, b) => parseDate(b.date).getTime() - parseDate(a.date).getTime(),
     );
     if (active === "all") return sorted;
     const cat = VALUE_TO_CATEGORY[active];
     return sorted.filter((n) => n.category === cat);
-  }, [active]);
+  }, [news, active]);
 
   const select = (value: FilterValue) => {
     navigate({ search: { category: value }, resetScroll: false });

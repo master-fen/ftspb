@@ -3,16 +3,17 @@ import { ChevronRight, Download, FileText } from "lucide-react";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { NewsGallery } from "@/components/site/NewsGallery";
 import { SiteFooter } from "@/components/site/SiteFooter";
-import { allNews } from "@/data/mock";
+import { getNewsBySlug, listNews } from "@/lib/news-server-fn";
 import type { NewsItem } from "@/lib/types/news";
 import { newsMetaLine } from "@/lib/news-meta";
 import { OG_IMAGE_URL, SITE_URL, toAbsoluteUrl } from "@/lib/site";
 
 export const Route = createFileRoute("/news/$newsId")({
-  loader: ({ params }) => {
-    const item = allNews.find((n) => n.id === params.newsId);
+  loader: async ({ params }) => {
+    const item = await getNewsBySlug({ data: params.newsId });
     if (!item) throw notFound();
-    const related = allNews.filter((n) => n.id !== item.id).slice(0, 3);
+    const all = await listNews();
+    const related = all.filter((n) => n.id !== item.id).slice(0, 3);
     return { item, related };
   },
   head: ({ loaderData }) => {

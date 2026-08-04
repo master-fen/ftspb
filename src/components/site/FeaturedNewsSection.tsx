@@ -1,12 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { featuredNews } from "@/data/mock";
+import type { NewsItem } from "@/lib/types/news";
 import { NewsCard } from "./NewsCard";
 import { SectionHeading } from "./SectionHeading";
 
-export function FeaturedNewsSection() {
-  const [hero, second, third] = featuredNews;
+type FeaturedNewsSectionProps = {
+  items?: NewsItem[];
+};
+
+export function FeaturedNewsSection({ items = featuredNews }: FeaturedNewsSectionProps) {
+  const [hero, second, third] = items;
   const [index, setIndex] = useState(0);
-  const items = featuredNews;
   const trackRef = useRef<HTMLDivElement>(null);
   const pausedRef = useRef(false);
 
