@@ -61,20 +61,42 @@ bun run build
 ### Lovable
 
 - `src/routes/*` — **только JSX / разметка / стили внутри маршрута**
-- `src/components/**`
+- `src/components/**` — **кроме** согласованного точечного исключения ниже
 - `src/styles.css`
 - `src/assets/**`
 - `src/data/mock.ts` (пока моки живы)
 - `vite.config.ts`
 
+**Исключение (согласовано 04.08.2026, PR B этапа 3):**
+`src/components/site/FeaturedNewsSection.tsx` и `LatestNewsSection.tsx`
+получают данные через проп `items?: NewsItem[]` (значение по умолчанию —
+`featuredNews`/`latestNews` из `@/data/mock`, как раньше) — заполняет его
+`loader` главной страницы (`src/routes/index.tsx`) через
+`createServerFn`-обёртки в `src/lib/news-server-fn.ts`. Тронута только строка
+источника данных, JSX/вёрстка/классы — нет. Прямой импорт `@/data/mock`
+внутри этих двух файлов оставлен исключительно как дефолт пропса (превью
+Lovable без loader'а и как safety-net при случайном откате) — **не
+восстанавливать его как основной источник данных**. Дальше эти два файла — не
+Lovable-зона без повторного согласования.
+
 ### Claude Code
 
-- `src/lib/**` — в т.ч. будущие `src/lib/api.ts` и `src/lib/types/**`
+- `src/lib/**` — в т.ч. `src/lib/types/**` и `src/lib/news-server-fn.ts`
 - **`loader` и `head()` внутри route-файлов** — отдельным коммитом с префиксом `chore(loader):`. `head()` читает `loaderData`, разрывать их по владельцам вредно.
 - `public/robots.txt`, `public/sitemap.xml`
 - `.github/workflows/**`
 - `CLAUDE.md`, `.gitattributes`
 - Deploy-артефакты: `Dockerfile`, systemd-юниты, скрипт запуска `node .output/server/index.mjs`
+
+**Важно про импорт содержимого `src/server` из route-файлов.** TanStack
+Start собирает route-модули и в клиентский, и в серверный бандл — прямой
+импорт чего-либо из `src/server` в файле из `src/routes` падает на сборке
+(плагин `tanstack-start-core:import-protection` запрещает любой импорт из
+директории `server` в клиентском окружении). Обход — `createServerFn` из
+`@tanstack/react-start` в файле вне `src/server` (например,
+`src/lib/news-server-fn.ts`): тело `.handler()` компилируется только в
+серверный чанк, на клиенте остаётся RPC-заглушка. Route-файлы импортируют
+такие обёртки, а не модули `src/server` напрямую.
 
 ## Правила PR
 
@@ -88,8 +110,20 @@ bun run build
    - `NewsItem`, `NewsCategory`, `NewsAttachment` → `src/lib/types/news.ts`
    - `NavSection`, `NavChild` → `src/lib/types/nav.ts`
 2. ✅ **Сделано (Lovable).** Импорты типов во всех компонентах и route-файлах переведены на `@/lib/types/*`; из `@/data/mock` импортируются только данные (`allNews`, `featuredNews`, `latestNews`, `navSections`, `siteMeta`).
-3. **Владелец — Claude Code.** Написать `src/lib/api.ts` поверх типов из `src/lib/types/**` и подключить его через `loader` в route-файлах (`chore(loader):`).
-4. **Fallback на моки при недоступном API не делаем.** Подмена данных скроет аварию. При ошибке — error state / пустой список / сообщение об ошибке.
+3. ✅ **Сделано (Claude Code, PR B этапа 3, новости).** Не `src/lib/api.ts` —
+   вместо REST/fetch-слоя `src/server/news.ts` (прямой доступ к БД через
+   drizzle) читается loader'ами route-файлов через `createServerFn`-обёртки в
+   `src/lib/news-server-fn.ts` (см. «Важно про импорт `src/server/**`» выше).
+   Так короче цепочка (SSR-loader → БД, без лишнего HTTP-хопа) и креды
+   БД/S3 физически не могут попасть в клиентский бандл. Для остальных типов
+   данных (`navSections`, `siteMeta`) шаг 3 ещё не сделан — они по-прежнему
+   из `@/data/mock`.
+4. **Fallback на моки при недоступном API не делаем.** Подмена данных скроет
+   аварию. При ошибке (БД настроена, но недоступна) — падать, не глотать
+   ошибку в try/catch. **Исключение** — `DATABASE_URL` не задан вовсе (штатный
+   режим превью Lovable, не авария): тогда `src/server/news.ts` явной
+   проверкой (`db === null` из `src/db/client.ts`, не try/catch) отдаёт
+   `mock.ts` как есть, без обращения к БД.
 
 Исключение из зон: файлы `src/lib/types/**` уже созданы Lovable как часть шагов 1–2; дальше они в зоне Claude Code.
 
