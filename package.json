@@ -15,7 +15,9 @@
     "postdb:generate": "bun run scripts/strip-migration-schema.ts",
     "db:migrate": "bun run scripts/migrate.ts",
     "db:studio": "drizzle-kit studio",
-    "migrate:archive": "bun run scripts/migrate-archive.ts"
+    "migrate:archive": "bun run scripts/migrate-archive.ts",
+    "create-admin": "bun run scripts/create-admin.ts",
+    "check:throttle": "bun run scripts/check-throttle.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1101.0",
@@ -52,6 +54,7 @@
     "@tanstack/react-start": "1.168.26",
     "@tanstack/router-plugin": "1.168.18",
     "@tanstack/zod-adapter": "1.167.0",
+    "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
