@@ -1,10 +1,10 @@
-import process from "node:process";
 import { createServerFn } from "@tanstack/react-start";
 import {
   deleteCookie,
   getCookie,
   getRequestHeader,
   getRequestIP,
+  getRequestProtocol,
   setCookie,
 } from "@tanstack/react-start/server";
 import { z } from "zod";
@@ -18,6 +18,40 @@ import { isLocked, recordFailure, recordSuccess } from "@/server/login-throttle"
  */
 
 const SESSION_COOKIE = "ftspb_admin_session";
+const SESSION_COOKIE_PATH = "/";
+
+/**
+ * NODE_ENV не задан в контейнере Timeweb (запуск — голый
+ * `node .output/server/index.mjs`, без переменных окружения приложения),
+ * поэтому secure-флаг cookie нельзя выводить из него — он всегда осел бы в
+ * false на проде. Timeweb стоит за прокси, так что протокол сокета внутри
+ * контейнера — всегда http; x-forwarded-proto разбирается вручную, потому
+ * что getRequestProtocol в установленной версии h3 распознаёт этот заголовок
+ * только при точном значении "https"/"http", а не список вида "https, http".
+ */
+function isSecureRequest(): boolean {
+  const forwarded = getRequestHeader("x-forwarded-proto")?.split(",", 1)[0]?.trim().toLowerCase();
+
+  if (forwarded) {
+    return forwarded === "https";
+  }
+
+  return getRequestProtocol({ xForwardedProto: false }) === "https";
+}
+
+function sessionCookieOptions(): {
+  httpOnly: true;
+  sameSite: "lax";
+  path: string;
+  secure: boolean;
+} {
+  return {
+    httpOnly: true,
+    sameSite: "lax",
+    path: SESSION_COOKIE_PATH,
+    secure: isSecureRequest(),
+  };
+}
 
 export type AdminSessionInfo = {
   id: string;
@@ -62,10 +96,7 @@ export const loginFn = createServerFn({ method: "POST" })
     const { token, expiresAt } = await createSession(user.id, { userAgent, ip });
 
     setCookie(SESSION_COOKIE, token, {
-      httpOnly: true,
-      sameSite: "lax",
-      path: "/",
-      secure: process.env.NODE_ENV === "production",
+      ...sessionCookieOptions(),
       maxAge: Math.max(0, Math.floor((expiresAt.getTime() - Date.now()) / 1000)),
     });
 
@@ -77,7 +108,7 @@ export const logoutFn = createServerFn({ method: "POST" }).handler(async () => {
   if (token) {
     await deleteSession(token);
   }
-  deleteCookie(SESSION_COOKIE, { path: "/" });
+  deleteCookie(SESSION_COOKIE, sessionCookieOptions());
 });
 
 export const getSessionFn = createServerFn({ method: "GET" }).handler(
@@ -91,7 +122,7 @@ export const getSessionFn = createServerFn({ method: "GET" }).handler(
     if (!user) {
       // Токен протух или сессия удалена в БД — гасим и мёртвую cookie,
       // иначе клиент будет слать её бесконечно.
-      deleteCookie(SESSION_COOKIE, { path: "/" });
+      deleteCookie(SESSION_COOKIE, sessionCookieOptions());
       return null;
     }
 
