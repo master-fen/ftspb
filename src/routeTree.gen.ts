@@ -18,12 +18,16 @@ import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as DocumentsRouteImport } from './routes/documents'
 import { Route as CourtsRouteImport } from './routes/courts'
 import { Route as ContactsRouteImport } from './routes/contacts'
+import { Route as AdminRouteRouteImport } from './routes/admin/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as NewsIndexRouteImport } from './routes/news.index'
 import { Route as FederationIndexRouteImport } from './routes/federation.index'
 import { Route as NewsNewsIdRouteImport } from './routes/news.$newsId'
 import { Route as FederationEventsRouteImport } from './routes/federation.events'
 import { Route as FederationDocumentsRouteImport } from './routes/federation.documents'
+import { Route as AdminLoginRouteImport } from './routes/admin/login'
+import { Route as AdminAuthedRouteRouteImport } from './routes/admin/_authed/route'
+import { Route as AdminAuthedIndexRouteImport } from './routes/admin/_authed/index'
 
 const TournamentsRoute = TournamentsRouteImport.update({
   id: '/tournaments',
@@ -70,6 +74,11 @@ const ContactsRoute = ContactsRouteImport.update({
   path: '/contacts',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRouteRoute = AdminRouteRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -100,9 +109,24 @@ const FederationDocumentsRoute = FederationDocumentsRouteImport.update({
   path: '/federation/documents',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminLoginRoute = AdminLoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminAuthedRouteRoute = AdminAuthedRouteRouteImport.update({
+  id: '/_authed',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminAuthedIndexRoute = AdminAuthedIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminAuthedRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteRouteWithChildren
   '/contacts': typeof ContactsRoute
   '/courts': typeof CourtsRoute
   '/documents': typeof DocumentsRoute
@@ -112,14 +136,17 @@ export interface FileRoutesByFullPath {
   '/teams': typeof TeamsRoute
   '/terms': typeof TermsRoute
   '/tournaments': typeof TournamentsRoute
+  '/admin/login': typeof AdminLoginRoute
   '/federation/documents': typeof FederationDocumentsRoute
   '/federation/events': typeof FederationEventsRoute
   '/news/$newsId': typeof NewsNewsIdRoute
   '/federation/': typeof FederationIndexRoute
   '/news/': typeof NewsIndexRoute
+  '/admin/': typeof AdminAuthedIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin': typeof AdminAuthedIndexRoute
   '/contacts': typeof ContactsRoute
   '/courts': typeof CourtsRoute
   '/documents': typeof DocumentsRoute
@@ -129,6 +156,7 @@ export interface FileRoutesByTo {
   '/teams': typeof TeamsRoute
   '/terms': typeof TermsRoute
   '/tournaments': typeof TournamentsRoute
+  '/admin/login': typeof AdminLoginRoute
   '/federation/documents': typeof FederationDocumentsRoute
   '/federation/events': typeof FederationEventsRoute
   '/news/$newsId': typeof NewsNewsIdRoute
@@ -138,6 +166,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteRouteWithChildren
   '/contacts': typeof ContactsRoute
   '/courts': typeof CourtsRoute
   '/documents': typeof DocumentsRoute
@@ -147,16 +176,20 @@ export interface FileRoutesById {
   '/teams': typeof TeamsRoute
   '/terms': typeof TermsRoute
   '/tournaments': typeof TournamentsRoute
+  '/admin/_authed': typeof AdminAuthedRouteRouteWithChildren
+  '/admin/login': typeof AdminLoginRoute
   '/federation/documents': typeof FederationDocumentsRoute
   '/federation/events': typeof FederationEventsRoute
   '/news/$newsId': typeof NewsNewsIdRoute
   '/federation/': typeof FederationIndexRoute
   '/news/': typeof NewsIndexRoute
+  '/admin/_authed/': typeof AdminAuthedIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/admin'
     | '/contacts'
     | '/courts'
     | '/documents'
@@ -166,14 +199,17 @@ export interface FileRouteTypes {
     | '/teams'
     | '/terms'
     | '/tournaments'
+    | '/admin/login'
     | '/federation/documents'
     | '/federation/events'
     | '/news/$newsId'
     | '/federation/'
     | '/news/'
+    | '/admin/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/admin'
     | '/contacts'
     | '/courts'
     | '/documents'
@@ -183,6 +219,7 @@ export interface FileRouteTypes {
     | '/teams'
     | '/terms'
     | '/tournaments'
+    | '/admin/login'
     | '/federation/documents'
     | '/federation/events'
     | '/news/$newsId'
@@ -191,6 +228,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/admin'
     | '/contacts'
     | '/courts'
     | '/documents'
@@ -200,15 +238,19 @@ export interface FileRouteTypes {
     | '/teams'
     | '/terms'
     | '/tournaments'
+    | '/admin/_authed'
+    | '/admin/login'
     | '/federation/documents'
     | '/federation/events'
     | '/news/$newsId'
     | '/federation/'
     | '/news/'
+    | '/admin/_authed/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRouteRoute: typeof AdminRouteRouteWithChildren
   ContactsRoute: typeof ContactsRoute
   CourtsRoute: typeof CourtsRoute
   DocumentsRoute: typeof DocumentsRoute
@@ -290,6 +332,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ContactsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -332,11 +381,58 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FederationDocumentsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/login': {
+      id: '/admin/login'
+      path: '/login'
+      fullPath: '/admin/login'
+      preLoaderRoute: typeof AdminLoginRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/_authed': {
+      id: '/admin/_authed'
+      path: ''
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminAuthedRouteRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/_authed/': {
+      id: '/admin/_authed/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminAuthedIndexRouteImport
+      parentRoute: typeof AdminAuthedRouteRoute
+    }
   }
 }
 
+interface AdminAuthedRouteRouteChildren {
+  AdminAuthedIndexRoute: typeof AdminAuthedIndexRoute
+}
+
+const AdminAuthedRouteRouteChildren: AdminAuthedRouteRouteChildren = {
+  AdminAuthedIndexRoute: AdminAuthedIndexRoute,
+}
+
+const AdminAuthedRouteRouteWithChildren =
+  AdminAuthedRouteRoute._addFileChildren(AdminAuthedRouteRouteChildren)
+
+interface AdminRouteRouteChildren {
+  AdminAuthedRouteRoute: typeof AdminAuthedRouteRouteWithChildren
+  AdminLoginRoute: typeof AdminLoginRoute
+}
+
+const AdminRouteRouteChildren: AdminRouteRouteChildren = {
+  AdminAuthedRouteRoute: AdminAuthedRouteRouteWithChildren,
+  AdminLoginRoute: AdminLoginRoute,
+}
+
+const AdminRouteRouteWithChildren = AdminRouteRoute._addFileChildren(
+  AdminRouteRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRouteRoute: AdminRouteRouteWithChildren,
   ContactsRoute: ContactsRoute,
   CourtsRoute: CourtsRoute,
   DocumentsRoute: DocumentsRoute,

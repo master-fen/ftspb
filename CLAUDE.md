@@ -152,3 +152,4 @@ Start собирает route-модули и в клиентский, и в се
 - **Lovable не изменяет**: `src/routes/admin/**`, `src/server/**`, `src/db/**`, `drizzle/**`, `scripts/**`, `src/data/**`.
 - Серверные npm-зависимости зоны Claude Code (не удалять и не менять версии без согласования): drizzle-orm, drizzle-kit, postgres, bcryptjs, @aws-sdk/client-s3. Раздел `scripts` в `package.json` — тоже зона Claude Code. Пакеты `@lovable.dev/*` — зона Lovable, не пиннить.
 - Синхронизация — только через merge, без rebase и force-push.
+- Guard в `src/routes/admin/_authed/route.tsx` — навигационный, не граница безопасности. Каждая серверная функция админки обязана проверять сессию самостоятельно: эндпоинты `createServerFn` вызываются по HTTP напрямую.
