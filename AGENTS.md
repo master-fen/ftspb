@@ -21,7 +21,7 @@
 ## Зоны владения
 
 - **Lovable**: публичные страницы и компоненты.
-- **Claude Code**: `/admin`, `src/server/**`, `src/db/**`, `drizzle/**`, `scripts/**`.
-- **Lovable не изменяет**: `src/routes/admin/**`, `src/server/**`, `src/db/**`, `drizzle/**`, `scripts/**`, `src/data/**`.
-- Серверные npm-зависимости зоны Claude Code (не удалять и не менять версии без согласования): drizzle-orm, drizzle-kit, postgres, bcryptjs, @aws-sdk/client-s3. Раздел `scripts` в `package.json` — тоже зона Claude Code. Пакеты `@lovable.dev/*` — зона Lovable, не пиннить.
+- **Claude Code**: `/admin`, `src/server/**`, `src/db/**`, `drizzle/**`, `scripts/**`, `tests/**`.
+- **Lovable не изменяет**: `src/routes/admin/**`, `src/server/**`, `src/db/**`, `drizzle/**`, `scripts/**`, `src/data/**`, `tests/**`.
+- Серверные npm-зависимости зоны Claude Code (не удалять и не менять версии без согласования): drizzle-orm, drizzle-kit, postgres, bcryptjs, @aws-sdk/client-s3, sanitize-html. Раздел `scripts` в `package.json` и каталог `tests/**` — тоже зона Claude Code. Пакеты `@lovable.dev/*` — зона Lovable, не пиннить.
 - Синхронизация — только через merge, без rebase и force-push.

@@ -8,7 +8,7 @@
 - React 19
 - Vite **8.0.16**
 - Tailwind 4
-- Bun **1.3.3** (единственный менеджер пакетов; единственный lock — `bun.lock`)
+- Bun **1.3.14** (единственный менеджер пакетов; единственный lock — `bun.lock`)
 - Nitro preset: `node-server` (деплой на обычный Node.js)
 - Конфиг сборки: `@lovable.dev/vite-tanstack-config` 2.7.7 (все плагины внутри — не добавлять свои в `vite.config.ts`)
 
@@ -129,11 +129,11 @@ Start собирает route-модули и в клиентский, и в се
 
 ## CI
 
-`.github/workflows/ci.yml` — **информационный, не блокирующий**. Запускается на `push` в `main` и на все `pull_request`. Прогоняет `lint`, `prettier --check`, `tsc --noEmit`, `build`.
+`.github/workflows/ci.yml` — **информационный, не блокирующий**. Запускается на `push` в `main` и на все `pull_request`. Прогоняет `lint`, `prettier --check`, `tsc --noEmit`, `build`, `bun test` (job `test`).
 
 Блокирующим CI становится только через branch protection / required status checks, которые здесь не включаем (см. «Топология Git»).
 
-Версия bun в CI зафиксирована (`1.3.3`) — плавающий `bun-version: latest` однажды разойдётся с форматом `bun.lock` и уронит `--frozen-lockfile`.
+Версия bun в CI зафиксирована (`1.3.14`) — плавающий `bun-version: latest` однажды разойдётся с форматом `bun.lock` и уронит `--frozen-lockfile`.
 
 ## Не трогать руками
 
@@ -148,8 +148,10 @@ Start собирает route-модули и в клиентский, и в се
 ## Зоны владения
 
 - **Lovable**: публичные страницы и компоненты.
-- **Claude Code**: `/admin`, `src/server/**`, `src/db/**`, `drizzle/**`, `scripts/**`.
-- **Lovable не изменяет**: `src/routes/admin/**`, `src/server/**`, `src/db/**`, `drizzle/**`, `scripts/**`, `src/data/**`.
-- Серверные npm-зависимости зоны Claude Code (не удалять и не менять версии без согласования): drizzle-orm, drizzle-kit, postgres, bcryptjs, @aws-sdk/client-s3. Раздел `scripts` в `package.json` — тоже зона Claude Code. Пакеты `@lovable.dev/*` — зона Lovable, не пиннить.
+- **Claude Code**: `/admin`, `src/server/**`, `src/db/**`, `drizzle/**`, `scripts/**`, `tests/**`.
+- **Lovable не изменяет**: `src/routes/admin/**`, `src/server/**`, `src/db/**`, `drizzle/**`, `scripts/**`, `src/data/**`, `tests/**`.
+- Серверные npm-зависимости зоны Claude Code (не удалять и не менять версии без согласования): drizzle-orm, drizzle-kit, postgres, bcryptjs, @aws-sdk/client-s3, sanitize-html. Раздел `scripts` в `package.json` и каталог `tests/**` — тоже зона Claude Code. Пакеты `@lovable.dev/*` — зона Lovable, не пиннить.
 - Синхронизация — только через merge, без rebase и force-push.
 - Guard в `src/routes/admin/_authed/route.tsx` — навигационный, не граница безопасности. Каждая серверная функция админки обязана проверять сессию самостоятельно: эндпоинты `createServerFn` вызываются по HTTP напрямую.
+- `gh` допустим только для `gh pr create`, `gh pr view`, `gh pr status`; мердж PR делает человек вручную через веб-интерфейс.
+- Секреты (`DATABASE_URL`, ключи S3, `SESSION_SECRET`) в удалённую сессию агента не передаются; любая работа, требующая живой БД или S3, выполняется только в локальной сессии на машине Антона.
