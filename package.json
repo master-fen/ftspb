@@ -17,7 +17,7 @@
     "db:studio": "drizzle-kit studio",
     "migrate:archive": "bun run scripts/migrate-archive.ts",
     "create-admin": "bun run scripts/create-admin.ts",
-    "check:throttle": "bun run scripts/check-throttle.ts"
+    "test": "bun test"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1101.0",
