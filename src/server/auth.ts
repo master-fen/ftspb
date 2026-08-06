@@ -1,10 +1,13 @@
 import { createHash, randomBytes } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { and, eq, gt, lt } from "drizzle-orm";
+import { getCookie } from "@tanstack/react-start/server";
 import { db } from "@/db/client";
 import { adminSession, adminUser } from "@/db/schema";
 
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
+export const SESSION_COOKIE = "ftspb_admin_session";
 
 /**
  * Bcrypt-хеш (cost 10) фиктивного пароля. Сравнение с ним при отсутствующем
@@ -99,4 +102,25 @@ export async function deleteSession(token: string): Promise<void> {
   const database = requireDb();
   const id = hashToken(token);
   await database.delete(adminSession).where(eq(adminSession.id, id));
+}
+
+export type AdminSessionInfo = { id: string; login: string; displayName: string };
+
+/**
+ * Функция получения текущей сессии: читает cookie и валидирует её —
+ * без побочного эффекта очистки протухшей cookie (тот HTTP-специфичен и
+ * остаётся в `src/lib/auth-server-fn.ts`, единственном месте, откуда должны
+ * вызываться `setCookie`/`deleteCookie`). Вызывается напрямую из
+ * `src/server/**` (например `news-admin.ts`), минуя `createServerFn`-обёртку.
+ */
+export async function getCurrentSession(): Promise<AdminSessionInfo | null> {
+  const token = getCookie(SESSION_COOKIE);
+  if (!token) {
+    return null;
+  }
+  const user = await validateSession(token);
+  if (!user) {
+    return null;
+  }
+  return { id: user.id, login: user.login, displayName: user.displayName };
 }

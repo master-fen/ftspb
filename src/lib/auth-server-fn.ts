@@ -8,7 +8,14 @@ import {
   setCookie,
 } from "@tanstack/react-start/server";
 import { z } from "zod";
-import { createSession, deleteSession, validateSession, verifyLogin } from "@/server/auth";
+import {
+  createSession,
+  deleteSession,
+  getCurrentSession,
+  SESSION_COOKIE,
+  verifyLogin,
+  type AdminSessionInfo,
+} from "@/server/auth";
 import { isLocked, recordFailure, recordSuccess } from "@/server/login-throttle";
 
 /**
@@ -17,7 +24,6 @@ import { isLocked, recordFailure, recordSuccess } from "@/server/login-throttle"
  * обход: тело `.handler()` компилируется только в серверный чанк.
  */
 
-const SESSION_COOKIE = "ftspb_admin_session";
 const SESSION_COOKIE_PATH = "/";
 
 /**
@@ -53,11 +59,7 @@ function sessionCookieOptions(): {
   };
 }
 
-export type AdminSessionInfo = {
-  id: string;
-  login: string;
-  displayName: string;
-};
+export type { AdminSessionInfo };
 
 export type LoginResult =
   | { ok: true }
@@ -113,19 +115,19 @@ export const logoutFn = createServerFn({ method: "POST" }).handler(async () => {
 
 export const getSessionFn = createServerFn({ method: "GET" }).handler(
   async (): Promise<AdminSessionInfo | null> => {
-    const token = getCookie(SESSION_COOKIE);
-    if (!token) {
+    const session = await getCurrentSession();
+    if (!session) {
+      // getCurrentSession() не сообщает, была ли cookie вообще — читаем её
+      // здесь же, чтобы не гасить cookie, которой и не было: токен протух
+      // или сессия удалена в БД — гасим мёртвую cookie, иначе клиент будет
+      // слать её бесконечно.
+      const token = getCookie(SESSION_COOKIE);
+      if (token) {
+        deleteCookie(SESSION_COOKIE, sessionCookieOptions());
+      }
       return null;
     }
 
-    const user = await validateSession(token);
-    if (!user) {
-      // Токен протух или сессия удалена в БД — гасим и мёртвую cookie,
-      // иначе клиент будет слать её бесконечно.
-      deleteCookie(SESSION_COOKIE, sessionCookieOptions());
-      return null;
-    }
-
-    return { id: user.id, login: user.login, displayName: user.displayName };
+    return session;
   },
 );
