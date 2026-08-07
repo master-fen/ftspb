@@ -1,5 +1,10 @@
 import process from "node:process";
-import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import {
+  DeleteObjectCommand,
+  HeadObjectCommand,
+  PutObjectCommand,
+  S3Client,
+} from "@aws-sdk/client-s3";
 
 let cachedClient: { client: S3Client; bucket: string } | null = null;
 
@@ -51,4 +56,15 @@ export async function uploadObject(key: string, body: Buffer, contentType: strin
   await client.send(
     new PutObjectCommand({ Bucket: bucket, Key: key, Body: body, ContentType: contentType }),
   );
+}
+
+export async function headObject(key: string): Promise<{ size: number; etag: string }> {
+  const { client, bucket } = getS3Client();
+  const result = await client.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
+  return { size: result.ContentLength ?? 0, etag: (result.ETag ?? "").replace(/"/g, "") };
+}
+
+export async function deleteObject(key: string): Promise<void> {
+  const { client, bucket } = getS3Client();
+  await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
 }
