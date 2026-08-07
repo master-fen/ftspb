@@ -70,9 +70,6 @@ function NewsDetailPage() {
   const probe = excerptNorm.slice(0, 60);
   const showLead = Boolean(excerptNorm && !(probe.length > 20 && bodyNorm.startsWith(probe)));
 
-  // Фотографии новости: галерея, либо одна обложка.
-  const images = item.gallery?.length ? item.gallery : item.cover ? [item.cover] : [];
-
   return (
     <div className="min-h-screen bg-background">
       <SiteHeader />
@@ -111,7 +108,9 @@ function NewsDetailPage() {
         <div className="mt-8 grid grid-cols-1 gap-8 md:mt-10 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-10">
           {/* Main column */}
           <div className="min-w-0">
-            {images.length > 0 ? <NewsGallery images={images} title={item.title} /> : null}
+            {item.cover || item.gallery?.length ? (
+              <NewsGallery cover={item.cover} gallery={item.gallery ?? []} title={item.title} />
+            ) : null}
 
             {item.body ? (
               <div
