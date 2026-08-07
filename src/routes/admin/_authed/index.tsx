@@ -1,5 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { logoutFn } from "@/lib/auth-server-fn";
 
@@ -31,7 +31,12 @@ function AdminDashboard() {
 
         <section className="rounded-xl border bg-card p-6 text-card-foreground">
           <h2 className="mb-2 text-lg font-semibold">Новости</h2>
-          <p className="text-sm text-muted-foreground">Раздел в разработке.</p>
+          <p className="mb-4 text-sm text-muted-foreground">
+            Создание, редактирование и публикация новостей.
+          </p>
+          <Button asChild>
+            <Link to="/admin/news">Перейти к новостям</Link>
+          </Button>
         </section>
       </div>
     </div>
