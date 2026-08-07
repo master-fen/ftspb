@@ -120,6 +120,21 @@ Start собирает route-модули и в клиентский, и в се
 серверный чанк, на клиенте остаётся RPC-заглушка. Route-файлы импортируют
 такие обёртки, а не модули `src/server` напрямую.
 
+**Уточнение (этап 5, PR фото, проверено сборкой).** Это ограничение не
+действует для роутов, у которых есть только `server.handlers` и нет
+`component`/`loader` (`src/routes/sitemap[.]xml.ts`, `src/routes/api/admin/upload.ts`)
+— такие файлы никогда не попадают в клиентский бандл целиком, router-plugin
+режет их на серверный чанк раньше import-protection. Проверено: пробный
+роут с прямым импортом `src/server/storage.ts` внутри `server.handlers.GET`
+собрался чисто (`bun run build:dev`, exit 0), а `grep` по `.output/public`
+на признаки серверного кода (`aws-sdk`, имена функций) не дал совпадений.
+`src/routes/api/admin/upload.ts` импортирует `src/server/auth.ts` и
+`src/server/news-admin.ts` напрямую — обёртка `createServerFn` тут не
+нужна и не нужна каждый раз, когда роут — чистый `server.handlers` без
+`component`. Правило абзацем выше остаётся в силе для роутов с
+`component`/`loader` (`index.tsx`, `news.$id.tsx` и т.п.) — там прямой
+импорт `src/server` по-прежнему падает на сборке.
+
 ## Правила PR
 
 - Один PR — одна зона.
