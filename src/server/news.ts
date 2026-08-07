@@ -121,10 +121,25 @@ async function loadCache(): Promise<Cache> {
   const items: NewsItem[] = newsRows.map((row) => {
     const photos = photosByNewsId.get(row.id) ?? [];
     const docs = docsByNewsId.get(row.id) ?? [];
-    const gallery = photos.map((photo) => buildImageUrl(photo.s3Key));
-    const coverPhoto = row.coverPhotoId
+
+    // Фолбэк на photos[0] (минимальный position, photos уже отсортирован
+    // запросом выше) — на текущих данных не выполняется ни разу: у всех
+    // новостей с фото coverPhotoId заполнен и указывает на верную строку.
+    // Это состояние, которого после этапа 5 быть не должно — админка
+    // обязана всегда проставлять обложку. Не молчим: если сработало,
+    // значит где-то разошлись данные, это стоит заметить в логах.
+    let coverPhoto = row.coverPhotoId
       ? photos.find((photo) => photo.id === row.coverPhotoId)
       : undefined;
+    if (!coverPhoto && photos.length > 0) {
+      console.warn(
+        `[news] coverPhotoId пуст или не найден среди фото новости, фолбэк на минимальный position: ${row.slug}`,
+      );
+      coverPhoto = photos[0];
+    }
+    const gallery = photos
+      .filter((photo) => photo.id !== coverPhoto?.id)
+      .map((photo) => buildImageUrl(photo.s3Key));
 
     if (row.featured) {
       featuredOrderById.set(row.slug, row.featuredOrder ?? Number.MAX_SAFE_INTEGER);
