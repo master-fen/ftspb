@@ -16,7 +16,7 @@ type Cache = {
 let cache: Cache | null = null;
 
 /** `S3_ENDPOINT`/`S3_BUCKET` заданы всегда вместе с `DATABASE_URL` — иначе БД недостижима. */
-function buildImageUrl(s3Key: string): string {
+export function buildImageUrl(s3Key: string): string {
   const endpoint = process.env.S3_ENDPOINT;
   const bucket = process.env.S3_BUCKET;
   if (!endpoint || !bucket) {
