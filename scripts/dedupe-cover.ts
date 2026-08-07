@@ -19,6 +19,11 @@ const { news, newsPhoto } = schema;
  * на position=0 как обложка и на position=1 как первый элемент галереи —
  * наследие миграции архива), удаляя строку/объект position=1, когда он
  * побайтово совпадает с обложкой.
+ *
+ * Отдельно обрабатывает осиротевшие строки: если position=1 уже удалён из
+ * S3 (например, скрипт ранее отработал на другой схеме, а бакет общий), в
+ * этой схеме удаляется только строка news_photo — объекта в S3 для неё уже
+ * нет.
  */
 
 // ───────────────────────── аргументы ─────────────────────────
@@ -155,7 +160,41 @@ async function preflight(): Promise<{ violations: Violation[]; candidates: Candi
 
 // ───────────────────────── фаза B: обработка ─────────────────────────
 
-type Outcome = "already-clean" | "deleted" | "skipped";
+type Outcome = "already-clean" | "deleted" | "orphan-row" | "skipped";
+
+/**
+ * HeadObject на 404 не гарантирует конкретное имя ошибки на S3-совместимых
+ * эндпоинтах вне AWS — статус-код надёжнее, чем `err.name`.
+ */
+function isS3NotFound(err: unknown): boolean {
+  if (typeof err !== "object" || err === null || !("$metadata" in err)) {
+    return false;
+  }
+  const metadata = (err as { $metadata?: { httpStatusCode?: number } }).$metadata;
+  return metadata?.httpStatusCode === 404;
+}
+
+async function deletePhotoRowAndRenumber(
+  candidate: Candidate,
+  photoToRemove: PhotoRow,
+): Promise<void> {
+  const db = getDb();
+  const remaining = candidate.photos
+    .filter((p) => p.id !== photoToRemove.id)
+    .sort((a, b) => a.position - b.position);
+
+  await db.transaction(async (tx) => {
+    await tx.delete(newsPhoto).where(eq(newsPhoto.id, photoToRemove.id));
+    for (let idx = 0; idx < remaining.length; idx++) {
+      if (remaining[idx].position !== idx) {
+        await tx
+          .update(newsPhoto)
+          .set({ position: idx })
+          .where(eq(newsPhoto.id, remaining[idx].id));
+      }
+    }
+  });
+}
 
 async function processCandidate(candidate: Candidate): Promise<Outcome> {
   const { slug, photos } = candidate;
@@ -166,18 +205,51 @@ async function processCandidate(candidate: Candidate): Promise<Outcome> {
     return "already-clean";
   }
 
+  // Случай 1: обложка не найдена — настоящая проблема, ничего не трогаем.
   let head0: { size: number; etag: string };
-  let head1: { size: number; etag: string };
   try {
     head0 = await headObject(photo0.s3Key);
-    head1 = await headObject(photo1.s3Key);
   } catch (err) {
-    console.warn(
-      `[warn] ${slug}: не удалось прочитать объекты из S3 (${photo0.s3Key} / ${photo1.s3Key}): ${err}`,
-    );
+    if (isS3NotFound(err)) {
+      console.warn(`[warn] ${slug}: обложка не найдена в S3 (${photo0.s3Key})`);
+    } else {
+      console.warn(`[warn] ${slug}: не удалось прочитать обложку из S3 (${photo0.s3Key}): ${err}`);
+    }
     return "skipped";
   }
 
+  // Случай 2: обложка на месте, position=1 отсутствует в S3 — осиротевшая
+  // строка (объект уже удалён прошлым прогоном на другой схеме общего
+  // бакета). Удаляем только строку в БД, deleteObject не вызываем — в S3
+  // удалять нечего.
+  let head1: { size: number; etag: string };
+  try {
+    head1 = await headObject(photo1.s3Key);
+  } catch (err) {
+    if (!isS3NotFound(err)) {
+      console.warn(
+        `[warn] ${slug}: не удалось прочитать position=1 из S3 (${photo1.s3Key}): ${err}`,
+      );
+      return "skipped";
+    }
+
+    if (dryRun) {
+      console.log(
+        `[plan-orphan] ${slug}: удалил бы осиротевшую строку position=1 ` +
+          `(${photo1.s3Key}, объекта в S3 уже нет)`,
+      );
+      return "orphan-row";
+    }
+
+    await deletePhotoRowAndRenumber(candidate, photo1);
+    console.log(
+      `[orphan] ${slug}: удалена осиротевшая строка position=1 ` +
+        `(${photo1.s3Key}, объекта в S3 уже нет)`,
+    );
+    return "orphan-row";
+  }
+
+  // Случай 3: оба найдены — сравнить как раньше.
   const match = head0.size === head1.size && head0.etag === head1.etag;
   if (!match) {
     console.warn(
@@ -195,27 +267,11 @@ async function processCandidate(candidate: Candidate): Promise<Outcome> {
     return "deleted";
   }
 
-  const db = getDb();
-  const remaining = photos
-    .filter((p) => p.id !== photo1.id)
-    .sort((a, b) => a.position - b.position);
-
   // DB-транзакция коммитится первой: если процесс оборвётся между шагами,
   // в БД никогда не останется ссылки на уже удалённый из S3 объект (битая
   // картинка на сайте). В худшем случае в S3 останется безвредный
   // неиспользуемый объект — заметно и безопасно поправить следующим прогоном.
-  await db.transaction(async (tx) => {
-    await tx.delete(newsPhoto).where(eq(newsPhoto.id, photo1.id));
-    for (let idx = 0; idx < remaining.length; idx++) {
-      if (remaining[idx].position !== idx) {
-        await tx
-          .update(newsPhoto)
-          .set({ position: idx })
-          .where(eq(newsPhoto.id, remaining[idx].id));
-      }
-    }
-  });
-
+  await deletePhotoRowAndRenumber(candidate, photo1);
   await deleteObject(photo1.s3Key);
 
   console.log(
@@ -249,12 +305,14 @@ async function main() {
 
   let alreadyClean = 0;
   let deleted = 0;
+  let orphanRows = 0;
   let skippedWarning = 0;
 
   for (const candidate of toProcess) {
     const outcome = await processCandidate(candidate);
     if (outcome === "already-clean") alreadyClean += 1;
     else if (outcome === "deleted") deleted += 1;
+    else if (outcome === "orphan-row") orphanRows += 1;
     else skippedWarning += 1;
   }
 
@@ -263,6 +321,7 @@ async function main() {
   console.log(`Уже чисто: ${alreadyClean}`);
   console.log(`Пропущено с предупреждением: ${skippedWarning}`);
   console.log(`Удалено объектов: ${deleted}`);
+  console.log(`Осиротевших строк удалено: ${orphanRows}`);
 
   if (sqlInstance) {
     await sqlInstance.end();
