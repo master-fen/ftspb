@@ -28,7 +28,7 @@ const NON_TEXT_TAGS = ["script", "style", "textarea", "option", "iframe", "objec
 export function sanitizeBody(html: string): string {
   return sanitizeHtmlLib(html, {
     allowedTags: ALLOWED_TAGS,
-    allowedAttributes: { a: ["href", "title", "target"] },
+    allowedAttributes: { a: ["href", "title", "target", "rel"] },
     allowedSchemes: ["http", "https", "mailto"],
     nonTextTags: NON_TEXT_TAGS,
     transformTags: {
