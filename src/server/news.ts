@@ -197,7 +197,8 @@ export async function getFeaturedAndLatest(): Promise<{
   const { items, featuredOrderById } = await loadCache();
   const featured = items
     .filter((item) => item.featured)
-    .sort((a, b) => (featuredOrderById.get(a.id) ?? 0) - (featuredOrderById.get(b.id) ?? 0));
+    .sort((a, b) => (featuredOrderById.get(a.id) ?? 0) - (featuredOrderById.get(b.id) ?? 0))
+    .slice(0, 3);
   const latest = items.filter((item) => !item.featured).slice(0, 6);
   return { featured, latest };
 }

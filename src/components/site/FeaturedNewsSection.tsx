@@ -26,6 +26,7 @@ export function FeaturedNewsSection({ items = featuredNews }: FeaturedNewsSectio
       if (pausedRef.current) return;
       const track = trackRef.current;
       if (!track || track.clientWidth === 0) return;
+      if (items.length === 0) return;
       const next = (Math.round(track.scrollLeft / track.clientWidth) + 1) % items.length;
       track.scrollTo({ left: next * track.clientWidth, behavior: "smooth" });
     }, 4500);
@@ -77,15 +78,21 @@ export function FeaturedNewsSection({ items = featuredNews }: FeaturedNewsSectio
 
       {/* Desktop/tablet: 2/3 hero + stacked pair */}
       <div className="mt-6 hidden gap-5 md:grid md:grid-cols-3 md:grid-rows-2 md:[grid-auto-rows:1fr]">
-        <div className="md:col-span-2 md:row-span-2 md:aspect-[4/3]">
-          <NewsCard item={hero} size="hero" priority />
-        </div>
-        <div className="md:col-span-1 md:row-span-1">
-          <NewsCard item={second} />
-        </div>
-        <div className="md:col-span-1 md:row-span-1">
-          <NewsCard item={third} />
-        </div>
+        {hero && (
+          <div className="md:col-span-2 md:row-span-2 md:aspect-[4/3]">
+            <NewsCard item={hero} size="hero" priority />
+          </div>
+        )}
+        {second && (
+          <div className="md:col-span-1 md:row-span-1">
+            <NewsCard item={second} />
+          </div>
+        )}
+        {third && (
+          <div className="md:col-span-1 md:row-span-1">
+            <NewsCard item={third} />
+          </div>
+        )}
       </div>
     </section>
   );
