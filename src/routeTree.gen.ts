@@ -28,6 +28,9 @@ import { Route as FederationDocumentsRouteImport } from './routes/federation.doc
 import { Route as AdminLoginRouteImport } from './routes/admin/login'
 import { Route as AdminAuthedRouteRouteImport } from './routes/admin/_authed/route'
 import { Route as AdminAuthedIndexRouteImport } from './routes/admin/_authed/index'
+import { Route as AdminAuthedNewsIndexRouteImport } from './routes/admin/_authed/news.index'
+import { Route as AdminAuthedNewsNewRouteImport } from './routes/admin/_authed/news.new'
+import { Route as AdminAuthedNewsIdRouteImport } from './routes/admin/_authed/news.$id'
 
 const TournamentsRoute = TournamentsRouteImport.update({
   id: '/tournaments',
@@ -123,6 +126,21 @@ const AdminAuthedIndexRoute = AdminAuthedIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AdminAuthedRouteRoute,
 } as any)
+const AdminAuthedNewsIndexRoute = AdminAuthedNewsIndexRouteImport.update({
+  id: '/news/',
+  path: '/news/',
+  getParentRoute: () => AdminAuthedRouteRoute,
+} as any)
+const AdminAuthedNewsNewRoute = AdminAuthedNewsNewRouteImport.update({
+  id: '/news/new',
+  path: '/news/new',
+  getParentRoute: () => AdminAuthedRouteRoute,
+} as any)
+const AdminAuthedNewsIdRoute = AdminAuthedNewsIdRouteImport.update({
+  id: '/news/$id',
+  path: '/news/$id',
+  getParentRoute: () => AdminAuthedRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -143,6 +161,9 @@ export interface FileRoutesByFullPath {
   '/federation/': typeof FederationIndexRoute
   '/news/': typeof NewsIndexRoute
   '/admin/': typeof AdminAuthedIndexRoute
+  '/admin/news/$id': typeof AdminAuthedNewsIdRoute
+  '/admin/news/new': typeof AdminAuthedNewsNewRoute
+  '/admin/news/': typeof AdminAuthedNewsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -162,6 +183,9 @@ export interface FileRoutesByTo {
   '/news/$newsId': typeof NewsNewsIdRoute
   '/federation': typeof FederationIndexRoute
   '/news': typeof NewsIndexRoute
+  '/admin/news/$id': typeof AdminAuthedNewsIdRoute
+  '/admin/news/new': typeof AdminAuthedNewsNewRoute
+  '/admin/news': typeof AdminAuthedNewsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -184,6 +208,9 @@ export interface FileRoutesById {
   '/federation/': typeof FederationIndexRoute
   '/news/': typeof NewsIndexRoute
   '/admin/_authed/': typeof AdminAuthedIndexRoute
+  '/admin/_authed/news/$id': typeof AdminAuthedNewsIdRoute
+  '/admin/_authed/news/new': typeof AdminAuthedNewsNewRoute
+  '/admin/_authed/news/': typeof AdminAuthedNewsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -206,6 +233,9 @@ export interface FileRouteTypes {
     | '/federation/'
     | '/news/'
     | '/admin/'
+    | '/admin/news/$id'
+    | '/admin/news/new'
+    | '/admin/news/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -225,6 +255,9 @@ export interface FileRouteTypes {
     | '/news/$newsId'
     | '/federation'
     | '/news'
+    | '/admin/news/$id'
+    | '/admin/news/new'
+    | '/admin/news'
   id:
     | '__root__'
     | '/'
@@ -246,6 +279,9 @@ export interface FileRouteTypes {
     | '/federation/'
     | '/news/'
     | '/admin/_authed/'
+    | '/admin/_authed/news/$id'
+    | '/admin/_authed/news/new'
+    | '/admin/_authed/news/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -402,15 +438,42 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAuthedIndexRouteImport
       parentRoute: typeof AdminAuthedRouteRoute
     }
+    '/admin/_authed/news/': {
+      id: '/admin/_authed/news/'
+      path: '/news'
+      fullPath: '/admin/news/'
+      preLoaderRoute: typeof AdminAuthedNewsIndexRouteImport
+      parentRoute: typeof AdminAuthedRouteRoute
+    }
+    '/admin/_authed/news/new': {
+      id: '/admin/_authed/news/new'
+      path: '/news/new'
+      fullPath: '/admin/news/new'
+      preLoaderRoute: typeof AdminAuthedNewsNewRouteImport
+      parentRoute: typeof AdminAuthedRouteRoute
+    }
+    '/admin/_authed/news/$id': {
+      id: '/admin/_authed/news/$id'
+      path: '/news/$id'
+      fullPath: '/admin/news/$id'
+      preLoaderRoute: typeof AdminAuthedNewsIdRouteImport
+      parentRoute: typeof AdminAuthedRouteRoute
+    }
   }
 }
 
 interface AdminAuthedRouteRouteChildren {
   AdminAuthedIndexRoute: typeof AdminAuthedIndexRoute
+  AdminAuthedNewsIdRoute: typeof AdminAuthedNewsIdRoute
+  AdminAuthedNewsNewRoute: typeof AdminAuthedNewsNewRoute
+  AdminAuthedNewsIndexRoute: typeof AdminAuthedNewsIndexRoute
 }
 
 const AdminAuthedRouteRouteChildren: AdminAuthedRouteRouteChildren = {
   AdminAuthedIndexRoute: AdminAuthedIndexRoute,
+  AdminAuthedNewsIdRoute: AdminAuthedNewsIdRoute,
+  AdminAuthedNewsNewRoute: AdminAuthedNewsNewRoute,
+  AdminAuthedNewsIndexRoute: AdminAuthedNewsIndexRoute,
 }
 
 const AdminAuthedRouteRouteWithChildren =
