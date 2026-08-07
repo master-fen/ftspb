@@ -17,7 +17,7 @@ export type NewsItem = {
   attachments?: NewsAttachment[];
   /** Отсутствует, если у новости нет изображения — в списках показывается заглушка. */
   cover?: string;
-  /** Все фотографии новости (первая обычно совпадает с cover). */
+  /** Дополнительные фотографии новости, без обложки (см. cover), position ASC. */
   gallery?: string[];
   featured?: boolean;
 };

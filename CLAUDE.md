@@ -79,6 +79,18 @@ Lovable без loader'а и как safety-net при случайном отка
 восстанавливать его как основной источник данных**. Дальше эти два файла — не
 Lovable-зона без повторного согласования.
 
+**Исключение (согласовано 07.08.2026, этап 5, обложка новости):**
+`src/components/site/NewsGallery.tsx` и JSX страницы новости
+(`src/routes/news.$newsId.tsx`) получают обложку и галерею раздельно из
+`loader` — пропсы `cover?: string` и `gallery: string[]` (было: один плоский
+список `images`, первый элемент которого рисовался как обложка). Источник —
+`item.cover`/`item.gallery` из `src/server/news.ts`, где обложка теперь
+определяется по `cover_photo_id`, а не по позиции в списке. Плоский список
+`images = item.gallery?.length ? item.gallery : [item.cover]` — не
+восстанавливать: это и был баг (обложка задваивалась миниатюрой). Дальше
+`NewsGallery.tsx` и JSX этого route — не Lovable-зона без повторного
+согласования.
+
 ### Claude Code
 
 - `src/lib/**` — в т.ч. `src/lib/types/**` и `src/lib/news-server-fn.ts`

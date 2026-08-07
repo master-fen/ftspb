@@ -4,15 +4,19 @@ import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { NewsImage } from "./NewsImage";
 
 type NewsGalleryProps = {
-  images: string[];
+  cover?: string;
+  gallery: string[];
   title: string;
 };
 
 /**
- * Просмотрщик фотографий новости: главное изображение + сетка миниатюр,
- * по клику — лайтбокс с навигацией (стрелки, клавиатура, свайп).
+ * Просмотрщик фотографий новости: обложка крупно (hero) + сетка миниатюр
+ * из остальных фото, по клику — лайтбокс с навигацией (стрелки, клавиатура,
+ * свайп) по обложке и галерее вместе.
  */
-export function NewsGallery({ images, title }: NewsGalleryProps) {
+export function NewsGallery({ cover, gallery, title }: NewsGalleryProps) {
+  const images = cover ? [cover, ...gallery] : gallery;
+  const coverOffset = cover ? 1 : 0;
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -45,35 +49,37 @@ export function NewsGallery({ images, title }: NewsGalleryProps) {
 
   return (
     <>
-      <figure className="overflow-hidden rounded-2xl bg-muted shadow-sm ring-1 ring-black/5">
-        <button
-          type="button"
-          onClick={() => setOpenIndex(0)}
-          aria-label="Открыть фотографию"
-          className="flex w-full cursor-zoom-in justify-center"
-        >
-          <img
-            src={images[0]}
-            alt={title}
-            className="max-h-[680px] w-auto max-w-full object-contain"
-          />
-        </button>
-      </figure>
+      {cover ? (
+        <figure className="overflow-hidden rounded-2xl bg-muted shadow-sm ring-1 ring-black/5">
+          <button
+            type="button"
+            onClick={() => setOpenIndex(0)}
+            aria-label="Открыть фотографию"
+            className="flex w-full cursor-zoom-in justify-center"
+          >
+            <img
+              src={cover}
+              alt={title}
+              className="max-h-[680px] w-auto max-w-full object-contain"
+            />
+          </button>
+        </figure>
+      ) : null}
 
-      {hasMany ? (
+      {gallery.length > 0 ? (
         <>
           <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-4 md:gap-3">
-            {images.slice(1).map((src, i) => (
+            {gallery.map((src, i) => (
               <button
                 key={src}
                 type="button"
-                onClick={() => setOpenIndex(i + 1)}
-                aria-label={`Фото ${i + 2} из ${images.length}`}
+                onClick={() => setOpenIndex(i + coverOffset)}
+                aria-label={`Фото ${i + coverOffset + 1} из ${images.length}`}
                 className="aspect-[4/3] overflow-hidden rounded-lg bg-muted ring-1 ring-black/5 transition-opacity hover:opacity-85"
               >
                 <NewsImage
                   src={src}
-                  alt={`${title} — фото ${i + 2}`}
+                  alt={`${title} — фото ${i + coverOffset + 1}`}
                   className="h-full w-full object-cover"
                 />
               </button>
