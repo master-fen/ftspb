@@ -1,103 +1,57 @@
-## Комбинированный подход к Prettier + Topology A (все правки внесены)
+# Починить окно превью (403 «Blocked request»)
 
-### Шаг 0. Расширить `.prettierignore`
+## Что происходит
 
-Текущий файл уже содержит `routeTree.gen.ts` (без пути — покрывает файл в любой директории) и `bun.lock`. Добавляем только недостающее:
+Приложение работает: локальный дев-сервер отвечает `200` и отдаёт корректный HTML,
+в одном из открытых окон превью (домен `*.lovableproject.com`) страница отрисована
+нормально.
 
-```
-.lovable/
-AGENTS.md
-src/routes/README.md
-```
+Но запрос с хостом окна превью блокируется дев-сервером Vite:
 
-`src/routeTree.gen.ts` дублировать не нужно — покрыт существующей строкой `routeTree.gen.ts`.
-
-### Шаг 1. Одноразовый форматирующий коммит
-
-```
-bunx prettier --write .
+```text
+curl -H "Host: id-preview--<project-id>.lovable.app" http://localhost:8080/
+→ 403 Forbidden
+  Blocked request. This host ("id-preview--<project-id>.lovable.app") is not allowed.
+  To allow this host, add it to `server.allowedHosts` in vite.config.js.
 ```
 
-Список изменённых файлов из вывода приведу в отчёте. Коммит только с форматированием, без других правок.
+Это встроенная защита Vite от DNS-rebinding: она пропускает только localhost и
+IP-адреса, если список разрешённых хостов не задан явно. В `vite.config.ts`
+`server.allowedHosts` нет, и `@lovable.dev/vite-tanstack-config` его тоже не
+проставляет — поэтому окно превью на домене `lovable.app` получает 403, а
+задеплоенный сайт (там нет дев-сервера Vite) работает как обычно.
 
-### Шаг 2. Проверка + честный отчёт по exit code
+Правки через Claude Code тут не при чём — это конфигурация дев-сервера.
 
-```
-bunx prettier --check .
-echo $?
-```
+## Что сделать
 
-Дословно stdout+stderr и exit-код отдельной строкой. Про противоречие из прошлого отчёта (exit 0 при 12 файлах) — не выдумываю причину, назову по факту после запуска.
+1. В `vite.config.ts` добавить разрешённые хосты превью Lovable — только это,
+   без новых плагинов и без изменения `nitro.preset`:
 
-### Шаг 3. CI сохраняет `bunx prettier --check .`
+   ```ts
+   export default defineConfig({
+     nitro: { preset: "node-server" },
+     vite: {
+       server: {
+         allowedHosts: [".lovable.app", ".lovableproject.com", ".lovable.dev"],
+       },
+     },
+   });
+   ```
 
-Информационный, не блокирующий (см. 4.2).
+   Опция прокидывается через `options.vite` и в sandbox-режиме не вырезается
+   (обрезаются только `headers`, `cors`, `proxy`).
 
-### Шаг 4. Topology A — файлы
+2. Перезапустить дев-сервер и проверить, что запрос с хостом превью отдаёт `200`,
+   а не `403`.
 
-#### 4.1. `CLAUDE.md`
+3. Проверить оба окна превью (`lovable.app` и `lovableproject.com`) на живой
+   отрисовке главной страницы и страницы новости, плюс отсутствие ошибок в консоли.
 
-- **Стек:** TanStack Start 1.168, React 19, Vite 8.0.16, Tailwind 4, Bun **1.3.3**, Nitro preset `node-server`.
-- **Git-правила:** запрет `rebase`, `push --force`, `commit --amend`, `merge --squash` над запушенной историей. Синхронизация с `main` — только `git merge origin/main`. Ссылка на `AGENTS.md` и его маркеры `<!-- LOVABLE:BEGIN --> … <!-- LOVABLE:END -->`.
-- **Топология:** Lovable пушит прямо в `main` (никаких «Lovable-веток»). Claude Code — ветки `claude/<feature>` и PR в `main`. `main` **не защищаем**.
-- **Первичная настройка клона (один раз):**
-  ```
-  git config merge.ours.driver true
-  ```
-  На CI и у Lovable драйвер не объявлен — там `.gitattributes merge=ours` no-op, поэтому после мерджа с `main` обязательна регенерация `routeTree.gen.ts` через `bun run build:dev` отдельным коммитом.
-- **Локальные проверки перед пушем:** `bun run lint`, `bunx tsc --noEmit`, `bunx prettier --check .`, `bun run build`. (`tsc`, **не `tsgo`** — tsgo в devDependencies нет, ставить = трогать `bun.lock` без причины.)
-- **Зоны ответственности:**
-  - **Lovable:** `src/routes/*` — **только JSX/разметка/стили внутри маршрута**, `src/components/**`, `src/styles.css`, `src/assets/**`, `src/data/mock.ts` (пока жив), `vite.config.ts`.
-  - **Claude Code:** `src/lib/**` (в т.ч. будущие `src/lib/api.ts` и `src/lib/types/**`), **`loader` и `head()` внутри route-файлов — отдельным коммитом с префиксом `chore(loader):`** (head() читает loaderData, разрывать их по владельцам вредно), `public/robots.txt`, `public/sitemap.xml`, `.github/workflows/**`, `CLAUDE.md`, `.gitattributes`, deploy-артефакты.
-- **TODO по `src/data/mock.ts` (владелец — Lovable, выполнить когда Claude Code начнёт `src/lib/api.ts`):**
-  1. Вынести типы `NewsItem`, `NewsCategory`, `NewsAttachment`, `NewsAttachment["kind"]`, `NavSection`, `NavChild` из `src/data/mock.ts` в `src/lib/types/news.ts` и `src/lib/types/nav.ts`.
-  2. Обновить все импорты `@/data/mock` в компонентах на новые пути типов.
-  3. Только после этого Claude Code пишет `src/lib/api.ts`, использующий эти типы, и подключает его через `loader` в route-файлах (`chore(loader):`).
-  4. Fallback на моки при недоступном API не делаем — при ошибке error state / пустой список / сообщение об ошибке.
-- **Не трогать руками:** `src/routeTree.gen.ts`, `.lovable/`, `.workspace/skills/`, `AGENTS.md` (только вне маркеров), `src/routes/README.md`, `src/lib/lovable-error-reporting.ts`, `src/lib/error-capture.ts`, `src/lib/error-page.ts`, `bun.lock` (только через `bun install`/`bun add`), `vite.config.ts` (плагины не добавляем, nitro preset — только по согласованию).
-- **PR:** один PR — одна зона. Префиксы: `feat:`, `fix:`, `chore(loader):`, `chore(deploy):`, `chore(ci):`.
+## Технические детали
 
-#### 4.2. `.github/workflows/ci.yml` — информационный, не блокирующий
-
-Блокирующим CI становится только через branch protection / required status checks. `main` не защищаем — прямые пуши Lovable упрутся в защиту.
-
-```yaml
-name: CI
-on:
-  push:
-    branches: [main]
-  pull_request:
-jobs:
-  check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.3.3
-      - run: bun install --frozen-lockfile
-      - run: bun run lint
-      - run: bunx prettier --check .
-      - run: bunx tsc --noEmit
-      - run: bun run build
-```
-
-Bun зафиксирован по локальной версии (`bun --version` → `1.3.3`), чтобы `--frozen-lockfile` не сломался о плавающий формат `bun.lock`.
-
-#### 4.3. `.gitattributes`
-
-```
-src/routeTree.gen.ts merge=ours linguist-generated=true
-bun.lock linguist-generated=true
-```
-
-- `bun.lock` — только `linguist-generated=true`, без `merge=ours` (для lock-файла опасно: молча оставит свою версию и разойдётся с `package.json` → `--frozen-lockfile` упадёт; конфликты решаются регенерацией через `bun install`).
-- `routeTree.gen.ts` — `merge=ours` + `linguist-generated=true`.
-
-### Порядок применения
-
-1. Правка `.prettierignore` (шаг 0) — коммит `chore: extend .prettierignore`.
-2. `bunx prettier --write .` (шаг 1) — коммит `style: apply prettier formatting`, только форматирование.
-3. `bunx prettier --check .` + `echo $?` (шаг 2) — привожу вывод и exit-код.
-4. Создание `CLAUDE.md`, `.github/workflows/ci.yml`, `.gitattributes` — коммит `chore(ci): add CLAUDE.md, CI workflow, .gitattributes`.
-5. Прогон `bun run lint`, `bunx tsc --noEmit`, `bunx prettier --check .`, `bun run build` — привожу фактический вывод. Если красное — не «чиню молча».
+- Файл затрагивается один: `vite.config.ts` (зона Lovable).
+- Зоны Claude Code (`src/server/**`, `src/db/**`, `drizzle/**`, `scripts/**`,
+  `src/data/**`, `src/start.ts`, раздел `scripts` в `package.json`) не трогаем.
+- Предупреждение Vite про `vite-tsconfig-paths` — безобидное, к поломке превью
+  отношения не имеет; в рамках этой задачи не меняем.
