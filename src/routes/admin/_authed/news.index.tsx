@@ -190,7 +190,7 @@ function AdminNewsList() {
                         {row.status === "published" ? "Опубликовано" : "Черновик"}
                       </Badge>
                     </TableCell>
-                    <TableCell>{row.featured ? "Да" : "—"}</TableCell>
+                    <TableCell>{row.featured ? `★ ${row.featuredOrder ?? "—"}` : "—"}</TableCell>
                     <TableCell>{row.photoCount}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">

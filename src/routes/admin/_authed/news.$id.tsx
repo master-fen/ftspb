@@ -24,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import {
   checkSlugAvailable,
@@ -47,6 +48,8 @@ const formSchema = z.object({
   excerpt: z.string(),
   body: z.string(),
   status: z.enum(["draft", "published"]),
+  featured: z.boolean(),
+  featuredOrder: z.number().int().min(0),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -93,6 +96,8 @@ function NewsEditForm({
     section: "federation" | "referees" | null;
     status: "draft" | "published";
     coverPhotoId: string | null;
+    featured: boolean;
+    featuredOrder: number | null;
   };
 }) {
   const [persisted, setPersisted] = useState({ slug: news.slug, status: news.status });
@@ -111,6 +116,8 @@ function NewsEditForm({
       excerpt: news.excerpt ?? "",
       body: news.body ?? "",
       status: news.status,
+      featured: news.featured,
+      featuredOrder: news.featuredOrder ?? 0,
     },
   });
 
@@ -120,6 +127,7 @@ function NewsEditForm({
   const watchedSlug = form.watch("slug");
   const watchedTitle = form.watch("title");
   const watchedPublishedAt = form.watch("publishedAt");
+  const watchedFeatured = form.watch("featured");
 
   useEffect(() => {
     if (!isDirty) {
@@ -163,6 +171,8 @@ function NewsEditForm({
             excerpt: values.excerpt.trim() ? values.excerpt : null,
             body: values.body.trim() ? values.body : null,
             status: values.status,
+            featured: values.featured,
+            featuredOrder: values.featured ? values.featuredOrder : null,
           },
         },
       }),
@@ -350,6 +360,50 @@ function NewsEditForm({
                 </FormItem>
               )}
             />
+
+            <div className="space-y-4 rounded-lg border p-4">
+              <h3 className="text-sm font-medium text-foreground">Главная страница</h3>
+
+              <FormField
+                control={form.control}
+                name="featured"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center gap-2 space-y-0">
+                    <FormControl>
+                      <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                    </FormControl>
+                    <FormLabel className="font-normal">Показывать на главной странице</FormLabel>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="featuredOrder"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Порядок</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min={0}
+                        step={1}
+                        disabled={!watchedFeatured}
+                        value={field.value}
+                        onChange={(e) => field.onChange(e.target.valueAsNumber || 0)}
+                        className="w-24"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <p className="text-[0.8rem] text-muted-foreground">
+                На главной показываются три новости. Порядок 0 — большая карточка слева, 1 и 2 —
+                маленькие справа. Остальные отмеченные остаются в общей ленте.
+              </p>
+            </div>
 
             <Button type="submit" disabled={mutation.isPending}>
               {mutation.isPending ? "Сохраняем…" : "Сохранить"}
