@@ -1,10 +1,13 @@
+import { randomBytes } from "node:crypto";
 import { and, asc, desc, eq, ilike, inArray, isNull, ne, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { news, newsPhoto } from "@/db/schema";
+import { EXTENSION_BY_TYPE, type SupportedImageType } from "@/lib/image-validation";
 import { getCurrentSession } from "@/server/auth";
-import { resetNewsCache } from "@/server/news";
+import { buildImageUrl, resetNewsCache } from "@/server/news";
 import { sanitizeBody } from "@/server/sanitize";
 import { slugify } from "@/server/slug";
+import { deleteObject, objectExists, uploadObject } from "@/server/storage";
 
 type NewsRow = typeof news.$inferSelect;
 type NewsPhotoRow = typeof newsPhoto.$inferSelect;
@@ -360,4 +363,77 @@ export async function getNewsSlug(id: string): Promise<string> {
     throw new Error(`Новость не найдена: ${id}`);
   }
   return row.slug;
+}
+
+async function pickUniqueKey(slug: string, ext: string): Promise<string> {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const candidate = `news/${slug}/u${randomBytes(4).toString("hex")}.${ext}`;
+    if (!(await objectExists(candidate))) {
+      return candidate;
+    }
+  }
+  throw new Error("Не удалось подобрать уникальный ключ файла");
+}
+
+export type UploadPhotoInput = { newsId: string; contentType: SupportedImageType; body: Buffer };
+
+export async function uploadNewsPhoto(
+  input: UploadPhotoInput,
+): Promise<{ id: string; key: string; url: string }> {
+  await requireSession();
+  const slug = await getNewsSlug(input.newsId); // уже проверяет сессию и существование новости
+  const ext = EXTENSION_BY_TYPE[input.contentType];
+  const key = await pickUniqueKey(slug, ext);
+  await uploadObject(key, input.body, input.contentType);
+
+  let photo: NewsPhotoRow;
+  try {
+    photo = await addPhoto({ newsId: input.newsId, key });
+  } catch (error) {
+    // Объект уже залит в публичный бакет, а строка в БД не создалась — не
+    // оставляем висячий файл, на который никто не ссылается.
+    try {
+      await deleteObject(key);
+    } catch (cleanupError) {
+      console.warn(
+        `[news-admin] не удалось откатить объект S3 после сбоя addPhoto: ${key}`,
+        cleanupError,
+      );
+    }
+    throw error; // исходная ошибка, не подменяется ошибкой отката
+  }
+
+  return { id: photo.id, key, url: buildImageUrl(key) };
+}
+
+/** Фото этой новости с готовым URL — отдельно от `getAdminNews`, чтобы
+ * галерея обновлялась независимым запросом, не задевая форму новости. */
+export async function listNewsPhotos(newsId: string): Promise<(NewsPhotoRow & { url: string })[]> {
+  await requireSession();
+  const database = requireDb();
+  const photos = await database
+    .select()
+    .from(newsPhoto)
+    .where(eq(newsPhoto.newsId, newsId))
+    .orderBy(asc(newsPhoto.position));
+  return photos.map((p) => ({ ...p, url: buildImageUrl(p.s3Key) }));
+}
+
+export async function deletePhotoAndS3Object(id: string): Promise<void> {
+  await requireSession();
+  const database = requireDb();
+  const [row] = await database
+    .select({ s3Key: newsPhoto.s3Key })
+    .from(newsPhoto)
+    .where(eq(newsPhoto.id, id))
+    .limit(1);
+  if (!row) {
+    throw new Error("Фото не найдено");
+  }
+  await deletePhoto(id); // существующая функция, без изменений
+  try {
+    await deleteObject(row.s3Key); // существующая функция, без изменений
+  } catch (error) {
+    console.warn(`[news-admin] не удалось удалить объект S3: ${row.s3Key}`, error);
+  }
 }

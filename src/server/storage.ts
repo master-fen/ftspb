@@ -68,3 +68,25 @@ export async function deleteObject(key: string): Promise<void> {
   const { client, bucket } = getS3Client();
   await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
 }
+
+/**
+ * HeadObject на 404 не гарантирует конкретное имя ошибки на S3-совместимых
+ * эндпоинтах вне AWS (Timeweb) — статус-код надёжнее, чем `err.name`.
+ */
+export function isS3NotFound(err: unknown): boolean {
+  if (typeof err !== "object" || err === null || !("$metadata" in err)) {
+    return false;
+  }
+  const metadata = (err as { $metadata?: { httpStatusCode?: number } }).$metadata;
+  return metadata?.httpStatusCode === 404;
+}
+
+export async function objectExists(key: string): Promise<boolean> {
+  try {
+    await headObject(key);
+    return true;
+  } catch (error) {
+    if (isS3NotFound(error)) return false;
+    throw error;
+  }
+}

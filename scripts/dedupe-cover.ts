@@ -4,7 +4,7 @@ import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { TIMEWEB_CA } from "../src/db/ca";
 import * as schema from "../src/db/schema";
-import { deleteObject, headObject } from "../src/server/storage";
+import { deleteObject, headObject, isS3NotFound } from "../src/server/storage";
 
 const { news, newsPhoto } = schema;
 
@@ -161,18 +161,6 @@ async function preflight(): Promise<{ violations: Violation[]; candidates: Candi
 // ───────────────────────── фаза B: обработка ─────────────────────────
 
 type Outcome = "already-clean" | "deleted" | "orphan-row" | "skipped";
-
-/**
- * HeadObject на 404 не гарантирует конкретное имя ошибки на S3-совместимых
- * эндпоинтах вне AWS — статус-код надёжнее, чем `err.name`.
- */
-function isS3NotFound(err: unknown): boolean {
-  if (typeof err !== "object" || err === null || !("$metadata" in err)) {
-    return false;
-  }
-  const metadata = (err as { $metadata?: { httpStatusCode?: number } }).$metadata;
-  return metadata?.httpStatusCode === 404;
-}
 
 async function deletePhotoRowAndRenumber(
   candidate: Candidate,

@@ -31,6 +31,7 @@ import {
   suggestSlug,
   updateNews,
 } from "@/lib/news-admin-server-fn";
+import { NewsPhotoGallery } from "./-components/NewsPhotoGallery";
 
 export const Route = createFileRoute("/admin/_authed/news/$id")({
   component: AdminNewsEdit,
@@ -91,6 +92,7 @@ function NewsEditForm({
     body: string | null;
     section: "federation" | "referees" | null;
     status: "draft" | "published";
+    coverPhotoId: string | null;
   };
 }) {
   const [persisted, setPersisted] = useState({ slug: news.slug, status: news.status });
@@ -355,9 +357,7 @@ function NewsEditForm({
           </form>
         </Form>
 
-        <div className="mt-8 rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-          Фотографии — следующий шаг
-        </div>
+        <NewsPhotoGallery newsId={id} coverPhotoId={news.coverPhotoId} />
       </CardContent>
     </Card>
   );

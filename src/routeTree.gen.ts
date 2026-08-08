@@ -28,6 +28,7 @@ import { Route as FederationDocumentsRouteImport } from './routes/federation.doc
 import { Route as AdminLoginRouteImport } from './routes/admin/login'
 import { Route as AdminAuthedRouteRouteImport } from './routes/admin/_authed/route'
 import { Route as AdminAuthedIndexRouteImport } from './routes/admin/_authed/index'
+import { Route as ApiAdminUploadRouteImport } from './routes/api/admin/upload'
 import { Route as AdminAuthedNewsIndexRouteImport } from './routes/admin/_authed/news.index'
 import { Route as AdminAuthedNewsNewRouteImport } from './routes/admin/_authed/news.new'
 import { Route as AdminAuthedNewsIdRouteImport } from './routes/admin/_authed/news.$id'
@@ -126,6 +127,11 @@ const AdminAuthedIndexRoute = AdminAuthedIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AdminAuthedRouteRoute,
 } as any)
+const ApiAdminUploadRoute = ApiAdminUploadRouteImport.update({
+  id: '/api/admin/upload',
+  path: '/api/admin/upload',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminAuthedNewsIndexRoute = AdminAuthedNewsIndexRouteImport.update({
   id: '/news/',
   path: '/news/',
@@ -160,6 +166,7 @@ export interface FileRoutesByFullPath {
   '/news/$newsId': typeof NewsNewsIdRoute
   '/federation/': typeof FederationIndexRoute
   '/news/': typeof NewsIndexRoute
+  '/api/admin/upload': typeof ApiAdminUploadRoute
   '/admin/': typeof AdminAuthedIndexRoute
   '/admin/news/$id': typeof AdminAuthedNewsIdRoute
   '/admin/news/new': typeof AdminAuthedNewsNewRoute
@@ -183,6 +190,7 @@ export interface FileRoutesByTo {
   '/news/$newsId': typeof NewsNewsIdRoute
   '/federation': typeof FederationIndexRoute
   '/news': typeof NewsIndexRoute
+  '/api/admin/upload': typeof ApiAdminUploadRoute
   '/admin/news/$id': typeof AdminAuthedNewsIdRoute
   '/admin/news/new': typeof AdminAuthedNewsNewRoute
   '/admin/news': typeof AdminAuthedNewsIndexRoute
@@ -207,6 +215,7 @@ export interface FileRoutesById {
   '/news/$newsId': typeof NewsNewsIdRoute
   '/federation/': typeof FederationIndexRoute
   '/news/': typeof NewsIndexRoute
+  '/api/admin/upload': typeof ApiAdminUploadRoute
   '/admin/_authed/': typeof AdminAuthedIndexRoute
   '/admin/_authed/news/$id': typeof AdminAuthedNewsIdRoute
   '/admin/_authed/news/new': typeof AdminAuthedNewsNewRoute
@@ -232,6 +241,7 @@ export interface FileRouteTypes {
     | '/news/$newsId'
     | '/federation/'
     | '/news/'
+    | '/api/admin/upload'
     | '/admin/'
     | '/admin/news/$id'
     | '/admin/news/new'
@@ -255,6 +265,7 @@ export interface FileRouteTypes {
     | '/news/$newsId'
     | '/federation'
     | '/news'
+    | '/api/admin/upload'
     | '/admin/news/$id'
     | '/admin/news/new'
     | '/admin/news'
@@ -278,6 +289,7 @@ export interface FileRouteTypes {
     | '/news/$newsId'
     | '/federation/'
     | '/news/'
+    | '/api/admin/upload'
     | '/admin/_authed/'
     | '/admin/_authed/news/$id'
     | '/admin/_authed/news/new'
@@ -301,6 +313,7 @@ export interface RootRouteChildren {
   NewsNewsIdRoute: typeof NewsNewsIdRoute
   FederationIndexRoute: typeof FederationIndexRoute
   NewsIndexRoute: typeof NewsIndexRoute
+  ApiAdminUploadRoute: typeof ApiAdminUploadRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -438,6 +451,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAuthedIndexRouteImport
       parentRoute: typeof AdminAuthedRouteRoute
     }
+    '/api/admin/upload': {
+      id: '/api/admin/upload'
+      path: '/api/admin/upload'
+      fullPath: '/api/admin/upload'
+      preLoaderRoute: typeof ApiAdminUploadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/_authed/news/': {
       id: '/admin/_authed/news/'
       path: '/news'
@@ -510,6 +530,7 @@ const rootRouteChildren: RootRouteChildren = {
   NewsNewsIdRoute: NewsNewsIdRoute,
   FederationIndexRoute: FederationIndexRoute,
   NewsIndexRoute: NewsIndexRoute,
+  ApiAdminUploadRoute: ApiAdminUploadRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

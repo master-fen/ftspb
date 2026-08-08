@@ -3,12 +3,17 @@ import { z } from "zod";
 import {
   checkSlugAvailable as checkSlugAvailableImpl,
   createNews as createNewsImpl,
+  deletePhotoAndS3Object as deletePhotoAndS3ObjectImpl,
   getAdminNews as getAdminNewsImpl,
   listAdminNews as listAdminNewsImpl,
+  listNewsPhotos as listNewsPhotosImpl,
+  reorderPhotos as reorderPhotosImpl,
   restoreNews as restoreNewsImpl,
+  setCoverPhoto as setCoverPhotoImpl,
   softDeleteNews as softDeleteNewsImpl,
   suggestSlug as suggestSlugImpl,
   updateNews as updateNewsImpl,
+  updatePhoto as updatePhotoImpl,
 } from "@/server/news-admin";
 
 /**
@@ -87,3 +92,23 @@ export const checkSlugAvailable = createServerFn({ method: "GET" })
 export const suggestSlug = createServerFn({ method: "GET" })
   .validator(z.object({ title: z.string().min(1), publishedAt: z.string().min(1) }))
   .handler(({ data }) => suggestSlugImpl(data.title, data.publishedAt));
+
+export const listNewsPhotos = createServerFn({ method: "GET" })
+  .validator((newsId: string) => newsId)
+  .handler(({ data }) => listNewsPhotosImpl(data));
+
+export const updatePhoto = createServerFn({ method: "POST" })
+  .validator(z.object({ id: z.string().min(1), alt: z.string().nullable() }))
+  .handler(({ data }) => updatePhotoImpl(data.id, { alt: data.alt }));
+
+export const reorderPhotos = createServerFn({ method: "POST" })
+  .validator(z.object({ newsId: z.string().min(1), orderedIds: z.array(z.string().min(1)) }))
+  .handler(({ data }) => reorderPhotosImpl(data.newsId, data.orderedIds));
+
+export const setCoverPhoto = createServerFn({ method: "POST" })
+  .validator(z.object({ newsId: z.string().min(1), photoId: z.string().min(1) }))
+  .handler(({ data }) => setCoverPhotoImpl(data.newsId, data.photoId));
+
+export const deletePhoto = createServerFn({ method: "POST" })
+  .validator((id: string) => id)
+  .handler(({ data }) => deletePhotoAndS3ObjectImpl(data));
