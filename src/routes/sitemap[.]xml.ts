@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import type {} from "@tanstack/react-start";
-import { allNews } from "@/data/mock";
+import { listNews } from "@/server/news";
 import { SITE_URL } from "@/lib/site";
 
 const BASE_URL = SITE_URL;
@@ -15,6 +15,7 @@ export const Route = createFileRoute("/sitemap.xml")({
   server: {
     handlers: {
       GET: async () => {
+        const items = await listNews();
         const entries: SitemapEntry[] = [
           { path: "/", changefreq: "weekly", priority: "1.0" },
           { path: "/news", changefreq: "daily", priority: "0.9" },
@@ -27,7 +28,7 @@ export const Route = createFileRoute("/sitemap.xml")({
           { path: "/courts", changefreq: "weekly", priority: "0.7" },
           { path: "/documents", changefreq: "monthly", priority: "0.7" },
           { path: "/contacts", changefreq: "monthly", priority: "0.7" },
-          ...allNews.map((news) => ({
+          ...items.map((news) => ({
             path: `/news/${news.id}`,
             changefreq: "monthly" as const,
             priority: "0.6",
