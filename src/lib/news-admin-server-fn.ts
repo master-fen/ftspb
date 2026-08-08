@@ -22,10 +22,6 @@ import {
  * клиент, и в сервер). `createServerFn` — санкционированный обход: тело
  * `.handler()` компилируется только в серверный чанк, на клиенте остаётся
  * RPC-заглушка.
- *
- * `featured`/`featuredOrder` сюда сознательно не включены — управление
- * подборкой на главной ещё не готово принимать значение «меньше трёх»,
- * см. CLAUDE.md/план этапа (отдельный PR после фото).
  */
 
 const sectionSchema = z.enum(["federation", "referees"]);
@@ -56,6 +52,8 @@ export const createNews = createServerFn({ method: "POST" })
       body: z.string().nullable().optional(),
       section: sectionSchema.nullable().optional(),
       status: statusSchema.optional(),
+      featured: z.boolean().optional(),
+      featuredOrder: z.number().int().min(0).nullable().optional(),
     }),
   )
   .handler(({ data }) => createNewsImpl(data));
@@ -72,6 +70,8 @@ export const updateNews = createServerFn({ method: "POST" })
         body: z.string().nullable().optional(),
         section: sectionSchema.nullable().optional(),
         status: statusSchema.optional(),
+        featured: z.boolean().optional(),
+        featuredOrder: z.number().int().min(0).nullable().optional(),
       }),
     }),
   )
