@@ -185,8 +185,9 @@ Start собирает route-модули и в клиентский, и в се
 ## Зоны владения
 
 - **Lovable**: публичные страницы и компоненты.
-- **Claude Code**: `/admin`, `src/server/**`, `src/db/**`, `drizzle/**`, `scripts/**`, `tests/**`.
-- **Lovable не изменяет**: `src/routes/admin/**`, `src/server/**`, `src/db/**`, `drizzle/**`, `scripts/**`, `src/data/**`, `tests/**`.
+- **Claude Code**: `/admin`, `src/server/**`, `src/db/**`, `drizzle/**`, `scripts/**`, `tests/**`, `src/start.ts`.
+- **Lovable не изменяет**: `src/routes/admin/**`, `src/server/**`, `src/db/**`, `drizzle/**`, `scripts/**`, `src/data/**`, `tests/**`, `src/start.ts`.
+- `src/start.ts` — серверный жизненный цикл запроса TanStack Start (`requestMiddleware`): здесь `errorMiddleware` (перехват необработанных ошибок, страница 500) и мидлварь 308-редиректа с `www.` на канонический домен. Файл создан шаблоном Lovable, но с этого момента — зона Claude Code; Lovable его не трогает. Ограничение редиректа: раздача статики из `.output/public` в Nitro-preset `node-server` обслуживается внутренним обработчиком Nitro раньше `requestMiddleware`, поэтому прямой запрос к уже существующему файлу в `.output/public` по адресу с `www` редиректа не получит (HTML-страница редиректится раньше, чем браузер запросит статику — на практике не проявляется).
 - Серверные npm-зависимости зоны Claude Code (не удалять и не менять версии без согласования): drizzle-orm, drizzle-kit, postgres, bcryptjs, @aws-sdk/client-s3, sanitize-html. Раздел `scripts` в `package.json` и каталог `tests/**` — тоже зона Claude Code. Пакеты `@lovable.dev/*` — зона Lovable, не пиннить.
 - Синхронизация — только через merge, без rebase и force-push.
 - Guard в `src/routes/admin/_authed/route.tsx` — навигационный, не граница безопасности. Каждая серверная функция админки обязана проверять сессию самостоятельно: эндпоинты `createServerFn` вызываются по HTTP напрямую.
