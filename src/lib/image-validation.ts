@@ -42,3 +42,59 @@ export function detectImageSignature(bytes: Uint8Array): SupportedImageType | nu
     return "image/webp";
   return null;
 }
+
+export type SupportedDocumentType =
+  | "application/pdf"
+  | "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  | "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  | "application/msword"
+  | "application/vnd.ms-excel";
+
+const PDF_SIGNATURE = [0x25, 0x50, 0x44, 0x46, 0x2d]; // %PDF-
+const ZIP_SIGNATURE = [0x50, 0x4b]; // PK
+const OLE2_SIGNATURE = [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1];
+
+const ZIP_EXTENSIONS: Record<string, SupportedDocumentType> = {
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+};
+
+const OLE2_EXTENSIONS: Record<string, SupportedDocumentType> = {
+  doc: "application/msword",
+  xls: "application/vnd.ms-excel",
+};
+
+function detectDocumentFamily(bytes: Uint8Array): "pdf" | "zip" | "ole2" | null {
+  if (matchesAt(bytes, 0, PDF_SIGNATURE)) return "pdf";
+  if (matchesAt(bytes, 0, ZIP_SIGNATURE)) return "zip";
+  if (matchesAt(bytes, 0, OLE2_SIGNATURE)) return "ole2";
+  return null;
+}
+
+/**
+ * Как detectImageSignature, но сигнатура определяет только семейство
+ * формата (PDF / ZIP-контейнер / OLE2-контейнер) — расширение исходного
+ * имени файла уточняет конкретный тип внутри семейства, совпасть обязаны
+ * оба. Внутрь ZIP не заглядываем (отличить .docx от произвольного архива
+ * по содержимому — отдельная работа, не окупается: загружать может только
+ * авторизованный сотрудник Федерации).
+ */
+export function detectDocumentSignature(
+  bytes: Uint8Array,
+  extension: string,
+): SupportedDocumentType | null {
+  const ext = extension.toLowerCase();
+  const family = detectDocumentFamily(bytes);
+  if (family === "pdf") return ext === "pdf" ? "application/pdf" : null;
+  if (family === "zip") return ZIP_EXTENSIONS[ext] ?? null;
+  if (family === "ole2") return OLE2_EXTENSIONS[ext] ?? null;
+  return null;
+}
+
+/** Расширение файла (без точки, lowercase) по имени. Нет точки, или точка —
+ * последний символ имени → "". */
+export function getFileExtension(filename: string): string {
+  const dot = filename.lastIndexOf(".");
+  if (dot <= 0 || dot === filename.length - 1) return "";
+  return filename.slice(dot + 1).toLowerCase();
+}
