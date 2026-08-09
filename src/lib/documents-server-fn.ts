@@ -11,7 +11,7 @@ import {
   softDeleteDocument as softDeleteDocumentImpl,
   updateDocument as updateDocumentImpl,
 } from "@/server/documents";
-import { buildImageUrl } from "@/server/news";
+import { buildImageUrl } from "@/server/storage";
 
 /**
  * `src/server/**` запрещён к прямому импорту из клиентского бандла
@@ -20,7 +20,7 @@ import { buildImageUrl } from "@/server/news";
  *
  * getAdminDocument/listAdminDocuments в src/server/documents.ts не отдают
  * готовый URL файла (в отличие от getNewsDocuments) — домапливаем его здесь,
- * через ту же публичную buildImageUrl из src/server/news.ts, не трогая
+ * через ту же публичную buildImageUrl из src/server/storage.ts, не трогая
  * src/server/documents.ts.
  */
 

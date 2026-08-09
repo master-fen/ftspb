@@ -2,7 +2,8 @@ import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { document, newsDocument } from "@/db/schema";
 import { getCurrentSession } from "@/server/auth";
-import { buildImageUrl, resetNewsCache } from "@/server/news";
+import { resetNewsCache } from "@/server/news-cache";
+import { buildImageUrl } from "@/server/storage";
 
 type DocumentRow = typeof document.$inferSelect;
 type Section = "federation" | "referees";

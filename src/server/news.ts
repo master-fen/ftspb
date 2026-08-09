@@ -1,29 +1,12 @@
-import process from "node:process";
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "@/db/client";
 import { document, news, newsDocument, newsPhoto } from "@/db/schema";
 import { allNews, featuredNews, latestNews } from "@/data/mock";
 import type { NewsAttachment, NewsCategory, NewsItem } from "@/lib/types/news";
+import { getNewsCache, setNewsCache, type NewsCache } from "@/server/news-cache";
+import { buildImageUrl } from "@/server/storage";
 
 const CACHE_TTL_MS = 60_000;
-
-type Cache = {
-  items: NewsItem[];
-  featuredOrderById: Map<string, number>;
-  expiresAt: number;
-};
-
-let cache: Cache | null = null;
-
-/** `S3_ENDPOINT`/`S3_BUCKET` заданы всегда вместе с `DATABASE_URL` — иначе БД недостижима. */
-export function buildImageUrl(s3Key: string): string {
-  const endpoint = process.env.S3_ENDPOINT;
-  const bucket = process.env.S3_BUCKET;
-  if (!endpoint || !bucket) {
-    throw new Error("Не заданы переменные окружения: S3_ENDPOINT, S3_BUCKET");
-  }
-  return `${endpoint}/${bucket}/${s3Key}`;
-}
 
 function sectionToCategory(section: "federation" | "referees" | null): NewsCategory {
   switch (section) {
@@ -62,10 +45,11 @@ function formatBytes(bytes: number): string {
   return `${(kb / 1024).toFixed(1)} МБ`;
 }
 
-async function loadCache(): Promise<Cache> {
+async function loadCache(): Promise<NewsCache> {
   const now = Date.now();
-  if (cache && cache.expiresAt > now) {
-    return cache;
+  const existing = getNewsCache();
+  if (existing && existing.expiresAt > now) {
+    return existing;
   }
 
   if (db === null) {
@@ -167,8 +151,9 @@ async function loadCache(): Promise<Cache> {
     };
   });
 
-  cache = { items, featuredOrderById, expiresAt: now + CACHE_TTL_MS };
-  return cache;
+  const next: NewsCache = { items, featuredOrderById, expiresAt: now + CACHE_TTL_MS };
+  setNewsCache(next);
+  return next;
 }
 
 export async function listNews(): Promise<NewsItem[]> {
@@ -201,9 +186,4 @@ export async function getFeaturedAndLatest(): Promise<{
     .slice(0, 3);
   const latest = items.filter((item) => !item.featured).slice(0, 6);
   return { featured, latest };
-}
-
-/** Вызовет админка на этапе 5 после записи в БД; сейчас нигде не вызывается. */
-export function resetNewsCache(): void {
-  cache = null;
 }

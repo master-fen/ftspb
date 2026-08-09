@@ -2,8 +2,7 @@ import { randomBytes } from "node:crypto";
 import { buildContentDisposition } from "@/lib/content-disposition";
 import type { SupportedDocumentType } from "@/lib/image-validation";
 import { getCurrentSession } from "@/server/auth";
-import { buildImageUrl } from "@/server/news";
-import { objectExists, uploadObject } from "@/server/storage";
+import { buildImageUrl, objectExists, uploadObject } from "@/server/storage";
 
 async function pickUniqueDocumentKey(extension: string): Promise<string> {
   for (let attempt = 0; attempt < 10; attempt++) {

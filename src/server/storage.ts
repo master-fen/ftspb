@@ -101,3 +101,13 @@ export async function objectExists(key: string): Promise<boolean> {
     throw error;
   }
 }
+
+/** `S3_ENDPOINT`/`S3_BUCKET` заданы всегда вместе с `DATABASE_URL` — иначе БД недостижима. */
+export function buildImageUrl(s3Key: string): string {
+  const endpoint = process.env.S3_ENDPOINT;
+  const bucket = process.env.S3_BUCKET;
+  if (!endpoint || !bucket) {
+    throw new Error("Не заданы переменные окружения: S3_ENDPOINT, S3_BUCKET");
+  }
+  return `${endpoint}/${bucket}/${s3Key}`;
+}
