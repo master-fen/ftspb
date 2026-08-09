@@ -1,9 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import {
+  attachDocumentToNews as attachDocumentToNewsImpl,
   createDocument as createDocumentImpl,
+  detachDocumentFromNews as detachDocumentFromNewsImpl,
   getAdminDocument as getAdminDocumentImpl,
+  getNewsDocuments as getNewsDocumentsImpl,
   listAdminDocuments as listAdminDocumentsImpl,
+  reorderNewsDocuments as reorderNewsDocumentsImpl,
   softDeleteDocument as softDeleteDocumentImpl,
   updateDocument as updateDocumentImpl,
 } from "@/server/documents";
@@ -80,3 +84,21 @@ export const updateDocument = createServerFn({ method: "POST" })
 export const softDeleteDocument = createServerFn({ method: "POST" })
   .validator((id: string) => id)
   .handler(({ data }) => softDeleteDocumentImpl(data));
+
+export const getNewsDocuments = createServerFn({ method: "GET" })
+  .validator((newsId: string) => newsId)
+  .handler(({ data }) => getNewsDocumentsImpl(data));
+
+export const attachDocumentToNews = createServerFn({ method: "POST" })
+  .validator(z.object({ newsId: z.string().min(1), documentId: z.string().min(1) }))
+  .handler(({ data }) => attachDocumentToNewsImpl(data.newsId, data.documentId));
+
+export const detachDocumentFromNews = createServerFn({ method: "POST" })
+  .validator(z.object({ newsId: z.string().min(1), documentId: z.string().min(1) }))
+  .handler(({ data }) => detachDocumentFromNewsImpl(data.newsId, data.documentId));
+
+export const reorderNewsDocuments = createServerFn({ method: "POST" })
+  .validator(
+    z.object({ newsId: z.string().min(1), orderedDocumentIds: z.array(z.string().min(1)) }),
+  )
+  .handler(({ data }) => reorderNewsDocumentsImpl(data.newsId, data.orderedDocumentIds));
