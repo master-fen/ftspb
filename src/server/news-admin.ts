@@ -4,10 +4,10 @@ import { db } from "@/db/client";
 import { news, newsPhoto } from "@/db/schema";
 import { EXTENSION_BY_TYPE, type SupportedImageType } from "@/lib/image-validation";
 import { getCurrentSession } from "@/server/auth";
-import { buildImageUrl, resetNewsCache } from "@/server/news";
+import { resetNewsCache } from "@/server/news-cache";
 import { sanitizeBody } from "@/server/sanitize";
 import { slugify } from "@/server/slug";
-import { deleteObject, objectExists, uploadObject } from "@/server/storage";
+import { buildImageUrl, deleteObject, objectExists, uploadObject } from "@/server/storage";
 
 type NewsRow = typeof news.$inferSelect;
 type NewsPhotoRow = typeof newsPhoto.$inferSelect;

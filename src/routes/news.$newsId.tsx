@@ -130,7 +130,9 @@ function NewsDetailPage() {
                     (att: NonNullable<NewsItem["attachments"]>[number], i: number) => (
                       <li key={i}>
                         <a
-                          href="#"
+                          href={att.url ?? "#"}
+                          target="_blank"
+                          rel="noreferrer"
                           className="group flex items-center gap-3 rounded-xl bg-muted/60 px-4 py-3 ring-1 ring-black/5 transition-colors hover:bg-brand-orange/5"
                         >
                           <FileText className="h-5 w-5 text-brand-navy/70" aria-hidden />
