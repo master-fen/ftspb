@@ -51,10 +51,21 @@ export function getS3Client(): { client: S3Client; bucket: string } {
   return cachedClient;
 }
 
-export async function uploadObject(key: string, body: Buffer, contentType: string): Promise<void> {
+export async function uploadObject(
+  key: string,
+  body: Buffer,
+  contentType: string,
+  contentDisposition?: string,
+): Promise<void> {
   const { client, bucket } = getS3Client();
   await client.send(
-    new PutObjectCommand({ Bucket: bucket, Key: key, Body: body, ContentType: contentType }),
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      Body: body,
+      ContentType: contentType,
+      ContentDisposition: contentDisposition,
+    }),
   );
 }
 
