@@ -1,8 +1,11 @@
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "@/db/client";
-import { document, news, newsDocument, newsPhoto } from "@/db/schema";
+import { news, newsPhoto } from "@/db/schema";
 import { allNews, featuredNews, latestNews } from "@/data/mock";
-import type { NewsAttachment, NewsCategory, NewsItem } from "@/lib/types/news";
+import { formatFileSize } from "@/lib/format-file-size";
+import { getFileExtension } from "@/lib/image-validation";
+import type { NewsCategory, NewsItem } from "@/lib/types/news";
+import { getPublishedDocumentsForNews, type PublicNewsDocument } from "@/server/documents";
 import { getNewsCache, setNewsCache, type NewsCache } from "@/server/news-cache";
 import { buildImageUrl } from "@/server/storage";
 
@@ -23,26 +26,6 @@ function sectionToCategory(section: "federation" | "referees" | null): NewsCateg
 function isoDateToShort(iso: string): string {
   const [y, m, d] = iso.split("-");
   return `${d}.${m}.${y.slice(2)}`;
-}
-
-function mimeToKind(mimeType: string): NewsAttachment["kind"] {
-  switch (mimeType) {
-    case "application/msword":
-    case "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-      return "DOC";
-    case "application/vnd.ms-excel":
-    case "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
-      return "XLS";
-    default:
-      return "PDF";
-  }
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} Б`;
-  const kb = bytes / 1024;
-  if (kb < 1024) return `${Math.round(kb)} КБ`;
-  return `${(kb / 1024).toFixed(1)} МБ`;
 }
 
 async function loadCache(): Promise<NewsCache> {
@@ -72,20 +55,6 @@ async function loadCache(): Promise<NewsCache> {
         .orderBy(newsPhoto.position)
     : [];
 
-  const docRows = newsIds.length
-    ? await db
-        .select({
-          newsId: newsDocument.newsId,
-          position: newsDocument.position,
-          mimeType: document.mimeType,
-          sizeBytes: document.sizeBytes,
-        })
-        .from(newsDocument)
-        .innerJoin(document, eq(newsDocument.documentId, document.id))
-        .where(inArray(newsDocument.newsId, newsIds))
-        .orderBy(newsDocument.position)
-    : [];
-
   const photosByNewsId = new Map<string, typeof photoRows>();
   for (const photo of photoRows) {
     const arr = photosByNewsId.get(photo.newsId) ?? [];
@@ -93,11 +62,14 @@ async function loadCache(): Promise<NewsCache> {
     photosByNewsId.set(photo.newsId, arr);
   }
 
-  const docsByNewsId = new Map<string, typeof docRows>();
-  for (const row of docRows) {
-    const arr = docsByNewsId.get(row.newsId) ?? [];
-    arr.push(row);
-    docsByNewsId.set(row.newsId, arr);
+  const docsByNewsId = new Map<string, PublicNewsDocument[]>();
+  if (newsIds.length) {
+    const docsEntries = await Promise.all(
+      newsIds.map(async (id) => [id, await getPublishedDocumentsForNews(id)] as const),
+    );
+    for (const [id, docs] of docsEntries) {
+      docsByNewsId.set(id, docs);
+    }
   }
 
   const featuredOrderById = new Map<string, number>();
@@ -136,13 +108,12 @@ async function loadCache(): Promise<NewsCache> {
       title: row.title,
       excerpt: row.excerpt ?? undefined,
       body: row.body ?? undefined,
-      // Заглушка вместо document.title (= заголовок новости, оригинальное имя файла в БД
-      // не сохранено) — до рендера со ссылкой на S3 на этапе 6.
       attachments: docs.length
-        ? docs.map((docRow, i) => ({
-            kind: mimeToKind(docRow.mimeType),
-            title: `Документ ${i + 1}`,
-            size: formatBytes(docRow.sizeBytes),
+        ? docs.map((doc) => ({
+            kind: getFileExtension(doc.fileName).toUpperCase(),
+            title: doc.title,
+            size: formatFileSize(doc.sizeBytes),
+            url: doc.url,
           }))
         : undefined,
       cover: coverPhoto ? buildImageUrl(coverPhoto.s3Key) : undefined,

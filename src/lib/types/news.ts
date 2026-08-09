@@ -1,9 +1,10 @@
 export type NewsCategory = "Общее" | "Федерация" | "Коллегия судей";
 
 export type NewsAttachment = {
-  kind: "PDF" | "DOC" | "XLS";
+  kind: string;
   title: string;
   size?: string;
+  url?: string;
 };
 
 export type NewsItem = {
