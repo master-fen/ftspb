@@ -124,7 +124,21 @@ export async function updateDocument(id: string, input: UpdateDocumentInput): Pr
   await requireSession();
   const database = requireDb();
 
-  const values: Partial<typeof document.$inferInsert> = { ...input, updatedAt: new Date() };
+  // Поля перечислены явно, не через `{ ...input }` — input может прийти
+  // как JSON с клиента, где типы не защищают от лишнего ключа, случайно
+  // совпавшего с именем колонки (тот же приём, что updateNews в
+  // news-admin.ts).
+  const values: Partial<typeof document.$inferInsert> = { updatedAt: new Date() };
+  if (input.title !== undefined) values.title = input.title;
+  if (input.fileName !== undefined) values.fileName = input.fileName;
+  if (input.s3Key !== undefined) values.s3Key = input.s3Key;
+  if (input.sizeBytes !== undefined) values.sizeBytes = input.sizeBytes;
+  if (input.mimeType !== undefined) values.mimeType = input.mimeType;
+  if (input.section !== undefined) values.section = input.section;
+  if (input.documentDate !== undefined) values.documentDate = input.documentDate;
+  if (input.status !== undefined) values.status = input.status;
+  if (input.inLibrary !== undefined) values.inLibrary = input.inLibrary;
+
   await database.update(document).set(values).where(eq(document.id, id));
   resetNewsCache();
 }
@@ -206,7 +220,11 @@ export async function reorderNewsDocuments(
 }
 
 /** Документы этой новости с готовым URL — для формы редактирования новости
- * в админке (по образцу listNewsPhotos в news-admin.ts). */
+ * в админке (по образцу listNewsPhotos в news-admin.ts). Мягко удалённые
+ * документы отфильтрованы: мягкое удаление документа убирает его отовсюду
+ * сразу, включая уже прикреплённые новости — иначе форма редактирования
+ * новости продолжала бы показывать документ, которого уже нет ни в
+ * менеджере, ни на сайте. */
 export async function getNewsDocuments(newsId: string): Promise<(DocumentRow & { url: string })[]> {
   await requireSession();
   const database = requireDb();
@@ -215,7 +233,7 @@ export async function getNewsDocuments(newsId: string): Promise<(DocumentRow & {
     .select({ document })
     .from(newsDocument)
     .innerJoin(document, eq(newsDocument.documentId, document.id))
-    .where(eq(newsDocument.newsId, newsId))
+    .where(and(eq(newsDocument.newsId, newsId), isNull(document.deletedAt)))
     .orderBy(asc(newsDocument.position));
 
   return rows.map((row) => ({ ...row.document, url: buildImageUrl(row.document.s3Key) }));
