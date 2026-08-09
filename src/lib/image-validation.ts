@@ -64,6 +64,16 @@ const OLE2_EXTENSIONS: Record<string, SupportedDocumentType> = {
   xls: "application/vnd.ms-excel",
 };
 
+/** Единственный источник истины для допустимых расширений документов —
+ * собран из тех же мап, что использует detectDocumentSignature, а не
+ * перечислен отдельно. Клиентская форма загрузки документа сверяется с этим
+ * списком до отправки файла на сервер. */
+export const DOCUMENT_EXTENSIONS: readonly string[] = [
+  "pdf",
+  ...Object.keys(ZIP_EXTENSIONS),
+  ...Object.keys(OLE2_EXTENSIONS),
+];
+
 function detectDocumentFamily(bytes: Uint8Array): "pdf" | "zip" | "ole2" | null {
   if (matchesAt(bytes, 0, PDF_SIGNATURE)) return "pdf";
   if (matchesAt(bytes, 0, ZIP_SIGNATURE)) return "zip";
