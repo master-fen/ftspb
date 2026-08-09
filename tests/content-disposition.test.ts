@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { buildContentDisposition, MAX_TITLE_LENGTH } from "@/lib/content-disposition";
+import {
+  buildContentDisposition,
+  MAX_TITLE_LENGTH,
+  sanitizeTitle,
+} from "@/lib/content-disposition";
 
 function parse(header: string): { asciiFallback: string; decoded: string } {
   const match = header.match(/^inline; filename="([^"]*)"; filename\*=UTF-8''(.+)$/);
@@ -53,5 +57,27 @@ describe("buildContentDisposition", () => {
     const { decoded } = parse(header);
     const base = decoded.slice(0, -".pdf".length);
     expect(base.length).toBe(MAX_TITLE_LENGTH);
+  });
+});
+
+describe("sanitizeTitle", () => {
+  test("длина до вычистки и после могут различаться: запрещённые символы уменьшают длину", () => {
+    // 200 обычных символов + 5 запрещённых (двоеточия) = 205 символов в
+    // исходной строке, но ровно 200 после вычистки — проверка длины в
+    // upload.ts обязана сравнивать с MAX_TITLE_LENGTH именно эту, вторую
+    // величину, а не raw.length.
+    const raw = "а".repeat(200) + ":".repeat(5);
+    expect(raw.length).toBe(205);
+    const sanitized = sanitizeTitle(raw);
+    expect(sanitized.length).toBe(200);
+    expect(sanitized.length).toBeLessThanOrEqual(MAX_TITLE_LENGTH);
+  });
+
+  test("buildContentDisposition с той же строкой не обрезает дальше — она уже укладывается в лимит", () => {
+    const raw = "а".repeat(200) + ":".repeat(5);
+    const header = buildContentDisposition(raw, "pdf");
+    const { decoded } = parse(header);
+    const base = decoded.slice(0, -".pdf".length);
+    expect(base.length).toBe(200);
   });
 });

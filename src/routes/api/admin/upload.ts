@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import type {} from "@tanstack/react-start";
-import { MAX_TITLE_LENGTH } from "@/lib/content-disposition";
+import { MAX_TITLE_LENGTH, sanitizeTitle } from "@/lib/content-disposition";
 import {
   detectDocumentSignature,
   detectImageSignature,
@@ -101,9 +101,13 @@ export const Route = createFileRoute("/api/admin/upload")({
         if (typeof titleRaw !== "string" || !titleRaw.trim()) {
           return errorResponse(400, "Не передано название документа");
         }
-        if (titleRaw.length > MAX_TITLE_LENGTH) {
+        if (sanitizeTitle(titleRaw).length > MAX_TITLE_LENGTH) {
           // Отсекаем до заливки объекта в S3 — заголовок Content-Disposition
-          // собирается из title и не может быть бесконечным.
+          // собирается из title и не может быть бесконечным. Длина меряется
+          // ПОСЛЕ sanitizeTitle — та же вычистка, что делает
+          // buildContentDisposition, иначе тут и там разные величины
+          // (запрещённые символы в title удлиняли бы то, что реально попадёт
+          // в имя файла, никак не влияя на этот счётчик).
           return errorResponse(400, `Название документа длиннее ${MAX_TITLE_LENGTH} символов`);
         }
         const title = titleRaw.trim();

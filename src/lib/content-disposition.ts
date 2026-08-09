@@ -7,8 +7,17 @@ const FORBIDDEN_CHARS = /[\x00-\x1f\x7f/\\:*?"<>|]/g;
 
 /** Единственный источник предела длины title — используется и здесь как
  * защитный пояс чистой функции, и в src/routes/api/admin/upload.ts как
- * ранняя проверка до заливки объекта в S3. */
+ * ранняя проверка до заливки объекта в S3. Обе проверки меряют длину ПОСЛЕ
+ * sanitizeTitle — запрещённые символы вычищаются раньше подсчёта длины,
+ * иначе роут и эта функция мерили бы разные величины. */
 export const MAX_TITLE_LENGTH = 200;
+
+/** Вычистка запрещённых в имени файла и управляющих символов — общая для
+ * buildContentDisposition и для проверки длины в src/routes/api/admin/upload.ts
+ * (её нужно применять ДО сравнения с MAX_TITLE_LENGTH, а не после). */
+export function sanitizeTitle(title: string): string {
+  return title.replace(FORBIDDEN_CHARS, "").trim();
+}
 
 function encodeRFC5987(value: string): string {
   return encodeURIComponent(value)
@@ -25,7 +34,7 @@ function encodeRFC5987(value: string): string {
  * только при сохранении.
  */
 export function buildContentDisposition(title: string, extension: string): string {
-  const cleaned = title.replace(FORBIDDEN_CHARS, "").trim();
+  const cleaned = sanitizeTitle(title);
   const base = (cleaned || "document").slice(0, MAX_TITLE_LENGTH).trim() || "document";
   const filename = `${base}.${extension}`;
   const asciiFallback = filename.replace(/[^\x20-\x7e]/g, "_");
