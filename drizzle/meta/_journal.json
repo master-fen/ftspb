@@ -8,6 +8,20 @@
       "when": 1785702790756,
       "tag": "0000_clumsy_namora",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1786256032096,
+      "tag": "0001_loud_gateway",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786256394557,
+      "tag": "0002_white_onslaught",
+      "breakpoints": true
     }
   ]
 }

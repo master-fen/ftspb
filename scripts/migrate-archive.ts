@@ -401,10 +401,16 @@ async function applyPlan(plan: Plan): Promise<void> {
       .values({
         title: plan.title,
         s3Key: item.s3Key,
+        fileName: path.basename(item.s3Key),
         mimeType: item.mimeType,
         sizeBytes: item.sizeBytes,
         section: plan.section,
         documentDate: plan.publishedAt,
+        // Действующие документы архива: скрыты не статусом, а отсутствием
+        // страницы-библиотеки (см. scripts/backfill-document-fields.ts —
+        // тот же смысл для уже существующих строк).
+        status: "published",
+        inLibrary: true,
       })
       .returning({ id: document.id });
     await db
