@@ -32,6 +32,7 @@ import {
   suggestSlug,
   updateNews,
 } from "@/lib/news-admin-server-fn";
+import { NewsDocumentGallery } from "./-components/NewsDocumentGallery";
 import { NewsPhotoGallery } from "./-components/NewsPhotoGallery";
 
 export const Route = createFileRoute("/admin/_authed/news/$id")({
@@ -412,6 +413,12 @@ function NewsEditForm({
         </Form>
 
         <NewsPhotoGallery newsId={id} coverPhotoId={news.coverPhotoId} />
+        <NewsDocumentGallery
+          newsId={id}
+          newsTitle={news.title}
+          newsPublishedAt={news.publishedAt}
+          newsSection={news.section}
+        />
       </CardContent>
     </Card>
   );

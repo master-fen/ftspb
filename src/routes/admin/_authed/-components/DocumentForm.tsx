@@ -48,7 +48,20 @@ type AdminDocument = {
   url: string;
 };
 
-type DocumentFormProps = { mode: "create" } | { mode: "edit"; document: AdminDocument };
+type DocumentFormProps =
+  | {
+      mode: "create";
+      initialValues?: {
+        title?: string;
+        section?: "federation" | "referees" | "none";
+        documentDate?: string;
+        status?: "draft" | "published";
+        inLibrary?: boolean;
+      };
+      onCreated?: (document: { id: string; status: "draft" | "published" }) => void;
+      bare?: boolean;
+    }
+  | { mode: "edit"; document: AdminDocument; bare?: boolean };
 
 type UploadResult = {
   key: string;
@@ -152,7 +165,13 @@ export function DocumentForm(props: DocumentFormProps) {
     resolver: zodResolver(formSchema),
     defaultValues:
       props.mode === "create"
-        ? { title: "", section: "none", documentDate: todayIso(), status: "draft", inLibrary: true }
+        ? {
+            title: props.initialValues?.title ?? "",
+            section: props.initialValues?.section ?? "none",
+            documentDate: props.initialValues?.documentDate ?? todayIso(),
+            status: props.initialValues?.status ?? "draft",
+            inLibrary: props.initialValues?.inLibrary ?? true,
+          }
         : {
             title: props.document.title,
             section: props.document.section ?? "none",
@@ -216,7 +235,13 @@ export function DocumentForm(props: DocumentFormProps) {
           inLibrary: input.values.inLibrary,
         },
       }),
-    onSuccess: ({ id }) => navigate({ to: "/admin/documents/$id", params: { id } }),
+    onSuccess: ({ id, status }) => {
+      if (props.mode === "create" && props.onCreated) {
+        props.onCreated({ id, status });
+      } else {
+        navigate({ to: "/admin/documents/$id", params: { id } });
+      }
+    },
     onError: () => toast.error("Не удалось создать документ"),
   });
 
@@ -296,6 +321,176 @@ export function DocumentForm(props: DocumentFormProps) {
   const submitDisabled =
     isSaving || uploadWidget.status === "uploading" || (props.mode === "create" && !pendingUpload);
 
+  const formElement = (
+    <Form {...form}>
+      <form onSubmit={onSubmit} className="space-y-6" noValidate>
+        <FormField
+          control={form.control}
+          name="title"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Название</FormLabel>
+              <FormControl>
+                <Input {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div className="flex flex-col gap-2">
+          <span className="text-sm font-medium text-foreground">Файл</span>
+          {currentFile ? (
+            <p className="text-sm text-muted-foreground">
+              Текущий файл:{" "}
+              <a
+                href={currentFile.url}
+                target="_blank"
+                rel="noreferrer"
+                className="underline underline-offset-2"
+              >
+                {currentFile.fileName}
+              </a>{" "}
+              ({formatFileSize(currentFile.sizeBytes)})
+            </p>
+          ) : null}
+          {pendingUpload ? (
+            <p className="text-sm text-muted-foreground">
+              {currentFile ? "Новый файл" : "Файл"} готов к сохранению: {pendingUpload.file.name} (
+              {formatFileSize(pendingUpload.result.sizeBytes)})
+            </p>
+          ) : null}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="w-fit"
+            disabled={fileInputDisabled || uploadWidget.status === "uploading"}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            {currentFile ? "Заменить файл" : "Выбрать файл"}
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,.doc,.docx,.xls,.xlsx"
+            disabled={fileInputDisabled}
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) void handleFileSelected(file);
+              e.target.value = "";
+            }}
+          />
+          <p className="text-[0.8rem] text-muted-foreground">
+            Название используется как имя файла при скачивании — заполните его, прежде чем загружать
+            файл.
+          </p>
+          {uploadWidget.status === "uploading" ? (
+            <Progress value={uploadWidget.progress} />
+          ) : uploadWidget.status === "error" ? (
+            <p className="text-[0.8rem] text-destructive">{uploadWidget.message}</p>
+          ) : null}
+        </div>
+
+        <FormField
+          control={form.control}
+          name="section"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Раздел</FormLabel>
+              <Select value={field.value} onValueChange={field.onChange}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="none">Без раздела</SelectItem>
+                  <SelectItem value="federation">Федерация</SelectItem>
+                  <SelectItem value="referees">Коллегия судей</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="documentDate"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Дата документа</FormLabel>
+              <FormControl>
+                <Input type="date" {...field} />
+              </FormControl>
+              <p className="text-[0.8rem] text-muted-foreground">
+                Дата самого документа (приказа, регламента, письма), а не дата загрузки в систему.
+              </p>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="status"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Статус</FormLabel>
+              <Select value={field.value} onValueChange={field.onChange}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="draft">Черновик</SelectItem>
+                  <SelectItem value="published">Опубликован</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="inLibrary"
+          render={({ field }) => (
+            <FormItem className="space-y-2">
+              <div className="flex flex-row items-center gap-2 space-y-0">
+                <FormControl>
+                  <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                </FormControl>
+                <FormLabel className="font-normal">Показывать в общем списке документов</FormLabel>
+              </div>
+              <p className="text-[0.8rem] text-muted-foreground">
+                Выключите для файлов, которые нужны только внутри новости — например информационная
+                карта турнира. Файл останется доступен по прямой ссылке.
+              </p>
+            </FormItem>
+          )}
+        />
+
+        <Button type="submit" disabled={submitDisabled}>
+          {isSaving
+            ? "Сохраняем…"
+            : uploadWidget.status === "uploading"
+              ? "Загружаем файл…"
+              : props.mode === "create"
+                ? "Создать"
+                : "Сохранить"}
+        </Button>
+      </form>
+    </Form>
+  );
+
+  if (props.bare) {
+    return formElement;
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -303,174 +498,7 @@ export function DocumentForm(props: DocumentFormProps) {
           {props.mode === "create" ? "Новый документ" : "Редактирование документа"}
         </CardTitle>
       </CardHeader>
-      <CardContent>
-        <Form {...form}>
-          <form onSubmit={onSubmit} className="space-y-6" noValidate>
-            <FormField
-              control={form.control}
-              name="title"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Название</FormLabel>
-                  <FormControl>
-                    <Input {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="flex flex-col gap-2">
-              <span className="text-sm font-medium text-foreground">Файл</span>
-              {currentFile ? (
-                <p className="text-sm text-muted-foreground">
-                  Текущий файл:{" "}
-                  <a
-                    href={currentFile.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="underline underline-offset-2"
-                  >
-                    {currentFile.fileName}
-                  </a>{" "}
-                  ({formatFileSize(currentFile.sizeBytes)})
-                </p>
-              ) : null}
-              {pendingUpload ? (
-                <p className="text-sm text-muted-foreground">
-                  {currentFile ? "Новый файл" : "Файл"} готов к сохранению:{" "}
-                  {pendingUpload.file.name} ({formatFileSize(pendingUpload.result.sizeBytes)})
-                </p>
-              ) : null}
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="w-fit"
-                disabled={fileInputDisabled || uploadWidget.status === "uploading"}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                {currentFile ? "Заменить файл" : "Выбрать файл"}
-              </Button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".pdf,.doc,.docx,.xls,.xlsx"
-                disabled={fileInputDisabled}
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) void handleFileSelected(file);
-                  e.target.value = "";
-                }}
-              />
-              <p className="text-[0.8rem] text-muted-foreground">
-                Название используется как имя файла при скачивании — заполните его, прежде чем
-                загружать файл.
-              </p>
-              {uploadWidget.status === "uploading" ? (
-                <Progress value={uploadWidget.progress} />
-              ) : uploadWidget.status === "error" ? (
-                <p className="text-[0.8rem] text-destructive">{uploadWidget.message}</p>
-              ) : null}
-            </div>
-
-            <FormField
-              control={form.control}
-              name="section"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Раздел</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="none">Без раздела</SelectItem>
-                      <SelectItem value="federation">Федерация</SelectItem>
-                      <SelectItem value="referees">Коллегия судей</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="documentDate"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Дата документа</FormLabel>
-                  <FormControl>
-                    <Input type="date" {...field} />
-                  </FormControl>
-                  <p className="text-[0.8rem] text-muted-foreground">
-                    Дата самого документа (приказа, регламента, письма), а не дата загрузки в
-                    систему.
-                  </p>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="status"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Статус</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="draft">Черновик</SelectItem>
-                      <SelectItem value="published">Опубликован</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="inLibrary"
-              render={({ field }) => (
-                <FormItem className="space-y-2">
-                  <div className="flex flex-row items-center gap-2 space-y-0">
-                    <FormControl>
-                      <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                    </FormControl>
-                    <FormLabel className="font-normal">
-                      Показывать в общем списке документов
-                    </FormLabel>
-                  </div>
-                  <p className="text-[0.8rem] text-muted-foreground">
-                    Выключите для файлов, которые нужны только внутри новости — например
-                    информационная карта турнира. Файл останется доступен по прямой ссылке.
-                  </p>
-                </FormItem>
-              )}
-            />
-
-            <Button type="submit" disabled={submitDisabled}>
-              {isSaving
-                ? "Сохраняем…"
-                : uploadWidget.status === "uploading"
-                  ? "Загружаем файл…"
-                  : props.mode === "create"
-                    ? "Создать"
-                    : "Сохранить"}
-            </Button>
-          </form>
-        </Form>
-      </CardContent>
+      <CardContent>{formElement}</CardContent>
     </Card>
   );
 }
