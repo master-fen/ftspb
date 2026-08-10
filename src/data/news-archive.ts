@@ -1,147 +1,9 @@
 import type { NewsItem } from "@/lib/types/news";
-import img_2026_07_mosfest from "@/assets/news/2026-07-mosfest.jpg";
-import img_2026_01_india1 from "@/assets/news/2026-01-india1.jpg";
-import img_2025_12_ny2 from "@/assets/news/2025-12-ny2.jpg";
-import img_2026_06_sohor from "@/assets/news/2026-06-sohor.jpg";
-import img_2026_04_ter1 from "@/assets/news/2026-04-ter1.jpg";
-import img_2026_04_ter_sporta from "@/assets/news/2026-04-ter-sporta.jpg";
-import img_2026_06_kaluga_beach_01 from "@/assets/news/2026-06-kaluga-beach-01.jpg";
-import img_2026_04_ter_sporta1 from "@/assets/news/2026-04-ter-sporta1.jpg";
-import img_2025_12_ny4 from "@/assets/news/2025-12-ny4.jpg";
-import img_2026_02_mas1 from "@/assets/news/2026-02-mas1.jpg";
-import img_2026_02_kamelzon from "@/assets/news/2026-02-kamelzon.jpg";
-import img_2026_03_vas1 from "@/assets/news/2026-03-vas1.jpg";
-import img_2026_02_beach2 from "@/assets/news/2026-02-beach2.jpg";
-import img_2026_03_u10 from "@/assets/news/2026-03-u10.jpg";
-import img_2026_03_sobr1 from "@/assets/news/2026-03-sobr1.jpg";
-import img_2026_03_neyalov from "@/assets/news/2026-03-neyalov.jpg";
-import img_2026_03_mas1 from "@/assets/news/2026-03-mas1.jpg";
-import img_2026_07_samara11 from "@/assets/news/2026-07-samara11.jpg";
 import img_2026_06_spb_moscow_01 from "@/assets/news/2026-06-spb-moscow-01.jpg";
-import img_2026_02_vet from "@/assets/news/2026-02-vet.jpg";
-import img_2026_06_komarovy from "@/assets/news/2026-06-komarovy.jpg";
-import img_2026_07_samara06 from "@/assets/news/2026-07-samara06.jpg";
-import img_2026_02_masters1 from "@/assets/news/2026-02-masters1.jpg";
 import img_2026_07_vet01 from "@/assets/news/2026-07-vet01.jpg";
-import img_2026_03_champ1 from "@/assets/news/2026-03-champ1.jpg";
-import img_2025_12_ny3 from "@/assets/news/2025-12-ny3.jpg";
 import img_2026_07_sevcup from "@/assets/news/2026-07-sevcup.jpg";
-import img_2026_07_samara01 from "@/assets/news/2026-07-samara01.jpg";
-import img_2026_04_beach01 from "@/assets/news/2026-04-beach01.jpg";
-import img_2026_05_georgia from "@/assets/news/2026-05-georgia.jpg";
-import img_2026_05_beach01 from "@/assets/news/2026-05-beach01.jpg";
-import img_2025_02_proud from "@/assets/news/2025-02-proud.jpg";
-import img_2026_01_lutkov from "@/assets/news/2026-01-lutkov.jpg";
-import img_2026_01_suevalov from "@/assets/news/2026-01-suevalov.jpg";
-import img_2026_05_vet1 from "@/assets/news/2026-05-vet1.jpg";
-import img_2026_04_u19_1 from "@/assets/news/2026-04-u19-1.jpg";
-import img_2026_07_samara12 from "@/assets/news/2026-07-samara12.jpg";
-import img_2026_07_samara13 from "@/assets/news/2026-07-samara13.jpg";
-import img_2026_07_samara14 from "@/assets/news/2026-07-samara14.jpg";
-import img_2026_07_samara15 from "@/assets/news/2026-07-samara15.jpg";
-import img_2026_07_samara07 from "@/assets/news/2026-07-samara07.jpg";
-import img_2026_07_samara08 from "@/assets/news/2026-07-samara08.jpg";
-import img_2026_07_samara09 from "@/assets/news/2026-07-samara09.jpg";
-import img_2026_07_samara10 from "@/assets/news/2026-07-samara10.jpg";
 import img_2026_07_vet02 from "@/assets/news/2026-07-vet02.jpg";
-import img_2026_07_vet03 from "@/assets/news/2026-07-vet03.jpg";
-import img_2026_07_vet04 from "@/assets/news/2026-07-vet04.jpg";
-import img_2026_07_vet05 from "@/assets/news/2026-07-vet05.jpg";
-import img_2026_07_vet06 from "@/assets/news/2026-07-vet06.jpg";
-import img_2026_07_vet07 from "@/assets/news/2026-07-vet07.jpg";
-import img_2026_07_vet08 from "@/assets/news/2026-07-vet08.jpg";
-import img_2026_07_vet09 from "@/assets/news/2026-07-vet09.jpg";
-import img_2026_07_vet10 from "@/assets/news/2026-07-vet10.jpg";
-import img_2026_07_vet11 from "@/assets/news/2026-07-vet11.jpg";
-import img_2026_07_samara02 from "@/assets/news/2026-07-samara02.jpg";
-import img_2026_07_samara04 from "@/assets/news/2026-07-samara04.jpg";
-import img_2026_07_samara05 from "@/assets/news/2026-07-samara05.jpg";
-import img_2026_07_samara03 from "@/assets/news/2026-07-samara03.jpg";
-import img_2026_06_kaluga_beach_02 from "@/assets/news/2026-06-kaluga-beach-02.jpg";
-import img_2026_06_kaluga_beach_03 from "@/assets/news/2026-06-kaluga-beach-03.jpg";
-import img_2026_06_kaluga_beach_04 from "@/assets/news/2026-06-kaluga-beach-04.jpg";
-import img_2026_06_kaluga_beach_05 from "@/assets/news/2026-06-kaluga-beach-05.jpg";
-import img_2026_06_kaluga_beach_06 from "@/assets/news/2026-06-kaluga-beach-06.jpg";
-import img_2026_06_kaluga_beach_07 from "@/assets/news/2026-06-kaluga-beach-07.jpg";
-import img_2026_06_kaluga_beach_08 from "@/assets/news/2026-06-kaluga-beach-08.jpg";
 import img_2026_06_spb_moscow_02 from "@/assets/news/2026-06-spb-moscow-02.jpg";
-import img_2026_06_spb_moscow_03 from "@/assets/news/2026-06-spb-moscow-03.jpg";
-import img_2026_06_spb_moscow_04 from "@/assets/news/2026-06-spb-moscow-04.jpg";
-import img_2026_06_spb_moscow_05 from "@/assets/news/2026-06-spb-moscow-05.jpg";
-import img_2026_06_spb_moscow_06 from "@/assets/news/2026-06-spb-moscow-06.jpg";
-import img_2026_06_spb_moscow_07 from "@/assets/news/2026-06-spb-moscow-07.jpg";
-import img_2026_06_spb_moscow_08 from "@/assets/news/2026-06-spb-moscow-08.jpg";
-import img_2026_06_spb_moscow_09 from "@/assets/news/2026-06-spb-moscow-09.jpg";
-import img_2026_06_spb_moscow_10 from "@/assets/news/2026-06-spb-moscow-10.jpg";
-import img_2026_06_spb_moscow_11 from "@/assets/news/2026-06-spb-moscow-11.jpg";
-import img_2026_06_spb_moscow_12 from "@/assets/news/2026-06-spb-moscow-12.jpg";
-import img_2026_06_spb_moscow_13 from "@/assets/news/2026-06-spb-moscow-13.jpg";
-import img_2026_06_spb_moscow_14 from "@/assets/news/2026-06-spb-moscow-14.jpg";
-import img_2026_06_spb_moscow_15 from "@/assets/news/2026-06-spb-moscow-15.jpg";
-import img_2026_06_spb_moscow_16 from "@/assets/news/2026-06-spb-moscow-16.jpg";
-import img_2026_06_spb_moscow_17 from "@/assets/news/2026-06-spb-moscow-17.jpg";
-import img_2026_06_spb_moscow_18 from "@/assets/news/2026-06-spb-moscow-18.jpg";
-import img_2026_06_spb_moscow_19 from "@/assets/news/2026-06-spb-moscow-19.jpg";
-import img_2026_06_spb_moscow_20 from "@/assets/news/2026-06-spb-moscow-20.jpg";
-import img_2026_06_spb_moscow_21 from "@/assets/news/2026-06-spb-moscow-21.jpg";
-import img_2026_06_spb_moscow_22 from "@/assets/news/2026-06-spb-moscow-22.jpg";
-import img_2026_06_spb_moscow_23 from "@/assets/news/2026-06-spb-moscow-23.jpg";
-import img_2026_06_spb_moscow_24 from "@/assets/news/2026-06-spb-moscow-24.jpg";
-import img_2026_05_vet2 from "@/assets/news/2026-05-vet2.jpg";
-import img_2026_05_beach02 from "@/assets/news/2026-05-beach02.jpg";
-import img_2026_05_beach03 from "@/assets/news/2026-05-beach03.jpg";
-import img_2026_05_beach04 from "@/assets/news/2026-05-beach04.jpg";
-import img_2026_05_beach05 from "@/assets/news/2026-05-beach05.jpg";
-import img_2026_05_beach06 from "@/assets/news/2026-05-beach06.jpg";
-import img_2026_05_beach07 from "@/assets/news/2026-05-beach07.jpg";
-import img_2026_05_beach08 from "@/assets/news/2026-05-beach08.jpg";
-import img_2026_05_beach15 from "@/assets/news/2026-05-beach15.jpg";
-import img_2026_05_beach16 from "@/assets/news/2026-05-beach16.jpg";
-import img_2026_05_beach17 from "@/assets/news/2026-05-beach17.jpg";
-import img_2026_05_beach18 from "@/assets/news/2026-05-beach18.jpg";
-import img_2026_05_beach09 from "@/assets/news/2026-05-beach09.jpg";
-import img_2026_05_beach10 from "@/assets/news/2026-05-beach10.jpg";
-import img_2026_05_beach11 from "@/assets/news/2026-05-beach11.jpg";
-import img_2026_05_beach12 from "@/assets/news/2026-05-beach12.jpg";
-import img_2026_05_beach13 from "@/assets/news/2026-05-beach13.jpg";
-import img_2026_05_beach14 from "@/assets/news/2026-05-beach14.jpg";
-import img_2026_04_beach02 from "@/assets/news/2026-04-beach02.jpg";
-import img_2026_04_beach03 from "@/assets/news/2026-04-beach03.jpg";
-import img_2026_04_beach04 from "@/assets/news/2026-04-beach04.jpg";
-import img_2026_04_beach05 from "@/assets/news/2026-04-beach05.jpg";
-import img_2026_04_beach06 from "@/assets/news/2026-04-beach06.jpg";
-import img_2026_04_beach07 from "@/assets/news/2026-04-beach07.jpg";
-import img_2026_04_beach08 from "@/assets/news/2026-04-beach08.jpg";
-import img_2026_04_ter2 from "@/assets/news/2026-04-ter2.jpg";
-import img_2026_04_ter_sporta2 from "@/assets/news/2026-04-ter-sporta2.jpg";
-import img_2026_04_ter_sporta3 from "@/assets/news/2026-04-ter-sporta3.jpg";
-import img_2026_04_u19_2 from "@/assets/news/2026-04-u19-2.jpg";
-import img_2026_04_u19_3 from "@/assets/news/2026-04-u19-3.jpg";
-import img_2026_03_champ2 from "@/assets/news/2026-03-champ2.jpg";
-import img_2026_03_champ3 from "@/assets/news/2026-03-champ3.jpg";
-import img_2026_03_champ4 from "@/assets/news/2026-03-champ4.jpg";
-import img_2026_03_champ5 from "@/assets/news/2026-03-champ5.jpg";
-import img_2026_03_champ6 from "@/assets/news/2026-03-champ6.jpg";
-import img_2026_03_champ7 from "@/assets/news/2026-03-champ7.jpg";
-import img_2026_03_sobr2 from "@/assets/news/2026-03-sobr2.jpg";
-import img_2026_02_mas2 from "@/assets/news/2026-02-mas2.jpg";
-import img_2026_02_mas3 from "@/assets/news/2026-02-mas3.jpg";
-import img_2026_02_mas4 from "@/assets/news/2026-02-mas4.jpg";
-import img_2026_02_mas5 from "@/assets/news/2026-02-mas5.jpg";
-import img_2026_02_mas6 from "@/assets/news/2026-02-mas6.jpg";
-import img_2026_03_vas2 from "@/assets/news/2026-03-vas2.jpg";
-import img_2026_03_vas3 from "@/assets/news/2026-03-vas3.jpg";
-import img_2026_03_vas4 from "@/assets/news/2026-03-vas4.jpg";
-import img_2026_02_beach1 from "@/assets/news/2026-02-beach1.jpg";
-import img_2026_02_beach3 from "@/assets/news/2026-02-beach3.jpg";
-import img_2026_02_beach4 from "@/assets/news/2026-02-beach4.jpg";
-import img_2026_02_beach6 from "@/assets/news/2026-02-beach6.jpg";
-import img_2026_02_beach5 from "@/assets/news/2026-02-beach5.jpg";
-import img_2026_02_masters2 from "@/assets/news/2026-02-masters2.jpg";
-import img_2026_02_masters3 from "@/assets/news/2026-02-masters3.jpg";
-import img_2026_02_kamelzon2 from "@/assets/news/2026-02-kamelzon2.jpg";
-import img_2026_01_india2 from "@/assets/news/2026-01-india2.jpg";
-import img_2026_01_india3 from "@/assets/news/2026-01-india3.jpg";
 
 /** Реальные новости, импортированные из архива сайта Федерации. */
 export const archiveNews: NewsItem[] = [
@@ -178,13 +40,6 @@ export const archiveNews: NewsItem[] = [
       <p>В смешанном парном разряде на высшую ступень пьедестала поднялись Злата Шибалова и Николай Колайдо.</p>
       <p>Поздравляем наших теннисистов-пляжников и их тренеров с успешным выступлением! Молодцы!</p>
     `,
-    cover: img_2026_07_samara11,
-    gallery: [
-      img_2026_07_samara12,
-      img_2026_07_samara13,
-      img_2026_07_samara14,
-      img_2026_07_samara15,
-    ],
   },
   {
     id: "4-etap-kubka-rossii-po-plyazhnomu-tennisu",
@@ -201,13 +56,6 @@ export const archiveNews: NewsItem[] = [
       <p>В мужском парном разряде 2 место занял Никита Осокин в паре со Львом Филаткином из Москвы.</p>
       <p>Следим за дальнейшими успехами наших теннисистов-пляжников!</p>
     `,
-    cover: img_2026_07_samara06,
-    gallery: [
-      img_2026_07_samara07,
-      img_2026_07_samara08,
-      img_2026_07_samara09,
-      img_2026_07_samara10,
-    ],
   },
   {
     id: "festival-tennisa-v-moskve",
@@ -224,7 +72,6 @@ export const archiveNews: NewsItem[] = [
       <p>Болельщиков ждет яркое спортивное событие, которое объединит высокий уровень игры, зрелищные розыгрыши и праздничную атмосферу.</p>
       <p>Подробнее о Фестивале тенниса в Москве</p>
     `,
-    cover: img_2026_07_mosfest,
   },
   {
     id: "14-y-chempionat-sankt-peterburga-po-tennisu-sredi-veteranov",
@@ -337,18 +184,7 @@ export const archiveNews: NewsItem[] = [
       <p>3. Воднев Владимир (Санкт-Петербург) + Смирнова Лариса (Санкт-Петербург)</p>
     `,
     cover: img_2026_07_vet01,
-    gallery: [
-      img_2026_07_vet02,
-      img_2026_07_vet03,
-      img_2026_07_vet04,
-      img_2026_07_vet05,
-      img_2026_07_vet06,
-      img_2026_07_vet07,
-      img_2026_07_vet08,
-      img_2026_07_vet09,
-      img_2026_07_vet10,
-      img_2026_07_vet11,
-    ],
+    gallery: [img_2026_07_vet02],
   },
   {
     id: "chempionat-rossii-po-plyazhnomu-tennisu-v-g-rybinske",
@@ -361,13 +197,6 @@ export const archiveNews: NewsItem[] = [
       <p>Поздравляем наших спортсменов с успешным выступлением на Чемпионате России по пляжному теннису в г.Рыбинске!</p>
       <p>В женском парном разряде Андреева Юлиана в паре с Тарасовой Софьей из Самары поднялись на высшую ступень пьедестала! В мужском парном разряде 2 место занял Никита Осокин в паре со Львом Филаткиным из Москвы. "Бронзовыми" призерами в мужском парном разряде стали Савва Развозов и Михаил Макаров.</p>
     `,
-    cover: img_2026_07_samara01,
-    gallery: [
-      img_2026_07_samara02,
-      img_2026_07_samara04,
-      img_2026_07_samara05,
-      img_2026_07_samara03,
-    ],
   },
   {
     id: "yubiley-yuriya-sohora",
@@ -394,7 +223,6 @@ export const archiveNews: NewsItem[] = [
       <p>и желают ему здоровья, отличной спортивной формы</p>
       <p>и семейного благополучия!</p>
     `,
-    cover: img_2026_06_sohor,
   },
   {
     id: "yubiley-iriny-komarovoy",
@@ -415,7 +243,6 @@ export const archiveNews: NewsItem[] = [
       <p>И ЖЕЛАЕТ ЗДОРОВЬЯ, УДАЧИ,</p>
       <p>ГРЯДУЩИХ ПОБЕД НА КОРТЕ ЕЙ И ЕЕ УЧЕНИКАМ!</p>
     `,
-    cover: img_2026_06_komarovy,
   },
   {
     id: "3-etap-kubka-rossii-po-plyazhnomu-tennisu",
@@ -431,16 +258,6 @@ export const archiveNews: NewsItem[] = [
       <p>В смешанном парном разряде серебряные медали получили Михаил Макаров и Ангелина Климук из Самары.</p>
       <p>Впереди новые важные старты. Пожелаем успехов всем спортсменам!</p>
     `,
-    cover: img_2026_06_kaluga_beach_01,
-    gallery: [
-      img_2026_06_kaluga_beach_02,
-      img_2026_06_kaluga_beach_03,
-      img_2026_06_kaluga_beach_04,
-      img_2026_06_kaluga_beach_05,
-      img_2026_06_kaluga_beach_06,
-      img_2026_06_kaluga_beach_07,
-      img_2026_06_kaluga_beach_08,
-    ],
   },
   {
     id: "match-sankt-peterburg-moskva",
@@ -458,31 +275,7 @@ export const archiveNews: NewsItem[] = [
       <p>Фотографии в облачном хранилище: https://cloud.mail.ru/public/tY7B/gqwE3hq6N</p>
     `,
     cover: img_2026_06_spb_moscow_01,
-    gallery: [
-      img_2026_06_spb_moscow_02,
-      img_2026_06_spb_moscow_03,
-      img_2026_06_spb_moscow_04,
-      img_2026_06_spb_moscow_05,
-      img_2026_06_spb_moscow_06,
-      img_2026_06_spb_moscow_07,
-      img_2026_06_spb_moscow_08,
-      img_2026_06_spb_moscow_09,
-      img_2026_06_spb_moscow_10,
-      img_2026_06_spb_moscow_11,
-      img_2026_06_spb_moscow_12,
-      img_2026_06_spb_moscow_13,
-      img_2026_06_spb_moscow_14,
-      img_2026_06_spb_moscow_15,
-      img_2026_06_spb_moscow_16,
-      img_2026_06_spb_moscow_17,
-      img_2026_06_spb_moscow_18,
-      img_2026_06_spb_moscow_19,
-      img_2026_06_spb_moscow_20,
-      img_2026_06_spb_moscow_21,
-      img_2026_06_spb_moscow_22,
-      img_2026_06_spb_moscow_23,
-      img_2026_06_spb_moscow_24,
-    ],
+    gallery: [img_2026_06_spb_moscow_02],
   },
   {
     id: "pozdravlyaem-mariyu-golovinu-s-pobedoy-v-gruzii",
@@ -494,7 +287,6 @@ export const archiveNews: NewsItem[] = [
     body: `
       <p>Поздравляем петербурженку Марию Головину (тренер Александр Василенко) с победой на турнире категории ITF W50 в парном разряде с Екатериной Маклаковой в Грузии! Желаем дальнейших побед!</p>
     `,
-    cover: img_2026_05_georgia,
   },
   {
     id: "den-pobedy-2026",
@@ -532,8 +324,6 @@ export const archiveNews: NewsItem[] = [
       <p>Владимиру Николаевичу ПРОКОФЬЕВУ!</p>
       <p>СПАСИБО ВСЕМ!</p>
     `,
-    cover: img_2026_05_vet1,
-    gallery: [img_2026_05_vet2],
   },
   {
     id: "rezultaty-chempionata-i-pervenstv-spb-po-plyazhnomu-tennisu",
@@ -617,26 +407,6 @@ export const archiveNews: NewsItem[] = [
       <p>3 место: Поповская София/Проничев Матвей</p>
       <p>Поздравляем наших ребят с отличными результатами!</p>
     `,
-    cover: img_2026_05_beach01,
-    gallery: [
-      img_2026_05_beach02,
-      img_2026_05_beach03,
-      img_2026_05_beach04,
-      img_2026_05_beach05,
-      img_2026_05_beach06,
-      img_2026_05_beach07,
-      img_2026_05_beach08,
-      img_2026_05_beach15,
-      img_2026_05_beach16,
-      img_2026_05_beach17,
-      img_2026_05_beach18,
-      img_2026_05_beach09,
-      img_2026_05_beach10,
-      img_2026_05_beach11,
-      img_2026_05_beach12,
-      img_2026_05_beach13,
-      img_2026_05_beach14,
-    ],
   },
   {
     id: "sobranie-pravleniya-ft-spb",
@@ -695,16 +465,6 @@ export const archiveNews: NewsItem[] = [
       <p>2 место - Макаров Михаил с Климук Ангелиной /Самара/</p>
       <p>Поздравляем наших ребят с отличными результатами!</p>
     `,
-    cover: img_2026_04_beach01,
-    gallery: [
-      img_2026_04_beach02,
-      img_2026_04_beach03,
-      img_2026_04_beach04,
-      img_2026_04_beach05,
-      img_2026_04_beach06,
-      img_2026_04_beach07,
-      img_2026_04_beach08,
-    ],
   },
   {
     id: "moskva-ural-1-1",
@@ -727,8 +487,6 @@ export const archiveNews: NewsItem[] = [
       <p>На торжественной церемонии закрытия турнира заместитель председателя Комитета по физической культуре и спорту Санкт-Петербурга Елена Павлова отметила важность подобных соревнований: «Сейчас ребята только в начале своего пути, но я верю, что в будущем они завоют немало наград и прославят нашу страну на международных соревнованиях».</p>
       <p>Директор турнира, Алексей Кузнецов , подвёл его итоги: «Всю неделю мы наблюдали настоящую, бескомпромиссную борьбу, зрелищные волевые победы. Слезы, улыбки, смех — искренние эмоции после побед и поражений — все это, несомненно, добавило красок соревнованиям. Очень важно, что многие ребята дружат и переходят на новую теннисную ступень вместе. В здоровой конкуренции и общении юноши и девушки становятся сильнее. Мы же, как организаторы, создали все условия, чтобы им было комфортно и — очень важно — интересно, чтобы участие в наших соревнованиях запомнилось надолго как главная стартовая площадка их карьеры».</p>
     `,
-    cover: img_2026_04_ter1,
-    gallery: [img_2026_04_ter2],
   },
   {
     id: "yunosheskiy-tennis-po-vzroslomu",
@@ -748,8 +506,6 @@ export const archiveNews: NewsItem[] = [
       <p>Владимир Прокофьев, президент Федерации тенниса Санкт-Петербурга, член правления ФТР: считаю, что Всероссийские соревнования на призы АНО «Развитие ракеточных видов спорта» — это важный шаг в возрождении большого тенниса Санкт-Петербурга. Такие состязания крайне важны с точки зрения развития наших юных теннисистов, сильнейшие из которых представлены сегодня на кортах турнира. Уверен, что по уровню организации турнир — один из лучших в России.</p>
       <p>Алексей Кузнецов, директор турнира: мы гордимся, что в соревнованиях принимают участие лучшие из лучших — как сборники своих регионов, так и игроки сборной России в разных возрастных категориях. Организовывая подобные турниры, мы работаем на профессиональный рост наших талантливых ребят, будущего российского тенниса.</p>
     `,
-    cover: img_2026_04_ter_sporta1,
-    gallery: [img_2026_04_ter_sporta2, img_2026_04_ter_sporta3],
   },
   {
     id: "vserossiyskie-sorevnovaniya-po-tennisu",
@@ -769,7 +525,6 @@ export const archiveNews: NewsItem[] = [
       <p>В турнире примут участие более 100 юных спортсменов со всей России - от Крыма и Калининграда до Благовещенска и Хабаровска. Соревнования пройдут в одиночных и парных разрядах среди юношей и девушек. Турниру присвоена высшая категория РТТ 1А. По сути, это одно из первых юношеских соревнований подобного масштаба в Санкт-Петербурге, своего рода крупнейший теннисный форум для юниоров России. Соревнования проводятся под эгидой Министерства спорта, Российского спортивного фонда и Федерации тенниса России, по инициативе которой право его организовывать было предоставлено АНО «Развитие ракеточных видов спорта».</p>
       <p>По положению Минспорта РФ участвовать в турнире смогут лучшие из лучших - только члены сборных команд и лидеры рейтинга своих регионов. Все восходящие звёздочки российского и петербургского тенниса будут представлены на турнире — члены сборных команд России в своих возрастных категориях. Турнир на призы АНО «Развитие ракеточных видов спорта» — важный шаг к теннисному олимпу для юных спортсменов со всей страны.</p>
     `,
-    cover: img_2026_04_ter_sporta,
   },
   {
     id: "pervenstvo-sankt-peterburga-sredi-yuniorov-i-yuniorok-do-19",
@@ -793,8 +548,6 @@ export const archiveNews: NewsItem[] = [
       <p>2 место -Васильцова Софья Игоревна / Медведев Демьян Дмитриевич</p>
       <p>3 место - Шляпникова Полина Валерьевна / Юзов Савелий Дмитриевич</p>
     `,
-    cover: img_2026_04_u19_1,
-    gallery: [img_2026_04_u19_2, img_2026_04_u19_3],
   },
   {
     id: "regionalnye-sorevnovaniya-goroda-sankt-peterburga-9-10-let",
@@ -814,7 +567,6 @@ export const archiveNews: NewsItem[] = [
       <p>2 место - Егорова Милана Тимофеевна</p>
       <p>3 место- Чумак Анастасия Дмитриевна</p>
     `,
-    cover: img_2026_03_u10,
   },
   {
     id: "torzhestvennoe-vruchenie-nagrudnogo-znaka-za-zaslugi-v-razvi",
@@ -830,7 +582,6 @@ export const archiveNews: NewsItem[] = [
       <p>Почётного знака был удостоен Неялов Илья Сергеевич — вице-президент Федерации тенниса Санкт-Петербурга. Награда стала признанием его вклада в развитие физической культуры и популяризацию тенниса в Северной столице.</p>
       <p>От всей души поздравляем Неялова Илью Сергеевича с заслуженной наградой! Желаем крепкого здоровья, неиссякаемой энергии, новых профессиональных достижений и успехов во всех начинаниях на благо спорта Санкт-Петербурга!</p>
     `,
-    cover: img_2026_03_neyalov,
   },
   {
     id: "rezultaty-chempionata-sankt-peterburga",
@@ -855,15 +606,6 @@ export const archiveNews: NewsItem[] = [
       <p>2 место - Герасименко Елизавета Андреевна / Павлов Владимир Романович</p>
       <p>3 место - Цапинская Марьяна Владимировна / Николаев Иван Денисович</p>
     `,
-    cover: img_2026_03_champ1,
-    gallery: [
-      img_2026_03_champ2,
-      img_2026_03_champ3,
-      img_2026_03_champ4,
-      img_2026_03_champ5,
-      img_2026_03_champ6,
-      img_2026_03_champ7,
-    ],
   },
   {
     id: "otchetno-vybornoe-sobranie-chlenov-federatsii-tennisa-sankt",
@@ -898,8 +640,6 @@ export const archiveNews: NewsItem[] = [
       <p>Сохор Юрий Арнольдович,</p>
       <p>Щеголева Лариса Николаевна.</p>
     `,
-    cover: img_2026_03_sobr1,
-    gallery: [img_2026_03_sobr2],
   },
   {
     id: "chestvovanie-masterov-sporta-rossii",
@@ -913,7 +653,6 @@ export const archiveNews: NewsItem[] = [
       <p>Ряды мастеров пополнил представитель нашего вида спорта. Удостоверение и значок "Мастер спорта России" получил Богдан Никифоров.</p>
       <p>Поздравляем Богдана с получением награды и желаем ему дальнейших спортивных успехов!</p>
     `,
-    cover: img_2026_03_mas1,
   },
   {
     id: "pervenstva-i-chempionat-sankt-peterburga-po-tennisu",
@@ -963,7 +702,6 @@ export const archiveNews: NewsItem[] = [
       <p>Прощание (отпевание) состоится в храме Большеохтинского кладбища (пр. Металлистов, 5) 18 марта 2026 г., в 13 часов.</p>
       <p>О захоронении праха с возложением венков на этом кладбище будет объявлено позже.</p>
     `,
-    cover: img_2026_02_vet,
   },
   {
     id: "chestvovanie-masterov-sporta-rossii-2",
@@ -980,14 +718,6 @@ export const archiveNews: NewsItem[] = [
       <p>- Осокин Никита (пляжный теннис).</p>
       <p>Поздравляем наших теннисистов с получением наград и желаем им дальнейших спортивных успехов!</p>
     `,
-    cover: img_2026_02_mas1,
-    gallery: [
-      img_2026_02_mas2,
-      img_2026_02_mas3,
-      img_2026_02_mas4,
-      img_2026_02_mas5,
-      img_2026_02_mas6,
-    ],
   },
   {
     id: "rezultaty-pervenstva-gbu-do-ssh-2-vasileostrovskogo-rayona",
@@ -1015,8 +745,6 @@ export const archiveNews: NewsItem[] = [
       <p>2 место -Назарова Зарина Асимовна (Санкт-Петербург)</p>
       <p>3 место - Егорова Милана Тимофеевна (Санкт-Петербург)</p>
     `,
-    cover: img_2026_03_vas1,
-    gallery: [img_2026_03_vas2, img_2026_03_vas3, img_2026_03_vas4],
   },
   {
     id: "s-pobedami-nashih-tennisistov-plyazhnikov-na-kubke-rossii",
@@ -1034,14 +762,6 @@ export const archiveNews: NewsItem[] = [
       <p>- 3место в смешанном парном разряде: Развозов Савва, в паре с Романовой Софьей (Москва)</p>
       <p>Поздравляем наших спортсменов с отличными результатами и желаем дальнейших теннисных успехов!</p>
     `,
-    cover: img_2026_02_beach2,
-    gallery: [
-      img_2026_02_beach1,
-      img_2026_02_beach3,
-      img_2026_02_beach4,
-      img_2026_02_beach6,
-      img_2026_02_beach5,
-    ],
   },
   {
     id: "chestvovanie-masterov-sporta-rossii-2-2",
@@ -1057,8 +777,6 @@ export const archiveNews: NewsItem[] = [
       <p>- Арина Безуглая (пляжный теннис).</p>
       <p>Поздравляем наших теннисисток с получением наград и желаем им дальнейших спортивных успехов!</p>
     `,
-    cover: img_2026_02_masters1,
-    gallery: [img_2026_02_masters2, img_2026_02_masters3],
   },
   {
     id: "ushel-iz-zhizni-zasluzhennyy-trener-v-n-kamelzon",
@@ -1083,8 +801,6 @@ export const archiveNews: NewsItem[] = [
       <p>в Зале прощаний Троекуровского кладбища,</p>
       <p>Москва, ул. Рябиновая, вл.24</p>
     `,
-    cover: img_2026_02_kamelzon,
-    gallery: [img_2026_02_kamelzon2],
   },
   {
     id: "pozdravlyaem-s-yubileem-ms-a-l-suevalova",
@@ -1096,7 +812,6 @@ export const archiveNews: NewsItem[] = [
     body: `
       <p>28 января свой семьдесят пятый день рождения празднует Александр Леонидович Суевалов, мастер спорта СССР по теннису, многократный победитель и призёр чемпионатов Ленинграда.</p>
     `,
-    cover: img_2026_01_suevalov,
   },
   {
     id: "pamyati-v-f-lutkova",
@@ -1109,7 +824,6 @@ export const archiveNews: NewsItem[] = [
       <p>Начало года принесло неутешительную новость. 9 января 2026 года, на 86-м году жизни, от нас ушел Валерий Федорович Лутков. Спортивный врач, Заслуженный работник высшей школы РФ, кандидат медицинских наук, доцент, профессор кафедры спортивной медицины и комплексной реабилитации НГУ им. П.Ф.Лесгафта. Он долгие годы работал со сборными командами страны по волейболу, в том числе и на серебряной для наших девушек Олимпиаде в Сиднее-2000.</p>
       <p>Но мы знаем Валерия Федоровича как врача на бесчисленном количестве теннисных турниров: среди любителей, на матчах Санкт-Петербург – Москва, первенствах и Чемпионатах Санкт-Петербурга, международных под эгидой ITF среди юниоров и профессионалов, и, конечно, на ATP St. Petersburg Open. Мы запомним его как искренне преданного своему делу интеллигентного человека с неограниченным кругозором, добрыми глазами, мягким голосом и потрясающим чувством юмора. Соболезнования всей семье и близким. Покойтесь с миром, Валерий Федорович!</p>
     `,
-    cover: img_2026_01_lutkov,
   },
   {
     id: "pozdravlyaem-mariyu-golovinu-s-otlichnym-nachalom-goda",
@@ -1122,15 +836,12 @@ export const archiveNews: NewsItem[] = [
       <p>на турнире W15 в Ахмедабаде (Индия) она дважды поднялась на первую ступень пьедестала почёта, в одиночном женском разряде и в паре с Аружан Сагандыковой из Казахстана.</p>
       <p>Поздравляем Марию и желаем ей дальнейших спортивных успехов!</p>
     `,
-    cover: img_2026_01_india1,
-    gallery: [img_2026_01_india2, img_2026_01_india3],
   },
   {
     id: "federatsiya-tennisa-spb-pozdravlyaet-vseh-s-novym-godom",
     category: "Общее",
     date: "31.12.25",
     title: "Федерация тенниса СПб поздравляет всех с Новым Годом!",
-    cover: img_2025_12_ny3,
   },
   {
     id: "kollektiv-turnira-formula-th-pozdravlyaet-s-novym-godom",
@@ -1142,7 +853,6 @@ export const archiveNews: NewsItem[] = [
       <p>От всей души поздравляем Вас с наступающим Новым 2026 годом!</p>
       <p>Наталия Камельзон</p>
     `,
-    cover: img_2025_12_ny4,
   },
   {
     id: "kollektiv-rtt-pozdravlyaet-vseh-s-novym-godom",
@@ -1158,7 +868,6 @@ export const archiveNews: NewsItem[] = [
       <p>Пусть сбудутся ваши заветные мечты, в доме будут достаток и процветание, любовь и взаимопонимание, душевное и финансовое здоровье!</p>
       <p>И пусть с нами вместе будет шириться и процветать наша любимая игра – теннис!</p>
     `,
-    cover: img_2025_12_ny2,
   },
   {
     id: "spisok-kandidatov-v-sbornuyu-spb",
@@ -1201,6 +910,5 @@ export const archiveNews: NewsItem[] = [
       <p>Отчёты о мероприятиях отражаются в</p>
       <p>Новостной ленте юбилейных праздничных мероприятий</p>
     `,
-    cover: img_2025_02_proud,
   },
 ];
