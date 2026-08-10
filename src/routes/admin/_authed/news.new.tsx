@@ -16,6 +16,9 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { createNews, suggestSlug } from "@/lib/news-admin-server-fn";
+import { AdminBackLink } from "./-components/AdminBackLink";
+import { UnsavedChangesDialog } from "./-components/UnsavedChangesDialog";
+import { useUnsavedChangesBlocker } from "./-hooks/use-unsaved-changes-blocker";
 
 export const Route = createFileRoute("/admin/_authed/news/new")({
   component: AdminNewsNew,
@@ -37,6 +40,10 @@ function AdminNewsNew() {
     resolver: zodResolver(formSchema),
     defaultValues: { title: "", publishedAt: todayIso() },
   });
+  const {
+    formState: { isDirty },
+  } = form;
+  const blocker = useUnsavedChangesBlocker(isDirty, true);
 
   const mutation = useMutation({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
@@ -45,7 +52,11 @@ function AdminNewsNew() {
         data: { slug, title: values.title, publishedAt: values.publishedAt, status: "draft" },
       });
     },
-    onSuccess: ({ id }) => navigate({ to: "/admin/news/$id", params: { id } }),
+    onSuccess: ({ id }, values) => {
+      form.reset(values);
+      blocker.bypassNextNavigation();
+      navigate({ to: "/admin/news/$id", params: { id } });
+    },
     onError: () => toast.error("Не удалось создать новость"),
   });
 
@@ -53,46 +64,50 @@ function AdminNewsNew() {
 
   return (
     <div className="flex min-h-screen justify-center bg-background px-4 py-8">
-      <Card className="h-fit w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Новая новость</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={onSubmit} className="space-y-4" noValidate>
-              <FormField
-                control={form.control}
-                name="title"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Заголовок</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="publishedAt"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Дата</FormLabel>
-                    <FormControl>
-                      <Input type="date" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Button type="submit" className="w-full" disabled={mutation.isPending}>
-                {mutation.isPending ? "Создаём…" : "Создать черновик"}
-              </Button>
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
+      <div className="flex h-fit w-full max-w-md flex-col gap-4">
+        <AdminBackLink to="/admin/news" label="К списку новостей" />
+        <Card>
+          <CardHeader>
+            <CardTitle>Новая новость</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Form {...form}>
+              <form onSubmit={onSubmit} className="space-y-4" noValidate>
+                <FormField
+                  control={form.control}
+                  name="title"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Заголовок</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="publishedAt"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Дата</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button type="submit" className="w-full" disabled={mutation.isPending}>
+                  {mutation.isPending ? "Создаём…" : "Создать черновик"}
+                </Button>
+              </form>
+            </Form>
+          </CardContent>
+        </Card>
+      </div>
+      <UnsavedChangesDialog blocker={blocker} />
     </div>
   );
 }
