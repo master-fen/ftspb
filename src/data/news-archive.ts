@@ -180,7 +180,6 @@ export const archiveNews: NewsItem[] = [
     `,
     cover: img_2026_07_samara11,
     gallery: [
-      img_2026_07_samara11,
       img_2026_07_samara12,
       img_2026_07_samara13,
       img_2026_07_samara14,
@@ -204,7 +203,6 @@ export const archiveNews: NewsItem[] = [
     `,
     cover: img_2026_07_samara06,
     gallery: [
-      img_2026_07_samara06,
       img_2026_07_samara07,
       img_2026_07_samara08,
       img_2026_07_samara09,
@@ -340,7 +338,6 @@ export const archiveNews: NewsItem[] = [
     `,
     cover: img_2026_07_vet01,
     gallery: [
-      img_2026_07_vet01,
       img_2026_07_vet02,
       img_2026_07_vet03,
       img_2026_07_vet04,
@@ -366,7 +363,6 @@ export const archiveNews: NewsItem[] = [
     `,
     cover: img_2026_07_samara01,
     gallery: [
-      img_2026_07_samara01,
       img_2026_07_samara02,
       img_2026_07_samara04,
       img_2026_07_samara05,
@@ -437,7 +433,6 @@ export const archiveNews: NewsItem[] = [
     `,
     cover: img_2026_06_kaluga_beach_01,
     gallery: [
-      img_2026_06_kaluga_beach_01,
       img_2026_06_kaluga_beach_02,
       img_2026_06_kaluga_beach_03,
       img_2026_06_kaluga_beach_04,
@@ -464,7 +459,6 @@ export const archiveNews: NewsItem[] = [
     `,
     cover: img_2026_06_spb_moscow_01,
     gallery: [
-      img_2026_06_spb_moscow_01,
       img_2026_06_spb_moscow_02,
       img_2026_06_spb_moscow_03,
       img_2026_06_spb_moscow_04,
@@ -539,7 +533,7 @@ export const archiveNews: NewsItem[] = [
       <p>СПАСИБО ВСЕМ!</p>
     `,
     cover: img_2026_05_vet1,
-    gallery: [img_2026_05_vet1, img_2026_05_vet2],
+    gallery: [img_2026_05_vet2],
   },
   {
     id: "rezultaty-chempionata-i-pervenstv-spb-po-plyazhnomu-tennisu",
@@ -625,7 +619,6 @@ export const archiveNews: NewsItem[] = [
     `,
     cover: img_2026_05_beach01,
     gallery: [
-      img_2026_05_beach01,
       img_2026_05_beach02,
       img_2026_05_beach03,
       img_2026_05_beach04,
@@ -704,7 +697,6 @@ export const archiveNews: NewsItem[] = [
     `,
     cover: img_2026_04_beach01,
     gallery: [
-      img_2026_04_beach01,
       img_2026_04_beach02,
       img_2026_04_beach03,
       img_2026_04_beach04,
@@ -736,7 +728,7 @@ export const archiveNews: NewsItem[] = [
       <p>Директор турнира, Алексей Кузнецов , подвёл его итоги: «Всю неделю мы наблюдали настоящую, бескомпромиссную борьбу, зрелищные волевые победы. Слезы, улыбки, смех — искренние эмоции после побед и поражений — все это, несомненно, добавило красок соревнованиям. Очень важно, что многие ребята дружат и переходят на новую теннисную ступень вместе. В здоровой конкуренции и общении юноши и девушки становятся сильнее. Мы же, как организаторы, создали все условия, чтобы им было комфортно и — очень важно — интересно, чтобы участие в наших соревнованиях запомнилось надолго как главная стартовая площадка их карьеры».</p>
     `,
     cover: img_2026_04_ter1,
-    gallery: [img_2026_04_ter1, img_2026_04_ter2],
+    gallery: [img_2026_04_ter2],
   },
   {
     id: "yunosheskiy-tennis-po-vzroslomu",
@@ -757,7 +749,7 @@ export const archiveNews: NewsItem[] = [
       <p>Алексей Кузнецов, директор турнира: мы гордимся, что в соревнованиях принимают участие лучшие из лучших — как сборники своих регионов, так и игроки сборной России в разных возрастных категориях. Организовывая подобные турниры, мы работаем на профессиональный рост наших талантливых ребят, будущего российского тенниса.</p>
     `,
     cover: img_2026_04_ter_sporta1,
-    gallery: [img_2026_04_ter_sporta1, img_2026_04_ter_sporta2, img_2026_04_ter_sporta3],
+    gallery: [img_2026_04_ter_sporta2, img_2026_04_ter_sporta3],
   },
   {
     id: "vserossiyskie-sorevnovaniya-po-tennisu",
@@ -802,7 +794,7 @@ export const archiveNews: NewsItem[] = [
       <p>3 место - Шляпникова Полина Валерьевна / Юзов Савелий Дмитриевич</p>
     `,
     cover: img_2026_04_u19_1,
-    gallery: [img_2026_04_u19_1, img_2026_04_u19_2, img_2026_04_u19_3],
+    gallery: [img_2026_04_u19_2, img_2026_04_u19_3],
   },
   {
     id: "regionalnye-sorevnovaniya-goroda-sankt-peterburga-9-10-let",
@@ -865,7 +857,6 @@ export const archiveNews: NewsItem[] = [
     `,
     cover: img_2026_03_champ1,
     gallery: [
-      img_2026_03_champ1,
       img_2026_03_champ2,
       img_2026_03_champ3,
       img_2026_03_champ4,
@@ -908,7 +899,7 @@ export const archiveNews: NewsItem[] = [
       <p>Щеголева Лариса Николаевна.</p>
     `,
     cover: img_2026_03_sobr1,
-    gallery: [img_2026_03_sobr1, img_2026_03_sobr2],
+    gallery: [img_2026_03_sobr2],
   },
   {
     id: "chestvovanie-masterov-sporta-rossii",
@@ -991,7 +982,6 @@ export const archiveNews: NewsItem[] = [
     `,
     cover: img_2026_02_mas1,
     gallery: [
-      img_2026_02_mas1,
       img_2026_02_mas2,
       img_2026_02_mas3,
       img_2026_02_mas4,
@@ -1026,7 +1016,7 @@ export const archiveNews: NewsItem[] = [
       <p>3 место - Егорова Милана Тимофеевна (Санкт-Петербург)</p>
     `,
     cover: img_2026_03_vas1,
-    gallery: [img_2026_03_vas1, img_2026_03_vas2, img_2026_03_vas3, img_2026_03_vas4],
+    gallery: [img_2026_03_vas2, img_2026_03_vas3, img_2026_03_vas4],
   },
   {
     id: "s-pobedami-nashih-tennisistov-plyazhnikov-na-kubke-rossii",
@@ -1046,7 +1036,6 @@ export const archiveNews: NewsItem[] = [
     `,
     cover: img_2026_02_beach2,
     gallery: [
-      img_2026_02_beach2,
       img_2026_02_beach1,
       img_2026_02_beach3,
       img_2026_02_beach4,
@@ -1069,7 +1058,7 @@ export const archiveNews: NewsItem[] = [
       <p>Поздравляем наших теннисисток с получением наград и желаем им дальнейших спортивных успехов!</p>
     `,
     cover: img_2026_02_masters1,
-    gallery: [img_2026_02_masters1, img_2026_02_masters2, img_2026_02_masters3],
+    gallery: [img_2026_02_masters2, img_2026_02_masters3],
   },
   {
     id: "ushel-iz-zhizni-zasluzhennyy-trener-v-n-kamelzon",
@@ -1095,7 +1084,7 @@ export const archiveNews: NewsItem[] = [
       <p>Москва, ул. Рябиновая, вл.24</p>
     `,
     cover: img_2026_02_kamelzon,
-    gallery: [img_2026_02_kamelzon, img_2026_02_kamelzon2],
+    gallery: [img_2026_02_kamelzon2],
   },
   {
     id: "pozdravlyaem-s-yubileem-ms-a-l-suevalova",
@@ -1134,7 +1123,7 @@ export const archiveNews: NewsItem[] = [
       <p>Поздравляем Марию и желаем ей дальнейших спортивных успехов!</p>
     `,
     cover: img_2026_01_india1,
-    gallery: [img_2026_01_india1, img_2026_01_india2, img_2026_01_india3],
+    gallery: [img_2026_01_india2, img_2026_01_india3],
   },
   {
     id: "federatsiya-tennisa-spb-pozdravlyaet-vseh-s-novym-godom",
