@@ -34,6 +34,8 @@ import {
   isWithinSizeLimit,
   MAX_UPLOAD_BYTES,
 } from "@/lib/image-validation";
+import { useUnsavedChangesBlocker } from "../-hooks/use-unsaved-changes-blocker";
+import { UnsavedChangesDialog } from "./UnsavedChangesDialog";
 
 type AdminDocument = {
   id: string;
@@ -184,6 +186,7 @@ export function DocumentForm(props: DocumentFormProps) {
   const {
     formState: { isDirty },
   } = form;
+  const blocker = useUnsavedChangesBlocker(!props.bare && (isDirty || pendingUpload !== null));
   const watchedTitle = form.watch("title");
 
   useEffect(() => {
@@ -235,10 +238,13 @@ export function DocumentForm(props: DocumentFormProps) {
           inLibrary: input.values.inLibrary,
         },
       }),
-    onSuccess: ({ id, status }) => {
+    onSuccess: ({ id, status }, variables) => {
       if (props.mode === "create" && props.onCreated) {
         props.onCreated({ id, status });
       } else {
+        form.reset(variables.values);
+        setPendingUpload(null);
+        blocker.bypassNextNavigation();
         navigate({ to: "/admin/documents/$id", params: { id } });
       }
     },
@@ -499,6 +505,7 @@ export function DocumentForm(props: DocumentFormProps) {
         </CardTitle>
       </CardHeader>
       <CardContent>{formElement}</CardContent>
+      <UnsavedChangesDialog blocker={blocker} />
     </Card>
   );
 }

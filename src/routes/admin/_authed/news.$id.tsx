@@ -34,6 +34,9 @@ import {
 } from "@/lib/news-admin-server-fn";
 import { NewsDocumentGallery } from "./-components/NewsDocumentGallery";
 import { NewsPhotoGallery } from "./-components/NewsPhotoGallery";
+import { AdminBackLink } from "./-components/AdminBackLink";
+import { UnsavedChangesDialog } from "./-components/UnsavedChangesDialog";
+import { useUnsavedChangesBlocker } from "./-hooks/use-unsaved-changes-blocker";
 
 export const Route = createFileRoute("/admin/_authed/news/$id")({
   component: AdminNewsEdit,
@@ -66,6 +69,7 @@ function AdminNewsEdit() {
   return (
     <div className="min-h-screen bg-background px-4 py-8">
       <div className="mx-auto max-w-2xl">
+        <AdminBackLink to="/admin/news" label="К списку новостей" />
         {query.isError ? (
           <div className="flex flex-col items-start gap-3 rounded-xl border bg-card p-6">
             <p className="text-sm text-destructive">Не удалось загрузить новость.</p>
@@ -125,6 +129,7 @@ function NewsEditForm({
   const {
     formState: { isDirty },
   } = form;
+  const blocker = useUnsavedChangesBlocker(isDirty);
   const watchedSlug = form.watch("slug");
   const watchedTitle = form.watch("title");
   const watchedPublishedAt = form.watch("publishedAt");
@@ -420,6 +425,7 @@ function NewsEditForm({
           newsSection={news.section}
         />
       </CardContent>
+      <UnsavedChangesDialog blocker={blocker} />
     </Card>
   );
 }

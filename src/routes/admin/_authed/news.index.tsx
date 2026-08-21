@@ -32,6 +32,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { listAdminNews, restoreNews, softDeleteNews } from "@/lib/news-admin-server-fn";
+import { AdminBackLink } from "./-components/AdminBackLink";
 
 export const Route = createFileRoute("/admin/_authed/news/")({
   component: AdminNewsList,
@@ -99,6 +100,7 @@ function AdminNewsList() {
   return (
     <div className="min-h-screen bg-background px-4 py-8">
       <div className="mx-auto flex max-w-6xl flex-col gap-6">
+        <AdminBackLink to="/admin" label="В админку" />
         <header className="flex flex-wrap items-center justify-between gap-4">
           <h1 className="text-2xl font-bold text-foreground">Новости</h1>
           <Button asChild>

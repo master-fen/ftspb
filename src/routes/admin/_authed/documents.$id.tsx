@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { getAdminDocument } from "@/lib/documents-server-fn";
+import { AdminBackLink } from "./-components/AdminBackLink";
 import { DocumentForm } from "./-components/DocumentForm";
 
 export const Route = createFileRoute("/admin/_authed/documents/$id")({
@@ -19,6 +20,7 @@ function AdminDocumentEdit() {
   return (
     <div className="min-h-screen bg-background px-4 py-8">
       <div className="mx-auto max-w-2xl">
+        <AdminBackLink to="/admin/documents" label="К списку документов" />
         {query.isError ? (
           <div className="flex flex-col items-start gap-3 rounded-xl border bg-card p-6">
             <p className="text-sm text-destructive">Не удалось загрузить документ.</p>

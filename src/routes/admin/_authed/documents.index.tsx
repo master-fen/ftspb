@@ -32,6 +32,7 @@ import {
 import { listAdminDocuments, softDeleteDocument } from "@/lib/documents-server-fn";
 import { formatFileSize } from "@/lib/format-file-size";
 import { getFileExtension } from "@/lib/image-validation";
+import { AdminBackLink } from "./-components/AdminBackLink";
 
 export const Route = createFileRoute("/admin/_authed/documents/")({
   component: AdminDocumentsList,
@@ -81,6 +82,7 @@ function AdminDocumentsList() {
   return (
     <div className="min-h-screen bg-background px-4 py-8">
       <div className="mx-auto flex max-w-6xl flex-col gap-6">
+        <AdminBackLink to="/admin" label="В админку" />
         <header className="flex flex-wrap items-center justify-between gap-4">
           <h1 className="text-2xl font-bold text-foreground">Документы</h1>
           <Button asChild>
