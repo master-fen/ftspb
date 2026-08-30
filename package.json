@@ -17,6 +17,7 @@
     "db:studio": "drizzle-kit studio",
     "migrate:archive": "bun run scripts/migrate-archive.ts",
     "create-admin": "bun run scripts/create-admin.ts",
+    "delete-admin": "bun run scripts/delete-admin.ts",
     "test": "bun test"
   },
   "dependencies": {
