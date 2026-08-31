@@ -1,7 +1,7 @@
 import process from "node:process";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { TIMEWEB_CA } from "./ca";
+import { sslFor } from "./ssl";
 import * as schema from "./schema";
 
 /**
@@ -12,10 +12,11 @@ const connectionString = process.env.DATABASE_URL;
 const schemaName = process.env.DB_SCHEMA || "public";
 
 /**
- * CA вшит в код (`src/db/ca.ts`) — не полагаемся на NODE_EXTRA_CA_CERTS,
- * в проде его не будет.
- * `sslmode=verify-full` в DATABASE_URL всё ещё нужен: без него postgres.js
- * не включит проверку сертификата вовсе.
+ * TLS выбирается по хосту (`src/db/ssl.ts`): локальная база разработчика —
+ * без шифрования, любой другой хост — verify-full с вшитым в код CA
+ * (`src/db/ca.ts`; не полагаемся на NODE_EXTRA_CA_CERTS, в проде его не
+ * будет). `sslmode` в самой строке подключения на это не влияет: явный ключ
+ * `ssl` в опциях postgres.js перекрывает query-строку URL.
  */
 const queryClient = connectionString
   ? postgres(connectionString, {
@@ -24,10 +25,7 @@ const queryClient = connectionString
       // Схема выбирается через search_path, а не в SQL таблиц/миграций —
       // см. src/db/schema.ts.
       connection: { search_path: schemaName },
-      ssl: {
-        ca: TIMEWEB_CA,
-        rejectUnauthorized: true,
-      },
+      ssl: sslFor(connectionString),
     })
   : null;
 

@@ -2,7 +2,7 @@ import process from "node:process";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
-import { TIMEWEB_CA } from "../src/db/ca";
+import { sslFor } from "../src/db/ssl";
 
 /**
  * drizzle-kit ("drizzle-kit migrate") валидирует dbCredentials через
@@ -22,10 +22,7 @@ if (!connectionString) {
 const sql = postgres(connectionString, {
   max: 1,
   connection: { search_path: schemaName },
-  ssl: {
-    ca: TIMEWEB_CA,
-    rejectUnauthorized: true,
-  },
+  ssl: sslFor(connectionString),
 });
 
 if (schemaName !== "public") {

@@ -1,6 +1,6 @@
 import process from "node:process";
 import { defineConfig } from "drizzle-kit";
-import { TIMEWEB_CA } from "./src/db/ca";
+import { sslFor } from "./src/db/ssl";
 
 const rawUrl = process.env.DATABASE_URL;
 
@@ -25,10 +25,9 @@ function buildDbCredentials() {
     user: decodeURIComponent(url.username),
     password: decodeURIComponent(url.password),
     database: url.pathname.replace(/^\//, ""),
-    ssl: {
-      ca: TIMEWEB_CA,
-      rejectUnauthorized: true,
-    },
+    // Query-строка URL здесь теряется вместе с `sslmode`, поэтому TLS
+    // задаётся отдельно и по хосту — см. src/db/ssl.ts.
+    ssl: sslFor(rawUrl),
   };
 }
 

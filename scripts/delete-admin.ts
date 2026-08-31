@@ -2,7 +2,7 @@ import process from "node:process";
 import { eq } from "drizzle-orm";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { TIMEWEB_CA } from "../src/db/ca";
+import { sslFor } from "../src/db/ssl";
 import * as schema from "../src/db/schema";
 
 const { adminUser, adminSession } = schema;
@@ -53,7 +53,7 @@ function getDb(): PostgresJsDatabase<typeof schema> {
     sqlInstance = postgres(connectionString, {
       max: 1,
       connection: { search_path: schemaArg },
-      ssl: { ca: TIMEWEB_CA, rejectUnauthorized: true },
+      ssl: sslFor(connectionString),
     });
     dbInstance = drizzle(sqlInstance, { schema });
   }
