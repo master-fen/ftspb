@@ -15,6 +15,7 @@
     "postdb:generate": "bun run scripts/strip-migration-schema.ts",
     "db:migrate": "bun run scripts/migrate.ts",
     "db:studio": "drizzle-kit studio",
+    "db:refresh": "bun run scripts/db-refresh.ts",
     "migrate:archive": "bun run scripts/migrate-archive.ts",
     "create-admin": "bun run scripts/create-admin.ts",
     "delete-admin": "bun run scripts/delete-admin.ts",
