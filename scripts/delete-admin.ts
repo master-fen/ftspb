@@ -2,7 +2,7 @@ import process from "node:process";
 import { eq } from "drizzle-orm";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { sslFor } from "../src/db/ssl";
+import { describeTarget, sslFor } from "../src/db/ssl";
 import * as schema from "../src/db/schema";
 
 const { adminUser, adminSession } = schema;
@@ -61,7 +61,9 @@ function getDb(): PostgresJsDatabase<typeof schema> {
 }
 
 async function main() {
-  console.log(`Схема: ${schemaArg}, логин: ${login}`);
+  console.log(
+    `Хост: ${describeTarget(process.env.DATABASE_URL)}, схема: ${schemaArg}, логин: ${login}`,
+  );
 
   const db = getDb();
 

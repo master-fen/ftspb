@@ -2,7 +2,7 @@ import process from "node:process";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
-import { sslFor } from "../src/db/ssl";
+import { describeTarget, sslFor } from "../src/db/ssl";
 
 /**
  * drizzle-kit ("drizzle-kit migrate") валидирует dbCredentials через
@@ -18,6 +18,8 @@ const schemaName = process.env.DB_SCHEMA || "public";
 if (!connectionString) {
   throw new Error("DATABASE_URL не задан");
 }
+
+console.log(`Хост: ${describeTarget(connectionString)}, схема: ${schemaName}`);
 
 const sql = postgres(connectionString, {
   max: 1,

@@ -2,7 +2,7 @@ import process from "node:process";
 import { eq } from "drizzle-orm";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { sslFor } from "../src/db/ssl";
+import { describeTarget, sslFor } from "../src/db/ssl";
 import * as schema from "../src/db/schema";
 import { deleteObject, headObject, isS3NotFound } from "../src/server/storage";
 
@@ -271,7 +271,9 @@ async function processCandidate(candidate: Candidate): Promise<Outcome> {
 // ───────────────────────── main ─────────────────────────
 
 async function main() {
-  console.log(`Дедупликация обложек (schema=${schemaArg}, dry-run=${dryRun})`);
+  console.log(
+    `Дедупликация обложек (хост=${describeTarget(process.env.DATABASE_URL)}, schema=${schemaArg}, dry-run=${dryRun})`,
+  );
 
   const { violations, candidates } = await preflight();
 

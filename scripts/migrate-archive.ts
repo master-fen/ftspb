@@ -4,7 +4,7 @@ import process from "node:process";
 import { eq, inArray } from "drizzle-orm";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { sslFor } from "../src/db/ssl";
+import { describeTarget, sslFor } from "../src/db/ssl";
 import * as schema from "../src/db/schema";
 import { allNews, featuredNews } from "../src/data/mock";
 import { slugify } from "../src/server/slug";
@@ -467,6 +467,7 @@ async function main() {
   const allRecords: ArchiveRecord[] = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
   const records = limit !== undefined ? allRecords.slice(0, limit) : allRecords;
 
+  console.log(`Хост: ${describeTarget(process.env.DATABASE_URL)}`);
   console.log(
     `Записей в файле: ${allRecords.length}, обрабатывается: ${records.length} (schema=${schemaArg}, dry-run=${dryRun})`,
   );
