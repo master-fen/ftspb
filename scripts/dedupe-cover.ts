@@ -2,7 +2,7 @@ import process from "node:process";
 import { eq } from "drizzle-orm";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { TIMEWEB_CA } from "../src/db/ca";
+import { describeTarget, sslFor } from "../src/db/ssl";
 import * as schema from "../src/db/schema";
 import { deleteObject, headObject, isS3NotFound } from "../src/server/storage";
 
@@ -71,7 +71,7 @@ function getDb(): PostgresJsDatabase<typeof schema> {
     sqlInstance = postgres(connectionString, {
       max: 1,
       connection: { search_path: schemaArg },
-      ssl: { ca: TIMEWEB_CA, rejectUnauthorized: true },
+      ssl: sslFor(connectionString),
     });
     dbInstance = drizzle(sqlInstance, { schema });
   }
@@ -271,7 +271,9 @@ async function processCandidate(candidate: Candidate): Promise<Outcome> {
 // ───────────────────────── main ─────────────────────────
 
 async function main() {
-  console.log(`Дедупликация обложек (schema=${schemaArg}, dry-run=${dryRun})`);
+  console.log(
+    `Дедупликация обложек (хост=${describeTarget(process.env.DATABASE_URL)}, schema=${schemaArg}, dry-run=${dryRun})`,
+  );
 
   const { violations, candidates } = await preflight();
 

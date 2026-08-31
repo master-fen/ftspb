@@ -20,6 +20,9 @@ dist-ssr
 .wrangler/
 .dev.vars
 
+# Дампы боевой базы, снятые `bun run db:refresh` — боевые данные, не коммитим
+dumps/
+
 # Local env vars — DATABASE_URL и прочие секреты, см. .env.example
 .env
 .env.*

@@ -3,7 +3,7 @@ import process from "node:process";
 import { and, eq, isNull, or } from "drizzle-orm";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { TIMEWEB_CA } from "../src/db/ca";
+import { describeTarget, sslFor } from "../src/db/ssl";
 import * as schema from "../src/db/schema";
 
 const { document } = schema;
@@ -62,7 +62,7 @@ if (!connectionString) {
 const sqlInstance = postgres(connectionString, {
   max: 1,
   connection: { search_path: schemaArg },
-  ssl: { ca: TIMEWEB_CA, rejectUnauthorized: true },
+  ssl: sslFor(connectionString),
 });
 const db: PostgresJsDatabase<typeof schema> = drizzle(sqlInstance, { schema });
 
@@ -123,7 +123,7 @@ async function applyPlan(plans: Plan[]): Promise<void> {
 
 async function main() {
   console.log(
-    `Бэкофилл document.fileName/status/inLibrary (schema=${schemaArg}, dry-run=${dryRun})`,
+    `Бэкофилл document.fileName/status/inLibrary (хост=${describeTarget(process.env.DATABASE_URL)}, schema=${schemaArg}, dry-run=${dryRun})`,
   );
 
   const plans = await preflight();
