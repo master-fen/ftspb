@@ -1,13 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
-import { eq, inArray } from "drizzle-orm";
+import { count, eq, inArray } from "drizzle-orm";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { describeTarget, sslFor } from "../src/db/ssl";
 import * as schema from "../src/db/schema";
 import { allNews, featuredNews } from "../src/data/mock";
-import { slugify } from "../src/server/slug";
+import { LEGACY_SLUG_MAX_LENGTH, slugify, truncateSlug } from "../src/server/slug";
 import { uploadObject } from "../src/server/storage";
 import { textToHtml } from "./text-to-html";
 
@@ -27,6 +27,8 @@ type ArchiveRecord = {
   Раздел?: string;
   Анонс?: string;
   Текст?: string;
+  /** Готовый HTML тела (этап 8, parse-archive.ts); санитизация — зона парсера. */
+  ТекстHTML?: string;
   Обложка?: string;
   Галерея?: string[];
   Документы?: string[];
@@ -45,12 +47,18 @@ function parseArgs(argv: string[]) {
   let schemaArg: string | undefined;
   let dryRun = false;
   let limit: number | undefined;
+  let replaceAll = false;
+  let assets: string | undefined;
 
   for (const arg of argv) {
     if (arg === "--dry-run") {
       dryRun = true;
+    } else if (arg === "--replace-all") {
+      replaceAll = true;
     } else if (arg.startsWith("--source=")) {
       source = arg.slice("--source=".length);
+    } else if (arg.startsWith("--assets=")) {
+      assets = arg.slice("--assets=".length);
     } else if (arg.startsWith("--schema=")) {
       schemaArg = arg.slice("--schema=".length);
     } else if (arg.startsWith("--limit=")) {
@@ -70,10 +78,12 @@ function parseArgs(argv: string[]) {
     throw new Error("--limit должен быть положительным целым числом");
   }
 
-  return { source, schemaArg, dryRun, limit };
+  // База относительных путей Обложка/Галерея/Документы; по умолчанию —
+  // прежнее поведение (файлы рядом с news_export_local.json).
+  return { source, schemaArg, dryRun, limit, replaceAll, assets: assets ?? source };
 }
 
-const { source, schemaArg, dryRun, limit } = parseArgs(process.argv.slice(2));
+const { source, schemaArg, dryRun, limit, replaceAll, assets } = parseArgs(process.argv.slice(2));
 
 // ───────────────────────── подключение к БД (лениво) ─────────────────────────
 
@@ -81,6 +91,10 @@ const { source, schemaArg, dryRun, limit } = parseArgs(process.argv.slice(2));
  * `--dry-run` обязан отрабатывать вообще без живой БД: соединение и проверка
  * `DATABASE_URL` откладываются до первого реального обращения из applyPlan,
  * которое при dryRun не наступает вовсе.
+ *
+ * Исключение (этап 8, осознанное изменение инварианта): `--dry-run` вместе с
+ * `--replace-all` подключается к БД — иначе не показать удаляемое и
+ * coverage-check, — но исполняет только SELECT (см. replaceAllDryRun).
  */
 let sqlInstance: ReturnType<typeof postgres> | undefined;
 let dbInstance: PostgresJsDatabase<typeof schema> | undefined;
@@ -187,6 +201,26 @@ function documentMimeType(ext: string, context: string): string {
   switch (ext) {
     case ".pdf":
       return "application/pdf";
+    case ".doc":
+      return "application/msword";
+    case ".docx":
+      return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    case ".xls":
+      return "application/vnd.ms-excel";
+    case ".xlsx":
+      return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    case ".pptx":
+      return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+    case ".rtf":
+      return "application/rtf";
+    case ".zip":
+      return "application/zip";
+    case ".rar":
+      return "application/x-rar-compressed";
+    case ".mp4":
+      return "video/mp4";
+    case ".mov":
+      return "video/quicktime";
     default:
       throw new Error(`Неизвестное расширение документа "${ext}" (${context})`);
   }
@@ -206,6 +240,7 @@ type Plan = {
   excerpt: string | null;
   body: string | null;
   section: Section;
+  source: string | null;
   publishedAt: string;
   featured: boolean;
   featuredOrder: number | null;
@@ -234,11 +269,13 @@ function buildPlan(record: ArchiveRecord, slug: string): Plan {
   }
   const publishedAt = isoMatch[0];
 
-  const matched = matchMock(title, publishedAt);
+  // При --replace-all сопоставление с mock.ts отключено: section/featured
+  // расставляются позже руками, полная замена не наследует ничего от моков.
+  const matched = replaceAll ? null : matchMock(title, publishedAt);
 
   const cover = record["Обложка"]
     ? (() => {
-        const localPath = path.join(source, record["Обложка"]!);
+        const localPath = path.join(assets, record["Обложка"]!);
         requireFile(localPath, `обложка новости "${title}"`);
         const ext = path.extname(localPath).toLowerCase();
         return {
@@ -259,7 +296,7 @@ function buildPlan(record: ArchiveRecord, slug: string): Plan {
     }
   }
   const gallery = galleryLocalItems.map((item, idx) => {
-    const localPath = path.join(source, item);
+    const localPath = path.join(assets, item);
     requireFile(localPath, `фото галереи новости "${title}"`);
     const ext = path.extname(localPath).toLowerCase();
     const nn = String(idx + 1).padStart(2, "0");
@@ -277,7 +314,7 @@ function buildPlan(record: ArchiveRecord, slug: string): Plan {
         `Документ выглядит как http-ссылка, ожидался локальный путь: ${item} (новость "${title}")`,
       );
     }
-    const localPath = path.join(source, item);
+    const localPath = path.join(assets, item);
     requireFile(localPath, `документ новости "${title}"`);
     const ext = path.extname(localPath).toLowerCase();
     const nn = String(idx + 1).padStart(2, "0");
@@ -294,8 +331,10 @@ function buildPlan(record: ArchiveRecord, slug: string): Plan {
     slug,
     title,
     excerpt: record["Анонс"]?.trim() || null,
-    body: record["Текст"] ? textToHtml(record["Текст"]) : null,
+    // ТекстHTML кладётся как есть: санитизация — зона парсера (parse-archive.ts).
+    body: record["ТекстHTML"] ?? (record["Текст"] ? textToHtml(record["Текст"]) : null),
     section: matched?.section ?? null,
+    source: record["Источник"]?.trim() || null,
     publishedAt,
     featured: matched?.featured ?? false,
     featuredOrder: matched?.featuredOrder ?? null,
@@ -328,6 +367,7 @@ async function applyPlan(plan: Plan): Promise<void> {
     excerpt: plan.excerpt,
     body: plan.body,
     section: plan.section,
+    source: plan.source,
     publishedAt: plan.publishedAt,
     status: "published" as const,
     deletedAt: null,
@@ -423,10 +463,154 @@ async function applyPlan(plan: Plan): Promise<void> {
   );
 }
 
+// ───────────────────────── --replace-all: полная замена ─────────────────────────
+
+/** Фаза 1: заливка всех S3-объектов плана. PUT идемпотентен — повтор безопасен. */
+async function uploadPlanObjects(plan: Plan): Promise<number> {
+  let uploaded = 0;
+  if (plan.cover) {
+    await uploadObject(
+      plan.cover.s3Key,
+      fs.readFileSync(plan.cover.localPath),
+      plan.cover.contentType,
+    );
+    uploaded += 1;
+  }
+  for (const item of plan.gallery) {
+    await uploadObject(item.s3Key, fs.readFileSync(item.localPath), item.contentType);
+    uploaded += 1;
+  }
+  for (const item of plan.documents) {
+    await uploadObject(item.s3Key, fs.readFileSync(item.localPath), item.mimeType);
+    uploaded += 1;
+  }
+  return uploaded;
+}
+
+/**
+ * Полная замена контента целевой схемы. Двухфазно: сначала все S3-объекты
+ * (вне транзакции — сбой оставляет базу нетронутой), затем одна транзакция
+ * БД: DELETE всех строк news_document → news_photo → document → news
+ * (порядок с учётом FK: cover_photo_id → news_photo гасится ON DELETE SET
+ * NULL, news_document каскадится от обеих сторон) и все вставки. Сбой фазы
+ * 2 — полный откат.
+ */
+async function replaceAllApply(plans: Plan[]): Promise<void> {
+  let uploaded = 0;
+  for (const plan of plans) {
+    uploaded += await uploadPlanObjects(plan);
+  }
+  console.log(`Фаза 1 завершена: залито объектов S3: ${uploaded}`);
+
+  const db = getDb();
+  await db.transaction(async (tx) => {
+    await tx.delete(newsDocument);
+    await tx.delete(newsPhoto);
+    await tx.delete(document);
+    await tx.delete(news);
+
+    for (const plan of plans) {
+      const [inserted] = await tx
+        .insert(news)
+        .values({
+          slug: plan.slug,
+          title: plan.title,
+          excerpt: plan.excerpt,
+          body: plan.body,
+          section: plan.section,
+          source: plan.source,
+          publishedAt: plan.publishedAt,
+          status: "published" as const,
+          featured: plan.featured,
+          featuredOrder: plan.featuredOrder,
+        })
+        .returning({ id: news.id });
+      const newsId = inserted.id;
+
+      if (plan.cover) {
+        const [photo] = await tx
+          .insert(newsPhoto)
+          .values({ newsId, s3Key: plan.cover.s3Key, position: 0 })
+          .returning({ id: newsPhoto.id });
+        await tx.update(news).set({ coverPhotoId: photo.id }).where(eq(news.id, newsId));
+      }
+      for (const item of plan.gallery) {
+        await tx.insert(newsPhoto).values({ newsId, s3Key: item.s3Key, position: item.position });
+      }
+      for (const item of plan.documents) {
+        const [docRow] = await tx
+          .insert(document)
+          .values({
+            title: plan.title,
+            s3Key: item.s3Key,
+            fileName: path.basename(item.s3Key),
+            mimeType: item.mimeType,
+            sizeBytes: item.sizeBytes,
+            section: plan.section,
+            documentDate: plan.publishedAt,
+            status: "published",
+            inLibrary: true,
+          })
+          .returning({ id: document.id });
+        await tx
+          .insert(newsDocument)
+          .values({ newsId, documentId: docRow.id, position: item.position });
+      }
+    }
+  });
+  console.log(`Фаза 2 завершена: схема ${schemaArg} заменена, новостей ${plans.length}`);
+}
+
+/**
+ * --dry-run вместе с --replace-all подключается к БД — осознанное изменение
+ * инварианта «dry-run без БД» (см. комментарий у getDb): без живой базы не
+ * показать ни удаляемое, ни coverage-check. Здесь исполняются ТОЛЬКО
+ * SELECT-запросы — никакой записи.
+ */
+async function replaceAllDryRun(plans: Plan[]): Promise<void> {
+  const db = getDb();
+
+  const [[newsN], [photoN], [docN], [linkN]] = await Promise.all([
+    db.select({ n: count() }).from(news),
+    db.select({ n: count() }).from(newsPhoto),
+    db.select({ n: count() }).from(document),
+    db.select({ n: count() }).from(newsDocument),
+  ]);
+  console.log("─── replace-all dry-run: будет удалено ───");
+  console.log(
+    `news: ${newsN.n}, news_photo: ${photoN.n}, document: ${docN.n}, news_document: ${linkN.n}`,
+  );
+
+  const docTitles = await db
+    .select({ title: document.title, fileName: document.fileName })
+    .from(document)
+    .orderBy(document.title, document.fileName);
+  console.log(`document.title поимённо (${docTitles.length}):`);
+  for (const d of docTitles) console.log(`  ${d.title} [${d.fileName}]`);
+
+  // Coverage-check: существующие news, которых нет в экспорте, — кандидаты
+  // на безвозвратную потерю при замене (ожидание: рукотворные тестовые записи).
+  const existing = await db
+    .select({ title: news.title, publishedAt: news.publishedAt })
+    .from(news)
+    .orderBy(news.publishedAt, news.title);
+  const exportKeys = new Set(plans.map((p) => `${normalizeTitle(p.title)}|${p.publishedAt}`));
+  const missing = existing.filter(
+    (r) => !exportKeys.has(`${normalizeTitle(r.title)}|${r.publishedAt}`),
+  );
+  console.log(`coverage-check: существующих news вне экспорта: ${missing.length}`);
+  for (const r of missing) console.log(`  ${r.publishedAt}  ${r.title}`);
+}
+
 // ───────────────────────── slug: коллизии ─────────────────────────
 
 function resolveSlugs(records: ArchiveRecord[]): string[] {
-  const baseSlugs = records.map((r) => slugify(r["Заголовок"] ?? ""));
+  // База обрезается до лимита старого сайта ДО разрешения коллизий — новые
+  // slug совпадают с легаси. Датный суффикс добавляется поверх обрезанной
+  // базы и может превысить лимит — это допустимо.
+  const baseSlugs = records.map((r) =>
+    truncateSlug(slugify(r["Заголовок"] ?? ""), LEGACY_SLUG_MAX_LENGTH),
+  );
   const groups = new Map<string, number[]>();
   baseSlugs.forEach((base, i) => {
     const arr = groups.get(base) ?? [];
@@ -481,10 +665,8 @@ async function main() {
   let documentCount = 0;
   let mockNotFoundCount = 0;
 
-  for (let i = 0; i < records.length; i++) {
-    const plan = buildPlan(records[i], slugs[i]);
-
-    if (!plan.mockMatched) {
+  function noteAndPrintPlan(plan: Plan): void {
+    if (!replaceAll && !plan.mockMatched) {
       mockNotFoundCount += 1;
       console.warn(`[warn] "${plan.title}": не найдено в mock.ts — section=null, featured=false`);
     }
@@ -505,16 +687,44 @@ async function main() {
       `[plan] ${plan.slug}: section=${plan.section ?? "null"} featured=${plan.featured}` +
         `(${plan.featuredOrder ?? "-"}) cover=${plan.cover ? "yes" : "no"} gallery=${plan.gallery.length} documents=${plan.documents.length}`,
     );
-
-    await applyPlan(plan);
   }
 
-  console.log("───────────────────────────────────────");
-  console.log(`Обработано записей: ${records.length}`);
-  console.log(`С обложкой: ${coverCount}, без обложки: ${noCoverCount}`);
-  console.log(`Фото в галереях: ${galleryPhotoCount}, http-ссылок пропущено: ${droppedHttpCount}`);
-  console.log(`Документов: ${documentCount}`);
-  console.log(`Не найдено в mock.ts: ${mockNotFoundCount}`);
+  function printTotals(): void {
+    console.log("───────────────────────────────────────");
+    console.log(`Обработано записей: ${records.length}`);
+    console.log(`С обложкой: ${coverCount}, без обложки: ${noCoverCount}`);
+    console.log(
+      `Фото в галереях: ${galleryPhotoCount}, http-ссылок пропущено: ${droppedHttpCount}`,
+    );
+    console.log(`Документов: ${documentCount}`);
+    if (!replaceAll) {
+      console.log(`Не найдено в mock.ts: ${mockNotFoundCount}`);
+    }
+  }
+
+  if (replaceAll) {
+    // Все планы строятся (и валидируются: наличие файлов, mime, даты) ДО
+    // любых действий с S3 и БД — сбой валидации не оставляет полуработы.
+    const plans: Plan[] = [];
+    for (let i = 0; i < records.length; i++) {
+      const plan = buildPlan(records[i], slugs[i]);
+      noteAndPrintPlan(plan);
+      plans.push(plan);
+    }
+    printTotals();
+    if (dryRun) {
+      await replaceAllDryRun(plans);
+    } else {
+      await replaceAllApply(plans);
+    }
+  } else {
+    for (let i = 0; i < records.length; i++) {
+      const plan = buildPlan(records[i], slugs[i]);
+      noteAndPrintPlan(plan);
+      await applyPlan(plan);
+    }
+    printTotals();
+  }
 
   if (sqlInstance) {
     await sqlInstance.end();
