@@ -633,6 +633,22 @@ function resolveSlugs(records: ArchiveRecord[]): string[] {
     }
   }
 
+  // Коллизии, оставшиеся и после датного суффикса (в архиве есть разные
+  // новости с одинаковой парой заголовок+дата), получают порядковый суффикс
+  // по порядку следования записей в файле экспорта: slug-дата, slug-дата-2,
+  // slug-дата-3…
+  const ordinal = new Map<string, number>();
+  for (let i = 0; i < finalSlugs.length; i++) {
+    const s = finalSlugs[i];
+    const n = ordinal.get(s) ?? 0;
+    ordinal.set(s, n + 1);
+    if (n > 0) {
+      finalSlugs[i] = `${s}-${n + 1}`;
+    }
+  }
+
+  // Финальная проверка уникальности: бросает, если уникальность не достигнута
+  // и после порядковых суффиксов (например, slug-дата-2 совпал с чьей-то базой).
   const seen = new Set<string>();
   for (const s of finalSlugs) {
     if (seen.has(s)) {
