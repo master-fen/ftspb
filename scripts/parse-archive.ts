@@ -20,6 +20,7 @@
  * закреплена константами RECON_EXPECTED_* для сверки в отчёте.
  */
 
+import { createHash } from "node:crypto";
 import { readFileSync, readdirSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import process from "node:process";
@@ -165,6 +166,9 @@ type ReportBag = {
   quotes: string[];
   unreferencedArticles: string[];
   syntheticTitles: string[];
+  dedupedFull: string[];
+  sameTitleDateDiffBody: string[];
+  winOpenNonImage: number;
   normalizedHits: number;
   internalLinks: number;
   externalLinks: number;
@@ -188,6 +192,9 @@ const report: ReportBag = {
   quotes: [],
   unreferencedArticles: [],
   syntheticTitles: [],
+  dedupedFull: [],
+  sameTitleDateDiffBody: [],
+  winOpenNonImage: 0,
   normalizedHits: 0,
   internalLinks: 0,
   externalLinks: 0,
@@ -470,9 +477,14 @@ function extractPhotos(html: string, baseUrl: string): PhotoRef[] {
     /<a[^>]*href\s*=\s*["']?javascript:window\.open\(\s*'([^']+)'[^>]*>\s*<img[^>]*src\s*=\s*["']?([^"'\s>]+)/gi;
   let m: RegExpExecArray | null;
   while ((m = winRe.exec(html))) {
+    // window.open бывает и на article-СТРАНИЦУ (миниатюра-тизер): страница —
+    // не полноразмер; без проверки расширения её .html попадал в Галерея и
+    // ронял мигратор на imageContentType. Тогда фото — только превью.
+    const fullIsImage = IMG_EXT_RE.test(m[1].split("?")[0]);
+    if (!fullIsImage) report.winOpenNonImage += 1;
     photos.push({
       at: m.index,
-      fullUrl: absolutize(m[1], baseUrl),
+      fullUrl: fullIsImage ? absolutize(m[1], baseUrl) : null,
       previewUrl: absolutize(m[2], baseUrl),
     });
     consumed.push([m.index, m.index + m[0].length]);
@@ -1064,7 +1076,9 @@ function removeLinkSentence(plain: string): string {
 
 // ───────────────────────── обход файлов ленты ─────────────────────────
 
-function parseFeedFile(file: string, records: OutputRecord[]): void {
+type CollectedRecord = { file: string; rec: OutputRecord };
+
+function parseFeedFile(file: string, records: CollectedRecord[]): void {
   const raw = readCp1251(join(ARCHIVE, "archive_pages", file));
   const commentedBodies = countCommentedBodies(raw);
   const html = blankComments(raw);
@@ -1124,7 +1138,7 @@ function parseFeedFile(file: string, records: OutputRecord[]): void {
   for (const item of items) {
     const rec = buildRecord(item);
     if (rec) {
-      records.push(rec);
+      records.push({ file, rec });
       produced += 1;
     }
   }
@@ -1177,6 +1191,60 @@ function listUnreferencedArticles(): void {
   }
 }
 
+// ───────────────────────── дедупликация межфайловых повторов ─────────────────────────
+
+/**
+ * Сайт повторял новости на стыках годовых файлов (новогодние поздравления).
+ * Полный дубль = нормализованный заголовок + Дата + SHA-1 полного ТекстHTML;
+ * остаётся запись из более раннего файла ленты (порядок FEED_FILES = порядок
+ * обхода, первая встреченная побеждает), её Источник не меняется. Группы с
+ * одинаковыми (заголовок, дата), но разными телами НЕ дедуплицируются — они
+ * печатаются в отчёт для ревью глазами (Neva Cup и повторы с разным текстом).
+ */
+function dedupeRecords(collected: CollectedRecord[]): OutputRecord[] {
+  const sha1 = (s: string) => createHash("sha1").update(s, "utf8").digest("hex");
+  const norm = (t: string) => t.trim().replace(/\s+/g, " ");
+
+  const byFull = new Map<string, CollectedRecord>();
+  const byTitleDate = new Map<string, Array<CollectedRecord & { hash: string }>>();
+  const out: OutputRecord[] = [];
+
+  for (const item of collected) {
+    const hash = sha1(item.rec["ТекстHTML"]);
+    const tdKey = `${norm(item.rec["Заголовок"])}|${item.rec["Дата"]}`;
+    const fullKey = `${tdKey}|${hash}`;
+
+    const winner = byFull.get(fullKey);
+    if (winner) {
+      report.dedupedFull.push(
+        `«${item.rec["Заголовок"]}» (${item.rec["Дата"]}): ${winner.file} (Источник: ${winner.rec["Источник"]}) + ` +
+          `${item.file} (Источник: ${item.rec["Источник"]}) → оставлен вариант из ${winner.file}`,
+      );
+      const pf = report.perFile.find((f) => f.file === item.file);
+      if (pf) pf.records -= 1;
+      continue;
+    }
+    byFull.set(fullKey, item);
+    const arr = byTitleDate.get(tdKey) ?? [];
+    arr.push({ ...item, hash });
+    byTitleDate.set(tdKey, arr);
+    out.push(item.rec);
+  }
+
+  for (const group of byTitleDate.values()) {
+    if (group.length > 1) {
+      report.sameTitleDateDiffBody.push(
+        `«${group[0].rec["Заголовок"]}» (${group[0].rec["Дата"]}): ` +
+          group
+            .map((g) => `${g.file} (Источник: ${g.rec["Источник"]}, sha1 ${g.hash})`)
+            .join(" vs "),
+      );
+    }
+  }
+
+  return out;
+}
+
 // ───────────────────────── отчёт ─────────────────────────
 
 function renderReport(records: OutputRecord[]): string {
@@ -1207,6 +1275,10 @@ function renderReport(records: OutputRecord[]): string {
   L.push("");
   L.push(`Записей в JSON: ${records.length}.`);
   L.push("");
+  L.push("Отрицательная дельта по файлу — запись, удалённая дедупликацией межфайловых полных");
+  L.push("повторов (побеждает более ранний файл ленты; см. раздел «Дедупликация межфайловых");
+  L.push("повторов» ниже): счёт файла уменьшается на каждый проигравший дубль.");
+  L.push("");
 
   const section = (title: string, rows: string[], empty = "нет") => {
     L.push(`## ${title} (${rows.length})`);
@@ -1222,6 +1294,11 @@ function renderReport(records: OutputRecord[]): string {
   L.push("число записей он не влияет: 56 тел − 50 заголовков = 6 склеек в 2006.");
   L.push("");
   section("Склейки", report.merges);
+  section("Дедупликация межфайловых повторов", report.dedupedFull);
+  section(
+    "Совпадение заголовка и даты при разных телах (НЕ дедуплицировано, для ревью)",
+    report.sameTitleDateDiffBody,
+  );
   section("Исправления дат", report.dateFixes);
   section("Записи с годом ≠ году файла", report.foreignYear);
   L.push(`## Article-ссылки: кейсы`);
@@ -1245,6 +1322,9 @@ function renderReport(records: OutputRecord[]): string {
   );
   L.push("## Счётчики ссылок");
   L.push("");
+  L.push(
+    `- window.open на не-изображение (миниатюра учтена как фото без полноразмера): ${report.winOpenNonImage}`,
+  );
   L.push(`- нормализованных попаданий в манифест (http/https/www): ${report.normalizedHits}`);
   L.push(`- внутренних tennisfed-ссылок (абсолютизированы): ${report.internalLinks}`);
   L.push(`- внешних ссылок (сохранены): ${report.externalLinks}`);
@@ -1319,9 +1399,9 @@ function main(): void {
 
   loadManifest();
 
-  const records: OutputRecord[] = [];
+  const collected: CollectedRecord[] = [];
   for (const file of FEED_FILES) {
-    parseFeedFile(file, records);
+    parseFeedFile(file, collected);
   }
   listUnreferencedArticles();
 
@@ -1330,6 +1410,8 @@ function main(): void {
     for (const e of runErrors) console.error(`  ${e}`);
     process.exit(1);
   }
+
+  const records = dedupeRecords(collected);
 
   mkdirSync(OUT_DIR, { recursive: true });
   const json = JSON.stringify(records, null, 2) + "\n";
