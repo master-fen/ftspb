@@ -833,9 +833,16 @@ function buildRecord(item: FeedItem): OutputRecord | null {
     // Пустой заголовочный ряд (3 случая: 2018, 2021, 2022) — новость есть,
     // заголовка на странице нет. Синтезируем из первых слов тела; каждый
     // случай — в отчёт отдельным разделом.
-    const plain = stripTags(item.bodyHtml)
-      .replace(/^\d{1,2}\.\d{1,2}\.\d{4}\s*/, "")
-      .replace(/^Кликните на фото для увеличения\s*/i, "");
+    // Оба служебных префикса вырезаются циклически: их порядок в разметке
+    // не фиксирован, одиночный проход оставлял дату в начале заголовка.
+    let plain = stripTags(item.bodyHtml);
+    for (;;) {
+      const next = plain
+        .replace(/^\d{1,2}\.\d{1,2}\.\d{4}\s*/, "")
+        .replace(/^Кликните на фото для увеличения\s*/i, "");
+      if (next === plain) break;
+      plain = next;
+    }
     const words = plain.split(" ").filter(Boolean);
     if (words.length === 0) {
       runErrors.push(`${context}: пустой заголовок и пустое тело`);
@@ -986,20 +993,19 @@ function buildRecord(item: FeedItem): OutputRecord | null {
     `${context}: «${title}»`,
     docs,
   );
+  // Документы — из ВСЕХ поглощённых страниц, как и фото (тизер не отменяет
+  // документы галерейных ссылок той же записи); для тизерной страницы
+  // сохраняется её html с уже вырезанными документными ссылками — он идёт в тело.
   let articleBody: string | null = null;
-  if (teaser && teaser.page) {
-    articleBody = extractDocuments(
-      stripAbsorbedLinks(teaser.page.bodyHtml),
-      teaser.page.url,
+  for (const l of absorbed) {
+    if (!l.page) continue;
+    const stripped = extractDocuments(
+      stripAbsorbedLinks(l.page.bodyHtml),
+      l.page.url,
       `${context}: «${title}»`,
       docs,
     );
-  } else {
-    for (const l of absorbed) {
-      if (l.page) {
-        extractDocuments(l.page.bodyHtml, l.page.url, `${context}: «${title}»`, docs);
-      }
-    }
+    if (l === teaser) articleBody = stripped;
   }
 
   // ── тело и анонс ──
@@ -1042,11 +1048,16 @@ function findLinkSentence(html: string, href: string): string | null {
   return `${before} ${after}`;
 }
 
-/** Из плоского текста ленты убирается предложение с фразой-ссылкой. */
+/**
+ * Из плоского текста ленты убирается предложение с фразой-ссылкой.
+ * «ЗДЕСЬ» — регистрозависимо, как в разметке сайта: флаг i матчил бы
+ * обычное слово «здесь» и выкидывал из Анонса легитимные предложения.
+ * Ложный пропуск (предложение осталось) допустим, потеря текста — нет.
+ */
 function removeLinkSentence(plain: string): string {
   return plain
     .split(/(?<=[.!?])\s+/)
-    .filter((s) => !/полн\w*\s+верси|читайте\s+здесь|ЗДЕСЬ/i.test(s))
+    .filter((s) => !(/полн\w*\s+верси/i.test(s) || /\bЗДЕСЬ\b/.test(s)))
     .join(" ")
     .trim();
 }
