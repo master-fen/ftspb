@@ -77,7 +77,7 @@ export function SiteHeader() {
 
   return (
     <header className="w-full bg-background">
-      <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 pt-2 pb-2 md:px-6 md:pt-2.5 md:pb-2.5 lg:gap-2 lg:px-6 xl:gap-4 xl:px-10">
+      <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 pt-2 pb-2 md:px-6 md:pt-2.5 md:pb-2.5 lg:gap-2 lg:px-10 xl:gap-4 xl:px-10">
         <Link to="/" className="shrink-0">
           <Logo sizeClassName="h-28 md:h-36 lg:h-40 xl:h-48" />
         </Link>

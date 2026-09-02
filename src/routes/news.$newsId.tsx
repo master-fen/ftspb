@@ -74,7 +74,7 @@ function NewsDetailPage() {
     <div className="min-h-screen bg-background">
       <SiteHeader />
 
-      <main className="mx-auto max-w-6xl px-4 pt-6 pb-14 md:px-6 md:pt-8 md:pb-20 lg:px-10">
+      <main className="mx-auto max-w-7xl px-4 pt-6 pb-14 md:px-6 md:pt-8 md:pb-20 lg:px-10">
         {/* Breadcrumbs */}
         <nav
           aria-label="Хлебные крошки"
