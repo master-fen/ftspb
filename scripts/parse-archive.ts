@@ -1717,13 +1717,55 @@ function profAlignStyles(html: string): ProfAlign {
   };
 }
 
-type ProfPhotoMarkup = { пар: number; потерянныхImg: number; alt: number; title: number };
+type ProfSingleImg = { src: string; ширина: number | null; высота: number | null };
+
+type ProfPhotoMarkup = {
+  пар: number;
+  /** Одиночные <img> вне пары — extractPhotos берёт их как фото без полноразмера. */
+  одиночныхImg: number;
+  /** Одиночные с width и height, оба ≤ 60. */
+  одиночныхМелких: number;
+  /** Одиночные с расширением .gif. */
+  одиночныхGif: number;
+  /** Одиночные-декорации: объединение «мелкий» и «.gif», каждый img — один раз. */
+  одиночныхДекор: number;
+  /**
+   * Наблюдение, не вывод: элемент фото-разметки с минимальной позицией во
+   * фрагменте (старт пары или одиночный img). null — элементов нет.
+   */
+  первый: { позиция: number; одиночный: boolean; декор: boolean } | null;
+  alt: number;
+  title: number;
+  одиночные: ProfSingleImg[];
+};
+
+/** src без query/hash — ключ группировки в инвентаре. */
+const imgSrcKey = (src: string): string => src.split(/[?#]/)[0];
+/** Последний сегмент пути src. */
+const imgBasename = (src: string): string => {
+  const key = imgSrcKey(src);
+  return key.slice(key.lastIndexOf("/") + 1);
+};
+/** Расширение basename в нижнем регистре, иначе «(без расширения)». */
+const imgExt = (src: string): string => {
+  const m = imgBasename(src)
+    .toLowerCase()
+    .match(/\.[a-z0-9]+$/);
+  return m ? m[0] : "(без расширения)";
+};
+/** Мелкий: width и height оба присутствуют и оба ≤ 60. */
+const isSmallImg = (i: ProfSingleImg): boolean =>
+  i.ширина !== null && i.высота !== null && i.ширина <= 60 && i.высота <= 60;
+/** Декорация: мелкий либо .gif (объединение, без двойного счёта). */
+const isDecorImg = (i: ProfSingleImg): boolean => isSmallImg(i) || imgExt(i.src) === ".gif";
 
 /**
  * Фото-разметка фрагмента: пары полноразмер/превью по тем же регэкспам, что
  * extractPhotos (копии литералов: общие /g-регэкспы делили бы lastIndex);
- * «потерянный img» — <img> вне распознанной пары (семантика зафиксирована
- * самотестом ТЗ). Манифест не нужен — чисто по разметке.
+ * «одиночный img» — <img> вне распознанной пары; extractPhotos берёт его как
+ * фото без полноразмера (третий проход, схема C1), поэтому риск класса —
+ * декорация (мелкий img или .gif) в галерее/обложке, а не потеря фото.
+ * Манифест не нужен — чисто по разметке.
  */
 function profPhotoMarkup(html: string): ProfPhotoMarkup {
   const winRe =
@@ -1755,13 +1797,51 @@ function profPhotoMarkup(html: string): ProfPhotoMarkup {
     consumed.push([m.index, m.index + m[0].length]);
     noteImgAttrs(m);
   }
-  let потерянныхImg = 0;
-  const imgRe = /<img\b/gi;
+  const одиночные: ProfSingleImg[] = [];
+  const singleAt: number[] = [];
+  const imgRe = /<img\b[^>]*>/gi;
+  const attrInt = (tag: string, name: string): number | null => {
+    const am = tag.match(new RegExp(`\\b${name}\\s*=\\s*["']?(\\d+)`, "i"));
+    return am ? Number(am[1]) : null;
+  };
   while ((m = imgRe.exec(html))) {
     const inside = consumed.some(([a, b]) => m!.index >= a && m!.index < b);
-    if (!inside) потерянныхImg += 1;
+    if (inside) continue;
+    const tag = m[0];
+    const sm = tag.match(/\bsrc\s*=\s*["']?([^"'\s>]+)/i);
+    одиночные.push({
+      src: sm ? sm[1] : "",
+      ширина: attrInt(tag, "width"),
+      высота: attrInt(tag, "height"),
+    });
+    singleAt.push(m.index);
   }
-  return { пар, потерянныхImg, alt, title };
+  let первый: ProfPhotoMarkup["первый"] = null;
+  const firstPair = consumed.length > 0 ? Math.min(...consumed.map(([a]) => a)) : null;
+  let firstSingle = -1;
+  for (let i = 0; i < singleAt.length; i++) {
+    if (firstSingle === -1 || singleAt[i] < singleAt[firstSingle]) firstSingle = i;
+  }
+  if (firstSingle !== -1 && (firstPair === null || singleAt[firstSingle] < firstPair)) {
+    первый = {
+      позиция: singleAt[firstSingle],
+      одиночный: true,
+      декор: isDecorImg(одиночные[firstSingle]),
+    };
+  } else if (firstPair !== null) {
+    первый = { позиция: firstPair, одиночный: false, декор: false };
+  }
+  return {
+    пар,
+    одиночныхImg: одиночные.length,
+    одиночныхМелких: одиночные.filter(isSmallImg).length,
+    одиночныхGif: одиночные.filter((i) => imgExt(i.src) === ".gif").length,
+    одиночныхДекор: одиночные.filter(isDecorImg).length,
+    первый,
+    alt,
+    title,
+    одиночные,
+  };
 }
 
 type ProfLinks = {
@@ -1875,9 +1955,16 @@ function mergeSrcFeatures(a: SrcFeatures, b: SrcFeatures): SrcFeatures {
     },
     фотоРазметка: {
       пар: a.фотоРазметка.пар + b.фотоРазметка.пар,
-      потерянныхImg: a.фотоРазметка.потерянныхImg + b.фотоРазметка.потерянныхImg,
+      одиночныхImg: a.фотоРазметка.одиночныхImg + b.фотоРазметка.одиночныхImg,
+      одиночныхМелких: a.фотоРазметка.одиночныхМелких + b.фотоРазметка.одиночныхМелких,
+      одиночныхGif: a.фотоРазметка.одиночныхGif + b.фотоРазметка.одиночныхGif,
+      одиночныхДекор: a.фотоРазметка.одиночныхДекор + b.фотоРазметка.одиночныхДекор,
+      // Наблюдение переносится в порядке слияния (лента → article по порядку
+      // поглощения); вывод о декоративной обложке делается при чтении.
+      первый: a.фотоРазметка.первый ?? b.фотоРазметка.первый,
       alt: a.фотоРазметка.alt + b.фотоРазметка.alt,
       title: a.фотоРазметка.title + b.фотоРазметка.title,
+      одиночные: [...a.фотоРазметка.одиночные, ...b.фотоРазметка.одиночные],
     },
     ссылки: {
       внешние: a.ссылки.внешние + b.ссылки.внешние,
@@ -1988,6 +2075,12 @@ type TransformFeatures = {
   фотоИзЛенты: number;
   фотоИзArticle: number;
   обаИсточникаФото: boolean;
+  /**
+   * Первый элемент фото-разметки приоритетного фрагмента (лента; если в ней
+   * нет ни пары, ни одиночного img — article) — одиночный img-декорация.
+   * Признак разметочный: разрешение по манифесту не учитывается.
+   */
+  декорОбложка: boolean;
   фотоДедупЛента: number;
   фотоДедупArticle: number;
   фотоНеразрешеноЛента: number;
@@ -2216,6 +2309,8 @@ function buildProfileRecord(rec: OutputRecord, cap: ProfCapture, пара: boole
     фотоИзЛенты: cap.photoFeed.taken,
     фотоИзArticle: cap.photoArticle.taken,
     обаИсточникаФото: cap.photoFeed.taken > 0 && cap.photoArticle.taken > 0,
+    декорОбложка:
+      сумма.фотоРазметка.первый?.одиночный === true && сумма.фотоРазметка.первый.декор === true,
     фотоДедупЛента: cap.photoFeed.dup,
     фотоДедупArticle: cap.photoArticle.dup,
     фотоНеразрешеноЛента: cap.photoFeed.unresolved,
@@ -2308,17 +2403,37 @@ function buildGoals(profs: ProfileRecord[]): Goal[] {
   t("д3г", (p) => p.детекторы.д3.г === true);
   t("д4", (p) => p.детекторы.д4);
   t("д5", (p) => p.детекторы.д5);
-  t("потерянныйImg", (p) => p.источник.сумма.фотоРазметка.потерянныхImg > 0);
+  t("одиночныйImg", (p) => p.источник.сумма.фотоРазметка.одиночныхImg > 0);
+  t("одиночныйImgДекор", (p) => p.источник.сумма.фотоРазметка.одиночныхДекор > 0);
+  t("декорОбложка", (p) => p.трансформация.декорОбложка);
   t("моджибейк:fffd", (p) => p.источник.сумма.моджибейк.fffd);
   t("моджибейк:latin1", (p) => p.источник.сумма.моджибейк.latin1);
   t("моджибейк:???", (p) => p.источник.сумма.моджибейк.вопросы);
   t("моджибейк:РС", (p) => p.источник.сумма.моджибейк.чередованиеРС);
+  t("таблицаДанных", (p) => p.источник.сумма.таблицы.данных > 0);
+  t("псевдозаголовок", (p) => p.результат.псевдоЗаголовки > 0);
+  t("псевдосписок", (p) => p.результат.псевдоСписки > 0);
+  t(
+    "цветнойТекст",
+    (p) => p.источник.сумма.выравнивание.color + p.источник.сумма.выравнивание.fontColor > 0,
+  );
+  t("заголовок81+", (p) => p.результат.длинаЗаголовка > 80);
+  // Каждое расширение документов, встречающееся в экспорте, — отдельной целью.
+  const extNames = new Set<string>();
+  for (const p of profs) for (const e of p.трансформация.расширенияДокументов) extNames.add(e);
+  for (const ext of [...extNames].sort()) {
+    goals.push({
+      id: `расширение=${ext}`,
+      pred: (p) => p.трансформация.расширенияДокументов.includes(ext),
+    });
+  }
   // Ненулевые по популяции выброшенные теги — флагами; iframe|embed|object|video — одним.
   const tagNames = new Set<string>();
   for (const p of profs)
     for (const k of Object.keys(p.источник.сумма.выброшенныеТеги)) tagNames.add(k);
   let mergedAdded = false;
   for (const name of [...tagNames].sort()) {
+    if (name === "table") continue; // макет ленты, есть у ~83% записей — не признак
     if (MERGED_TAG_GOAL.includes(name)) {
       if (!mergedAdded) {
         mergedAdded = true;
@@ -2355,7 +2470,7 @@ function isOrdinary(p: ProfileRecord): boolean {
     !tr.параОдноимённых &&
     !tr.articleУтрачен &&
     Object.keys(p.источник.сумма.выброшенныеТеги).length === 0 &&
-    p.источник.сумма.фотоРазметка.потерянныхImg === 0 &&
+    p.источник.сумма.фотоРазметка.одиночныхImg === 0 &&
     !d.д1.любое &&
     !d.д2.любое &&
     d.д3.а !== true &&
@@ -2415,7 +2530,12 @@ function buildExtremes(profs: ProfileRecord[]): ExtremeList[] {
   ];
 }
 
-type SampleEntry = { idx: number; причины: string[] };
+/**
+ * отбор — почему запись попала в выборку (цели жадного шага, крайняя,
+ * обычная): по нему группировка в sample.md. причины — отбор плюс все цели
+ * покрытия, которые запись закрывает: колонка «Причины отбора».
+ */
+type SampleEntry = { idx: number; отбор: string[]; причины: string[] };
 
 function selectSample(
   profs: ProfileRecord[],
@@ -2487,8 +2607,18 @@ function selectSample(
     addCause(picked.i, "обычная");
   }
 
+  // 4) Причины — отбор плюс все цели покрытия, которые запись закрывает, а не
+  // только те, ради которых её взял жадный шаг. Группировка sample.md — по
+  // отбору (иначе «год=…» есть у всех и поглотил бы все группы, включая
+  // «обычная»); крайние и «обычная» — механизмы отбора, а не цели.
   const entries: SampleEntry[] = [...causes.entries()]
-    .map(([idx, причины]) => ({ idx, причины }))
+    .map(([idx, отбор]) => {
+      const причины = [...отбор];
+      for (const g of goals) {
+        if (g.pred(profs[idx]) && !причины.includes(g.id)) причины.push(g.id);
+      }
+      return { idx, отбор, причины };
+    })
     .sort((a, b) => a.idx - b.idx);
   return { entries, goalStats };
 }
@@ -2620,7 +2750,12 @@ function srcScopeSection(
   counterTable(L, "атрибуты color", have, (p) => g(p).выравнивание.color);
   counterTable(L, "font color", have, (p) => g(p).выравнивание.fontColor);
   counterTable(L, "распознанные пары фото", have, (p) => g(p).фотоРазметка.пар);
-  counterTable(L, "потерянные img (вне пары)", have, (p) => g(p).фотоРазметка.потерянныхImg);
+  counterTable(
+    L,
+    "одиночные img (взяты как фото без полноразмера)",
+    have,
+    (p) => g(p).фотоРазметка.одиночныхImg,
+  );
   counterTable(L, "пары с alt", have, (p) => g(p).фотоРазметка.alt);
   counterTable(L, "пары с title", have, (p) => g(p).фотоРазметка.title);
   counterTable(L, "ссылки внешние", have, (p) => g(p).ссылки.внешние);
@@ -2639,6 +2774,102 @@ function srcScopeSection(
     "1001–4000",
     "4000+",
   ]);
+}
+
+/** Инвентарь одиночных img по сумме источника: src, расширения, декорации, декоративная обложка. */
+function singleImgInventorySection(L: string[], profs: ProfileRecord[]): void {
+  L.push("## Одиночные img: инвентарь src (по сумме источника)");
+  L.push("");
+  L.push(
+    "Одиночный img — `<img>` вне распознанной пары полноразмер/превью; extractPhotos берёт " +
+      "его как фото без полноразмера (третий проход, схема C1). Признак разметочный: " +
+      "разрешение по манифесту не учитывается.",
+  );
+  L.push("");
+  type Agg = { вхождений: number; записи: Set<number> };
+  const bySrc = new Map<string, Agg>();
+  const byExt = new Map<string, number>();
+  const basenames = new Set<string>();
+  let всего = 0;
+  let мелких = 0;
+  let gif = 0;
+  let декор = 0;
+  profs.forEach((p, idx) => {
+    const fm = p.источник.сумма.фотоРазметка;
+    всего += fm.одиночныхImg;
+    мелких += fm.одиночныхМелких;
+    gif += fm.одиночныхGif;
+    декор += fm.одиночныхДекор;
+    for (const i of fm.одиночные) {
+      const key = imgSrcKey(i.src);
+      const agg = bySrc.get(key) ?? { вхождений: 0, записи: new Set<number>() };
+      agg.вхождений += 1;
+      agg.записи.add(idx);
+      bySrc.set(key, agg);
+      basenames.add(imgBasename(i.src));
+      const ext = imgExt(i.src);
+      byExt.set(ext, (byExt.get(ext) ?? 0) + 1);
+    }
+  });
+
+  L.push("### (а) 30 самых частых src");
+  L.push("");
+  L.push("| src | basename | вхождений | записей |");
+  L.push("|---|---|---|---|");
+  const top = [...bySrc.entries()]
+    .sort(
+      ([sa, a], [sb, b]) =>
+        b.вхождений - a.вхождений || b.записи.size - a.записи.size || (sa < sb ? -1 : 1),
+    )
+    .slice(0, 30);
+  for (const [src, agg] of top) {
+    L.push(
+      `| ${mdEsc(src)} | ${mdEsc(imgBasename(src))} | ${agg.вхождений} | ${agg.записи.size} |`,
+    );
+  }
+  if (top.length === 0) L.push("| _нет_ | | | |");
+  L.push("");
+  L.push(
+    `Всего одиночных: ${всего}; уникальных src: ${bySrc.size}; уникальных basename: ${basenames.size}.`,
+  );
+  L.push("");
+
+  L.push("### (б) Одиночные img по расширению");
+  L.push("");
+  L.push("| расширение | вхождений |");
+  L.push("|---|---|");
+  for (const e of [...byExt.keys()].sort()) L.push(`| ${e} | ${byExt.get(e)} |`);
+  if (byExt.size === 0) L.push("| _нет_ | |");
+  L.push("");
+
+  L.push("### (в) Декорации среди одиночных img");
+  L.push("");
+  L.push(`- с width и height, оба ≤ 60: ${мелких} вхождений`);
+  L.push(`- с расширением .gif: ${gif} вхождений`);
+  L.push(`- декораций (объединение «мелкий» и «.gif», каждый img — один раз): ${декор} вхождений`);
+  L.push("");
+  flagTable(
+    L,
+    "Флаг записи одиночныйImgДекор (есть одиночный img мелкий ≤60×60 либо .gif)",
+    profs,
+    (p) => p.источник.сумма.фотоРазметка.одиночныхДекор > 0,
+  );
+
+  L.push("### (г) Декорация первой (флаг декорОбложка)");
+  L.push("");
+  L.push(
+    "Первый элемент фото-разметки приоритетного фрагмента (лента; если в ленте нет ни пары, " +
+      "ни одиночного img — article) — одиночный img-декорация. Признак разметочный: " +
+      "разрешение по манифесту не учитывается; если декорация не разрешилась, обложкой станет " +
+      "следующее фото — уточняется глазами.",
+  );
+  L.push("");
+  flagTable(L, "декорОбложка", profs, (p) => p.трансформация.декорОбложка);
+  const flagged = profs.filter((p) => p.трансформация.декорОбложка);
+  L.push(
+    `Из них в бакете фото=1 (обложка карточки декоративна с высокой вероятностью): ${flagged.filter((p) => p.результат.бакетФото === "1").length}.`,
+  );
+  L.push("");
 }
 
 function detectorSection(
@@ -2797,6 +3028,7 @@ function renderProfileReport(
   srcScopeSection(L, "лента", profs, (p) => p.источник.лента);
   srcScopeSection(L, "article", profs, (p) => p.источник.article);
   srcScopeSection(L, "сумма", profs, (p) => p.источник.сумма);
+  singleImgInventorySection(L, profs);
 
   L.push("## Детекторы известных дефектов");
   L.push("");
@@ -2869,7 +3101,7 @@ function renderSample(profs: ProfileRecord[], entries: SampleEntry[]): string {
   L.push("");
   const groups = new Map<string, SampleEntry[]>();
   for (const e of entries) {
-    const главная = mainCause(e.причины);
+    const главная = mainCause(e.отбор);
     const arr = groups.get(главная) ?? [];
     arr.push(e);
     groups.set(главная, arr);
@@ -3033,6 +3265,11 @@ function runSelfTest(): number {
     "<table><tr><td>1</td><td>2</td><td>3</td></tr><tr><td>4</td><td>5</td><td>6</td></tr>" +
     "<tr><td>7</td><td>8</td><td>9</td></tr></table>";
   const imgInput = `<p><img src="news/2010/foto.jpg"></p>`;
+  const decorFirstInput =
+    `<p><img src="img/spacer.gif" width="1" height="1">` +
+    `<a href="javascript:window.open('bg/1.jpg')"><img src="sm/1.jpg"></a>` +
+    `<img src="news/2010/foto.jpg" width="300" height="200"></p>`;
+  const pairFirstInput = `<p><a href="bg/1.jpg"><img src="sm/1.jpg"></a><img src="dot.gif" width="10" height="10"></p>`;
   const d1Input = "Итоги сезона&hellip;";
 
   const dupBody = sanitizeBody(feedHtml + articleHtml, silentCtx);
@@ -3055,10 +3292,41 @@ function runSelfTest(): number {
     (() => {
       const out = profPhotoMarkup(imgInput);
       return {
-        name: "профиль: img вне пары → потерянный img = 1",
+        name: "профиль: одиночный <img> → одиночныйImg = 1",
         input: imgInput,
         output: JSON.stringify(out),
-        ok: out.потерянныхImg === 1 && out.пар === 0,
+        ok: out.одиночныхImg === 1 && out.пар === 0,
+      };
+    })(),
+    (() => {
+      const out = profPhotoMarkup(decorFirstInput);
+      return {
+        name: "профиль: спейсер .gif 1×1 первым, затем пара и фото → декорация первой",
+        input: decorFirstInput,
+        output: JSON.stringify(out),
+        ok:
+          out.пар === 1 &&
+          out.одиночныхImg === 2 &&
+          out.одиночныхМелких === 1 &&
+          out.одиночныхGif === 1 &&
+          out.одиночныхДекор === 1 &&
+          out.первый?.одиночный === true &&
+          out.первый.декор === true &&
+          out.одиночные[0].ширина === 1,
+      };
+    })(),
+    (() => {
+      const out = profPhotoMarkup(pairFirstInput);
+      return {
+        name: "профиль: пара первой, мелкий .gif после → декор = 1 (без двойного счёта), первый — пара",
+        input: pairFirstInput,
+        output: JSON.stringify(out),
+        ok:
+          out.одиночныхДекор === 1 &&
+          out.одиночныхМелких === 1 &&
+          out.одиночныхGif === 1 &&
+          out.первый?.одиночный === false &&
+          out.первый.декор === false,
       };
     })(),
     {
