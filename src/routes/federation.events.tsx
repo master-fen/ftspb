@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ComingSoon } from "@/components/site/ComingSoon";
+import { SectionPagePlaceholder } from "@/components/site/SectionPagePlaceholder";
 
-const TITLE = "Мероприятия — Федерация тенниса Санкт-Петербурга";
-const DESCRIPTION = "Мероприятия Федерации тенниса Санкт-Петербурга. Раздел в разработке.";
+const TITLE = "События — Федерация тенниса Санкт-Петербурга";
+const DESCRIPTION = "События Федерации тенниса Санкт-Петербурга. Раздел в разработке.";
 
 export const Route = createFileRoute("/federation/events")({
   head: () => ({
@@ -15,9 +15,9 @@ export const Route = createFileRoute("/federation/events")({
     ],
   }),
   component: () => (
-    <ComingSoon
-      title="Мероприятия"
-      description="Здесь будет календарь городских теннисных мероприятий: семинары, показательные матчи, праздники спорта и другие события Федерации и партнёров."
+    <SectionPagePlaceholder
+      title="События"
+      description="Календарь городских теннисных мероприятий: семинары, показательные матчи, праздники спорта."
     />
   ),
 });
