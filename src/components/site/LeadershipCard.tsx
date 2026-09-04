@@ -23,12 +23,7 @@ export function LeadershipCard({
     <article className="grid gap-5 md:grid-cols-[minmax(0,240px)_1fr]">
       <div className="relative aspect-[3/4] w-full overflow-hidden rounded-lg md:aspect-auto md:h-full md:min-h-[320px]">
         {photo ? (
-          <img
-            src={photo}
-            alt={name}
-            loading="lazy"
-            className="h-full w-full object-cover"
-          />
+          <img src={photo} alt={name} loading="lazy" className="h-full w-full object-cover" />
         ) : (
           <PersonPhotoPlaceholder className="rounded-lg" />
         )}
@@ -38,9 +33,7 @@ export function LeadershipCard({
         <h2 className="font-ui text-xl font-semibold leading-tight text-foreground md:text-2xl">
           {name}
         </h2>
-        <p className="mt-1 font-ui text-base font-medium text-brand-blue">
-          {role}
-        </p>
+        <p className="mt-1 font-ui text-base font-medium text-brand-blue">{role}</p>
 
         {bio ? (
           <p className="mt-4 max-w-2xl font-ui text-[15px] leading-relaxed text-muted-foreground">
@@ -52,7 +45,10 @@ export function LeadershipCard({
           {phone ? (
             <p>
               <span className="text-muted-foreground">Телефон:</span>{" "}
-              <a href={`tel:${phone.replace(/\s/g, "")}`} className="hover:text-brand-blue hover:underline">
+              <a
+                href={`tel:${phone.replace(/\s/g, "")}`}
+                className="hover:text-brand-blue hover:underline"
+              >
                 {phone}
               </a>
             </p>
