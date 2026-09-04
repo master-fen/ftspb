@@ -4,6 +4,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { navSections } from "@/data/mock";
 import type { NavSection } from "@/lib/types/nav";
+import { Button } from "@/components/ui/button";
 import { Logo } from "./Logo";
 
 function isSectionActive(section: NavSection, pathname: string): boolean {
@@ -16,6 +17,7 @@ function isSectionActive(section: NavSection, pathname: string): boolean {
 
 export function SiteHeader() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [mobileExpanded, setMobileExpanded] = useState<string | null>(null);
   const [hovered, setHovered] = useState<string | null>(null);
@@ -26,6 +28,8 @@ export function SiteHeader() {
   });
 
   const navRef = useRef<HTMLElement | null>(null);
+  const searchRef = useRef<HTMLFormElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const itemRefs = useRef<Record<string, HTMLElement | null>>({});
 
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -63,11 +67,29 @@ export function SiteHeader() {
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpenMenu(null);
+      if (e.key === "Escape") {
+        setOpenMenu(null);
+        setSearchOpen(false);
+      }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  useEffect(() => {
+    if (!searchOpen) return;
+
+    searchInputRef.current?.focus();
+
+    function onPointerDown(e: PointerEvent) {
+      if (e.target instanceof Node && !searchRef.current?.contains(e.target)) {
+        setSearchOpen(false);
+      }
+    }
+
+    window.addEventListener("pointerdown", onPointerDown);
+    return () => window.removeEventListener("pointerdown", onPointerDown);
+  }, [searchOpen]);
 
   const navItemClass =
     "font-ui text-[15px] font-bold leading-[19.25px] text-brand-blue transition-colors hover:text-brand-orange inline-block text-center min-w-0 px-1 lg:px-1 lg:max-w-[7rem] xl:px-0 xl:text-[16px] xl:max-w-none";
@@ -82,11 +104,54 @@ export function SiteHeader() {
           <Logo sizeClassName="h-28 md:h-36 lg:h-40 xl:h-48" />
         </Link>
 
-        <nav
-          ref={navRef}
-          onMouseLeave={() => setHovered(null)}
-          className="relative hidden flex-1 items-center justify-center gap-1 self-center lg:flex xl:gap-4"
-        >
+        <div className="relative hidden min-h-40 flex-1 self-stretch lg:block xl:min-h-48">
+          <form
+            ref={searchRef}
+            role="search"
+            onSubmit={(e) => {
+              e.preventDefault();
+              toast("Пока не готово");
+            }}
+            className={`absolute top-3 right-0 z-30 h-11 overflow-hidden rounded-full border-[3px] border-brand-blue bg-background transition-[width,box-shadow] duration-300 ease-out xl:top-4 ${
+              searchOpen ? "w-64 shadow-sm" : "w-11"
+            }`}
+          >
+            <label htmlFor="site-search" className="sr-only">
+              Поиск по сайту
+            </label>
+            <input
+              ref={searchInputRef}
+              id="site-search"
+              type="search"
+              placeholder="Поиск…"
+              tabIndex={searchOpen ? 0 : -1}
+              className={`h-full w-full bg-transparent pr-12 pl-3 font-ui text-base font-bold text-brand-blue outline-none placeholder:text-brand-blue ${
+                searchOpen ? "opacity-100" : "pointer-events-none opacity-0"
+              }`}
+            />
+            <Button
+              type="button"
+              size="icon"
+              aria-label={searchOpen ? "Найти" : "Открыть поиск"}
+              aria-expanded={searchOpen}
+              onClick={() => {
+                if (searchOpen) {
+                  toast("Пока не готово");
+                  return;
+                }
+                setSearchOpen(true);
+              }}
+              className="absolute top-0 right-0 h-full w-10 rounded-full bg-brand-blue p-0 text-primary-foreground shadow-none hover:bg-brand-blue hover:opacity-90"
+            >
+              <Search className="h-4 w-4" />
+            </Button>
+          </form>
+
+          <nav
+            ref={navRef}
+            onMouseLeave={() => setHovered(null)}
+            className="absolute right-0 bottom-7 left-0 flex items-center justify-center gap-1 xl:bottom-9 xl:gap-4"
+          >
           {navSections.map((s) => {
             const setRef = (el: HTMLElement | null) => {
               itemRefs.current[s.label] = el;
@@ -166,25 +231,28 @@ export function SiteHeader() {
               opacity: indicator.visible ? 1 : 0,
             }}
           />
-        </nav>
+          </nav>
+        </div>
 
-        <div className="ml-auto flex items-center gap-2 self-center lg:ml-0">
-          <button
+        <div className="ml-auto flex items-center gap-2 self-center lg:hidden">
+          <Button
             type="button"
             aria-label="Поиск"
             onClick={() => toast("Пока не готово")}
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-brand-blue text-primary-foreground transition-opacity hover:opacity-90"
+            size="icon"
+            className="h-11 w-11 shrink-0 rounded-full bg-brand-blue text-primary-foreground shadow-none transition-opacity hover:bg-brand-blue hover:opacity-90"
           >
             <Search className="h-4 w-4" />
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
             aria-label={mobileOpen ? "Закрыть меню" : "Открыть меню"}
             onClick={() => setMobileOpen((v) => !v)}
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-brand-blue text-primary-foreground transition-opacity hover:opacity-90 lg:hidden"
+            size="icon"
+            className="h-11 w-11 shrink-0 rounded-full bg-brand-blue text-primary-foreground shadow-none transition-opacity hover:bg-brand-blue hover:opacity-90"
           >
             {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
+          </Button>
         </div>
       </div>
 
