@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { SectionPagePlaceholder } from "@/components/site/SectionPagePlaceholder";
 
-const TITLE = "О федерации — Федерация тенниса Санкт-Петербурга";
+const TITLE = "Общая информация — Федерация тенниса Санкт-Петербурга";
 const DESCRIPTION =
   "Общая информация о Федерации тенниса Санкт-Петербурга: история, миссия и направления работы.";
 
@@ -17,7 +17,7 @@ export const Route = createFileRoute("/federation/about")({
   }),
   component: () => (
     <SectionPagePlaceholder
-      title="О Федерации"
+      title="Общая информация"
       description="Здесь будет рассказ об истории, миссии и направлениях работы Федерации тенниса Санкт-Петербурга."
     />
   ),

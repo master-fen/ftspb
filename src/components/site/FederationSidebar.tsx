@@ -5,9 +5,9 @@ export type FederationNavGroup = { label: string; items: FederationNavItem[] };
 
 export const federationNav: FederationNavGroup[] = [
   {
-    label: "Федерация",
+    label: "О Федерации",
     items: [
-      { label: "О Федерации", href: "/federation/about" },
+      { label: "Общая информация", href: "/federation/about" },
       { label: "Руководство", href: "/federation/leadership" },
       { label: "Структура", href: "/federation/structure" },
       { label: "Устав", href: "/federation/charter" },
@@ -16,17 +16,17 @@ export const federationNav: FederationNavGroup[] = [
   {
     label: "Деятельность",
     items: [
-      { label: "Новости", href: "/federation/news" },
+      { label: "Новости Федерации", href: "/federation/news" },
       { label: "События", href: "/federation/events" },
       { label: "Документы", href: "/federation/documents" },
     ],
   },
 ];
 
-export function findFederationCrumbs(pathname: string) {
+export function findFederationItem(pathname: string) {
   for (const group of federationNav) {
     const item = group.items.find((i) => i.href === pathname);
-    if (item) return { group, item };
+    if (item) return item;
   }
   return null;
 }
