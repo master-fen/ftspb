@@ -26,8 +26,8 @@ export const navSections: NavSection[] = [
     label: "Федерация",
     href: "/federation",
     children: [
-      { label: "Мероприятия", href: "/federation/events" },
-      { label: "Документы Федерации", href: "/federation/documents" },
+      { label: "О Федерации", href: "/federation/events" },
+      { label: "Деятельность", href: "/federation/documents" },
     ],
   },
   { label: "Коллегия судей", href: "/referees" },
