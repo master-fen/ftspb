@@ -24,7 +24,7 @@
 - `src/components/site/FederationSidebar.tsx` — новые подписи в `federationNav`, `findFederationCrumbs` возвращает только пункт (без группы).
 - `src/routes/federation.tsx` — крошки `Главная / Федерация / <пункт>`.
 - `src/routes/federation.index.tsx` — `beforeLoad` с `redirect` на `/federation/about`.
-- `src/routes/federation.news.tsx` — удаляется; пункт навигатора ссылается на `/news` с параметром категории.
+- `src/routes/federation.news.tsx` — остаётся, заголовок «Новости Федерации», пустая страница с пометкой «В разработке».
 - `src/routes/federation.about.tsx` — заголовок «Общая информация», `head()` обновляется.
 - `src/data/mock.ts` — подписи верхнего меню («Федерация», «Новости Федерации»).
 - Наполнение подразделов по-прежнему пустое, с пометкой «В разработке».
