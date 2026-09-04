@@ -3,6 +3,7 @@ import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { FederationSidebar, findFederationItem } from "@/components/site/FederationSidebar";
 import { Breadcrumbs, type Crumb } from "@/components/site/Breadcrumbs";
+import { CharterPageAside } from "@/components/site/CharterPageAside";
 
 export const Route = createFileRoute("/federation")({
   component: FederationLayout,
@@ -32,6 +33,7 @@ function FederationLayout() {
           </div>
           <aside className="w-full shrink-0 lg:order-2 lg:w-[340px] xl:w-[413px]">
             <FederationSidebar />
+            {current === "/federation/charter" ? <CharterPageAside /> : null}
           </aside>
         </div>
       </main>
