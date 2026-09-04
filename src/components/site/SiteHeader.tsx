@@ -92,7 +92,7 @@ export function SiteHeader() {
   }, [searchOpen]);
 
   const navItemClass =
-    "font-ui text-[15px] font-bold leading-[19.25px] text-brand-blue transition-colors hover:text-brand-orange inline-block text-center min-w-0 px-1 lg:px-1 lg:max-w-[7rem] xl:px-0 xl:text-[16px] xl:max-w-none";
+    "inline-block min-w-0 whitespace-nowrap px-0.5 text-center font-ui text-[14px] font-bold leading-6 text-brand-blue transition-colors hover:text-brand-orange min-[1100px]:text-[15px] xl:text-[17px]";
 
   const dropdownItemClass =
     "font-ui text-[16px] leading-[19.25px] font-bold text-brand-blue transition-colors hover:text-brand-orange whitespace-nowrap";
@@ -150,7 +150,7 @@ export function SiteHeader() {
           <nav
             ref={navRef}
             onMouseLeave={() => setHovered(null)}
-            className="absolute top-1/2 right-0 left-0 flex -translate-y-1/2 items-center justify-center gap-1 xl:gap-4"
+            className="absolute top-1/2 right-0 left-0 flex -translate-y-1/2 items-center justify-between"
           >
           {navSections.map((s) => {
             const setRef = (el: HTMLElement | null) => {
