@@ -16,7 +16,7 @@ export const Route = createFileRoute("/federation/news")({
   }),
   component: () => (
     <SectionPagePlaceholder
-      title="Новости"
+      title="Новости Федерации"
       description="Здесь будет отдельная лента официальных новостей Федерации."
     />
   ),

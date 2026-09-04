@@ -1,10 +1,7 @@
 import { createFileRoute, Outlet, useRouterState } from "@tanstack/react-router";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
-import {
-  FederationSidebar,
-  findFederationCrumbs,
-} from "@/components/site/FederationSidebar";
+import { FederationSidebar, findFederationItem } from "@/components/site/FederationSidebar";
 import { Breadcrumbs, type Crumb } from "@/components/site/Breadcrumbs";
 
 export const Route = createFileRoute("/federation")({
@@ -14,13 +11,13 @@ export const Route = createFileRoute("/federation")({
 function FederationLayout() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const current = pathname === "/federation" ? "/federation/about" : pathname;
-  const found = findFederationCrumbs(current);
+  const item = findFederationItem(current);
 
-  const crumbs: Crumb[] = [{ label: "Главная", href: "/" }, { label: "Федерация" }];
-  if (found) {
-    crumbs.push({ label: found.group.label === "Федерация" ? "О Федерации" : "Деятельность" });
-    crumbs.push({ label: found.item.label });
-  }
+  const crumbs: Crumb[] = [
+    { label: "Главная", href: "/" },
+    item ? { label: "Федерация", href: "/federation" } : { label: "Федерация" },
+  ];
+  if (item) crumbs.push({ label: item.label });
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
