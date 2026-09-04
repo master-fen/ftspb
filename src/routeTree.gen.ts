@@ -15,6 +15,7 @@ import { Route as TeamsRouteImport } from './routes/teams'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as RefereesRouteImport } from './routes/referees'
 import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as FederationRouteImport } from './routes/federation'
 import { Route as DocumentsRouteImport } from './routes/documents'
 import { Route as CourtsRouteImport } from './routes/courts'
 import { Route as ContactsRouteImport } from './routes/contacts'
@@ -66,6 +67,11 @@ const PrivacyRoute = PrivacyRouteImport.update({
   path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FederationRoute = FederationRouteImport.update({
+  id: '/federation',
+  path: '/federation',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DocumentsRoute = DocumentsRouteImport.update({
   id: '/documents',
   path: '/documents',
@@ -97,9 +103,9 @@ const NewsIndexRoute = NewsIndexRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const FederationIndexRoute = FederationIndexRouteImport.update({
-  id: '/federation/',
-  path: '/federation/',
-  getParentRoute: () => rootRouteImport,
+  id: '/',
+  path: '/',
+  getParentRoute: () => FederationRoute,
 } as any)
 const NewsNewsIdRoute = NewsNewsIdRouteImport.update({
   id: '/news/$newsId',
@@ -107,14 +113,14 @@ const NewsNewsIdRoute = NewsNewsIdRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const FederationEventsRoute = FederationEventsRouteImport.update({
-  id: '/federation/events',
-  path: '/federation/events',
-  getParentRoute: () => rootRouteImport,
+  id: '/events',
+  path: '/events',
+  getParentRoute: () => FederationRoute,
 } as any)
 const FederationDocumentsRoute = FederationDocumentsRouteImport.update({
-  id: '/federation/documents',
-  path: '/federation/documents',
-  getParentRoute: () => rootRouteImport,
+  id: '/documents',
+  path: '/documents',
+  getParentRoute: () => FederationRoute,
 } as any)
 const AdminLoginRoute = AdminLoginRouteImport.update({
   id: '/login',
@@ -173,6 +179,7 @@ export interface FileRoutesByFullPath {
   '/contacts': typeof ContactsRoute
   '/courts': typeof CourtsRoute
   '/documents': typeof DocumentsRoute
+  '/federation': typeof FederationRouteWithChildren
   '/privacy': typeof PrivacyRoute
   '/referees': typeof RefereesRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -227,6 +234,7 @@ export interface FileRoutesById {
   '/contacts': typeof ContactsRoute
   '/courts': typeof CourtsRoute
   '/documents': typeof DocumentsRoute
+  '/federation': typeof FederationRouteWithChildren
   '/privacy': typeof PrivacyRoute
   '/referees': typeof RefereesRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -257,6 +265,7 @@ export interface FileRouteTypes {
     | '/contacts'
     | '/courts'
     | '/documents'
+    | '/federation'
     | '/privacy'
     | '/referees'
     | '/sitemap.xml'
@@ -310,6 +319,7 @@ export interface FileRouteTypes {
     | '/contacts'
     | '/courts'
     | '/documents'
+    | '/federation'
     | '/privacy'
     | '/referees'
     | '/sitemap.xml'
@@ -339,16 +349,14 @@ export interface RootRouteChildren {
   ContactsRoute: typeof ContactsRoute
   CourtsRoute: typeof CourtsRoute
   DocumentsRoute: typeof DocumentsRoute
+  FederationRoute: typeof FederationRouteWithChildren
   PrivacyRoute: typeof PrivacyRoute
   RefereesRoute: typeof RefereesRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TeamsRoute: typeof TeamsRoute
   TermsRoute: typeof TermsRoute
   TournamentsRoute: typeof TournamentsRoute
-  FederationDocumentsRoute: typeof FederationDocumentsRoute
-  FederationEventsRoute: typeof FederationEventsRoute
   NewsNewsIdRoute: typeof NewsNewsIdRoute
-  FederationIndexRoute: typeof FederationIndexRoute
   NewsIndexRoute: typeof NewsIndexRoute
   ApiAdminUploadRoute: typeof ApiAdminUploadRoute
 }
@@ -397,6 +405,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/federation': {
+      id: '/federation'
+      path: '/federation'
+      fullPath: '/federation'
+      preLoaderRoute: typeof FederationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/documents': {
       id: '/documents'
       path: '/documents'
@@ -441,10 +456,10 @@ declare module '@tanstack/react-router' {
     }
     '/federation/': {
       id: '/federation/'
-      path: '/federation'
+      path: '/'
       fullPath: '/federation/'
       preLoaderRoute: typeof FederationIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof FederationRoute
     }
     '/news/$newsId': {
       id: '/news/$newsId'
@@ -455,17 +470,17 @@ declare module '@tanstack/react-router' {
     }
     '/federation/events': {
       id: '/federation/events'
-      path: '/federation/events'
+      path: '/events'
       fullPath: '/federation/events'
       preLoaderRoute: typeof FederationEventsRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof FederationRoute
     }
     '/federation/documents': {
       id: '/federation/documents'
-      path: '/federation/documents'
+      path: '/documents'
       fullPath: '/federation/documents'
       preLoaderRoute: typeof FederationDocumentsRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof FederationRoute
     }
     '/admin/login': {
       id: '/admin/login'
@@ -577,22 +592,36 @@ const AdminRouteRouteWithChildren = AdminRouteRoute._addFileChildren(
   AdminRouteRouteChildren,
 )
 
+interface FederationRouteChildren {
+  FederationDocumentsRoute: typeof FederationDocumentsRoute
+  FederationEventsRoute: typeof FederationEventsRoute
+  FederationIndexRoute: typeof FederationIndexRoute
+}
+
+const FederationRouteChildren: FederationRouteChildren = {
+  FederationDocumentsRoute: FederationDocumentsRoute,
+  FederationEventsRoute: FederationEventsRoute,
+  FederationIndexRoute: FederationIndexRoute,
+}
+
+const FederationRouteWithChildren = FederationRoute._addFileChildren(
+  FederationRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRouteRoute: AdminRouteRouteWithChildren,
   ContactsRoute: ContactsRoute,
   CourtsRoute: CourtsRoute,
   DocumentsRoute: DocumentsRoute,
+  FederationRoute: FederationRouteWithChildren,
   PrivacyRoute: PrivacyRoute,
   RefereesRoute: RefereesRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   TeamsRoute: TeamsRoute,
   TermsRoute: TermsRoute,
   TournamentsRoute: TournamentsRoute,
-  FederationDocumentsRoute: FederationDocumentsRoute,
-  FederationEventsRoute: FederationEventsRoute,
   NewsNewsIdRoute: NewsNewsIdRoute,
-  FederationIndexRoute: FederationIndexRoute,
   NewsIndexRoute: NewsIndexRoute,
   ApiAdminUploadRoute: ApiAdminUploadRoute,
 }
