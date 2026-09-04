@@ -130,12 +130,16 @@ export function SiteHeader() {
               }`}
             />
             <Button
-              type={searchOpen ? "submit" : "button"}
+              type="button"
               size="icon"
               aria-label={searchOpen ? "Найти" : "Открыть поиск"}
               aria-expanded={searchOpen}
               onClick={() => {
-                if (!searchOpen) setSearchOpen(true);
+                if (searchOpen) {
+                  toast("Пока не готово");
+                  return;
+                }
+                setSearchOpen(true);
               }}
               className="absolute top-0 right-0 h-full w-10 rounded-full bg-brand-blue p-0 text-primary-foreground shadow-none hover:bg-brand-blue hover:opacity-90"
             >
