@@ -18,7 +18,7 @@ function FederationLayout() {
 
   const crumbs: Crumb[] = [{ label: "Главная", href: "/" }, { label: "Федерация" }];
   if (found) {
-    crumbs.push({ label: found.group.label === "Федерация" ? "О федерации" : "Деятельность" });
+    crumbs.push({ label: found.group.label === "Федерация" ? "О Федерации" : "Деятельность" });
     crumbs.push({ label: found.item.label });
   }
 
