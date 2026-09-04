@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import { createFileRoute, Link, useNavigate, stripSearchParams } from "@tanstack/react-router";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
-import { ChevronRight } from "lucide-react";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { listNews } from "@/lib/news-server-fn";
@@ -85,13 +84,16 @@ function NewsPage() {
       <main className="mx-auto max-w-7xl px-4 pt-6 pb-12 md:px-6 md:pt-8 md:pb-16 lg:px-10">
         <nav
           aria-label="Хлебные крошки"
-          className="mb-4 flex items-center gap-2 text-sm text-muted-foreground md:mb-5"
+          className="mb-4 flex h-8 items-center gap-3 text-sm leading-8 font-medium text-foreground/40 md:mb-5"
         >
-          <Link to="/" className="transition-colors hover:text-brand-navy">
+          <Link to="/" className="transition-colors hover:text-foreground">
             Главная
           </Link>
-          <ChevronRight className="h-4 w-4" aria-hidden="true" />
-          <span className="text-foreground" aria-current="page">
+          <span
+            className="h-2.5 w-2.5 shrink-0 rounded-full bg-foreground/15"
+            aria-hidden="true"
+          />
+          <span aria-current="page">
             Новости
           </span>
         </nav>
