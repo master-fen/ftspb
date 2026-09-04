@@ -24,8 +24,13 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as NewsIndexRouteImport } from './routes/news.index'
 import { Route as FederationIndexRouteImport } from './routes/federation.index'
 import { Route as NewsNewsIdRouteImport } from './routes/news.$newsId'
+import { Route as FederationStructureRouteImport } from './routes/federation.structure'
+import { Route as FederationNewsRouteImport } from './routes/federation.news'
+import { Route as FederationLeadershipRouteImport } from './routes/federation.leadership'
 import { Route as FederationEventsRouteImport } from './routes/federation.events'
 import { Route as FederationDocumentsRouteImport } from './routes/federation.documents'
+import { Route as FederationCharterRouteImport } from './routes/federation.charter'
+import { Route as FederationAboutRouteImport } from './routes/federation.about'
 import { Route as AdminLoginRouteImport } from './routes/admin/login'
 import { Route as AdminAuthedRouteRouteImport } from './routes/admin/_authed/route'
 import { Route as AdminAuthedIndexRouteImport } from './routes/admin/_authed/index'
@@ -112,6 +117,21 @@ const NewsNewsIdRoute = NewsNewsIdRouteImport.update({
   path: '/news/$newsId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FederationStructureRoute = FederationStructureRouteImport.update({
+  id: '/structure',
+  path: '/structure',
+  getParentRoute: () => FederationRoute,
+} as any)
+const FederationNewsRoute = FederationNewsRouteImport.update({
+  id: '/news',
+  path: '/news',
+  getParentRoute: () => FederationRoute,
+} as any)
+const FederationLeadershipRoute = FederationLeadershipRouteImport.update({
+  id: '/leadership',
+  path: '/leadership',
+  getParentRoute: () => FederationRoute,
+} as any)
 const FederationEventsRoute = FederationEventsRouteImport.update({
   id: '/events',
   path: '/events',
@@ -120,6 +140,16 @@ const FederationEventsRoute = FederationEventsRouteImport.update({
 const FederationDocumentsRoute = FederationDocumentsRouteImport.update({
   id: '/documents',
   path: '/documents',
+  getParentRoute: () => FederationRoute,
+} as any)
+const FederationCharterRoute = FederationCharterRouteImport.update({
+  id: '/charter',
+  path: '/charter',
+  getParentRoute: () => FederationRoute,
+} as any)
+const FederationAboutRoute = FederationAboutRouteImport.update({
+  id: '/about',
+  path: '/about',
   getParentRoute: () => FederationRoute,
 } as any)
 const AdminLoginRoute = AdminLoginRouteImport.update({
@@ -187,8 +217,13 @@ export interface FileRoutesByFullPath {
   '/terms': typeof TermsRoute
   '/tournaments': typeof TournamentsRoute
   '/admin/login': typeof AdminLoginRoute
+  '/federation/about': typeof FederationAboutRoute
+  '/federation/charter': typeof FederationCharterRoute
   '/federation/documents': typeof FederationDocumentsRoute
   '/federation/events': typeof FederationEventsRoute
+  '/federation/leadership': typeof FederationLeadershipRoute
+  '/federation/news': typeof FederationNewsRoute
+  '/federation/structure': typeof FederationStructureRoute
   '/news/$newsId': typeof NewsNewsIdRoute
   '/federation/': typeof FederationIndexRoute
   '/news/': typeof NewsIndexRoute
@@ -214,8 +249,13 @@ export interface FileRoutesByTo {
   '/terms': typeof TermsRoute
   '/tournaments': typeof TournamentsRoute
   '/admin/login': typeof AdminLoginRoute
+  '/federation/about': typeof FederationAboutRoute
+  '/federation/charter': typeof FederationCharterRoute
   '/federation/documents': typeof FederationDocumentsRoute
   '/federation/events': typeof FederationEventsRoute
+  '/federation/leadership': typeof FederationLeadershipRoute
+  '/federation/news': typeof FederationNewsRoute
+  '/federation/structure': typeof FederationStructureRoute
   '/news/$newsId': typeof NewsNewsIdRoute
   '/federation': typeof FederationIndexRoute
   '/news': typeof NewsIndexRoute
@@ -243,8 +283,13 @@ export interface FileRoutesById {
   '/tournaments': typeof TournamentsRoute
   '/admin/_authed': typeof AdminAuthedRouteRouteWithChildren
   '/admin/login': typeof AdminLoginRoute
+  '/federation/about': typeof FederationAboutRoute
+  '/federation/charter': typeof FederationCharterRoute
   '/federation/documents': typeof FederationDocumentsRoute
   '/federation/events': typeof FederationEventsRoute
+  '/federation/leadership': typeof FederationLeadershipRoute
+  '/federation/news': typeof FederationNewsRoute
+  '/federation/structure': typeof FederationStructureRoute
   '/news/$newsId': typeof NewsNewsIdRoute
   '/federation/': typeof FederationIndexRoute
   '/news/': typeof NewsIndexRoute
@@ -273,8 +318,13 @@ export interface FileRouteTypes {
     | '/terms'
     | '/tournaments'
     | '/admin/login'
+    | '/federation/about'
+    | '/federation/charter'
     | '/federation/documents'
     | '/federation/events'
+    | '/federation/leadership'
+    | '/federation/news'
+    | '/federation/structure'
     | '/news/$newsId'
     | '/federation/'
     | '/news/'
@@ -300,8 +350,13 @@ export interface FileRouteTypes {
     | '/terms'
     | '/tournaments'
     | '/admin/login'
+    | '/federation/about'
+    | '/federation/charter'
     | '/federation/documents'
     | '/federation/events'
+    | '/federation/leadership'
+    | '/federation/news'
+    | '/federation/structure'
     | '/news/$newsId'
     | '/federation'
     | '/news'
@@ -328,8 +383,13 @@ export interface FileRouteTypes {
     | '/tournaments'
     | '/admin/_authed'
     | '/admin/login'
+    | '/federation/about'
+    | '/federation/charter'
     | '/federation/documents'
     | '/federation/events'
+    | '/federation/leadership'
+    | '/federation/news'
+    | '/federation/structure'
     | '/news/$newsId'
     | '/federation/'
     | '/news/'
@@ -468,6 +528,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof NewsNewsIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/federation/structure': {
+      id: '/federation/structure'
+      path: '/structure'
+      fullPath: '/federation/structure'
+      preLoaderRoute: typeof FederationStructureRouteImport
+      parentRoute: typeof FederationRoute
+    }
+    '/federation/news': {
+      id: '/federation/news'
+      path: '/news'
+      fullPath: '/federation/news'
+      preLoaderRoute: typeof FederationNewsRouteImport
+      parentRoute: typeof FederationRoute
+    }
+    '/federation/leadership': {
+      id: '/federation/leadership'
+      path: '/leadership'
+      fullPath: '/federation/leadership'
+      preLoaderRoute: typeof FederationLeadershipRouteImport
+      parentRoute: typeof FederationRoute
+    }
     '/federation/events': {
       id: '/federation/events'
       path: '/events'
@@ -480,6 +561,20 @@ declare module '@tanstack/react-router' {
       path: '/documents'
       fullPath: '/federation/documents'
       preLoaderRoute: typeof FederationDocumentsRouteImport
+      parentRoute: typeof FederationRoute
+    }
+    '/federation/charter': {
+      id: '/federation/charter'
+      path: '/charter'
+      fullPath: '/federation/charter'
+      preLoaderRoute: typeof FederationCharterRouteImport
+      parentRoute: typeof FederationRoute
+    }
+    '/federation/about': {
+      id: '/federation/about'
+      path: '/about'
+      fullPath: '/federation/about'
+      preLoaderRoute: typeof FederationAboutRouteImport
       parentRoute: typeof FederationRoute
     }
     '/admin/login': {
@@ -593,14 +688,24 @@ const AdminRouteRouteWithChildren = AdminRouteRoute._addFileChildren(
 )
 
 interface FederationRouteChildren {
+  FederationAboutRoute: typeof FederationAboutRoute
+  FederationCharterRoute: typeof FederationCharterRoute
   FederationDocumentsRoute: typeof FederationDocumentsRoute
   FederationEventsRoute: typeof FederationEventsRoute
+  FederationLeadershipRoute: typeof FederationLeadershipRoute
+  FederationNewsRoute: typeof FederationNewsRoute
+  FederationStructureRoute: typeof FederationStructureRoute
   FederationIndexRoute: typeof FederationIndexRoute
 }
 
 const FederationRouteChildren: FederationRouteChildren = {
+  FederationAboutRoute: FederationAboutRoute,
+  FederationCharterRoute: FederationCharterRoute,
   FederationDocumentsRoute: FederationDocumentsRoute,
   FederationEventsRoute: FederationEventsRoute,
+  FederationLeadershipRoute: FederationLeadershipRoute,
+  FederationNewsRoute: FederationNewsRoute,
+  FederationStructureRoute: FederationStructureRoute,
   FederationIndexRoute: FederationIndexRoute,
 }
 
