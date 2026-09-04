@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ComingSoon } from "@/components/site/ComingSoon";
+import { SectionPagePlaceholder } from "@/components/site/SectionPagePlaceholder";
 
 const TITLE = "Федерация — Федерация тенниса Санкт-Петербурга";
-const DESCRIPTION = "Информация о Федерации тенниса Санкт-Петербурга. Раздел в разработке.";
+const DESCRIPTION =
+  "Раздел о Федерации тенниса Санкт-Петербурга: руководство, структура, устав и деятельность.";
 
 export const Route = createFileRoute("/federation/")({
   head: () => ({
@@ -15,9 +16,9 @@ export const Route = createFileRoute("/federation/")({
     ],
   }),
   component: () => (
-    <ComingSoon
-      title="Федерация"
-      description="На этой странице мы расскажем об истории и миссии Федерации тенниса Санкт-Петербурга, руководстве, структуре и направлениях работы."
+    <SectionPagePlaceholder
+      title="О федерации"
+      description="Здесь будет рассказ об истории, миссии и направлениях работы Федерации тенниса Санкт-Петербурга. Выберите подраздел в навигаторе справа."
     />
   ),
 });
