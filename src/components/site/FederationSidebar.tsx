@@ -7,7 +7,7 @@ export const federationNav: FederationNavGroup[] = [
   {
     label: "Федерация",
     items: [
-      { label: "О федерации", href: "/federation/about" },
+      { label: "О Федерации", href: "/federation/about" },
       { label: "Руководство", href: "/federation/leadership" },
       { label: "Структура", href: "/federation/structure" },
       { label: "Устав", href: "/federation/charter" },
