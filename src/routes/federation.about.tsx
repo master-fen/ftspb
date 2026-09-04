@@ -17,7 +17,7 @@ export const Route = createFileRoute("/federation/about")({
   }),
   component: () => (
     <SectionPagePlaceholder
-      title="О федерации"
+      title="О Федерации"
       description="Здесь будет рассказ об истории, миссии и направлениях работы Федерации тенниса Санкт-Петербурга."
     />
   ),
