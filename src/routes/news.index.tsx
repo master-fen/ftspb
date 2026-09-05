@@ -6,7 +6,8 @@ import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { listNews } from "@/lib/news-server-fn";
 import { NewsListCard } from "@/components/site/NewsListCard";
-import type { NewsCategory } from "@/lib/types/news";
+import { sortNewsByDateDesc } from "@/lib/news-date";
+import type { NewsSection } from "@/lib/types/news";
 
 type FilterValue = "all" | "general" | "federation" | "referees";
 
@@ -24,12 +25,6 @@ const FILTERS: { value: FilterValue; label: string }[] = [
   { value: "federation", label: "Федерация" },
   { value: "referees", label: "Коллегия судей" },
 ];
-
-const VALUE_TO_CATEGORY: Record<Exclude<FilterValue, "all">, NewsCategory> = {
-  general: "Общее",
-  federation: "Федерация",
-  referees: "Коллегия судей",
-};
 
 export const Route = createFileRoute("/news/")({
   validateSearch: zodValidator(searchSchema),
@@ -65,12 +60,12 @@ function NewsPage() {
   const active: FilterValue = category;
 
   const items = useMemo(() => {
-    const sorted = [...news].sort(
-      (a, b) => parseDate(b.date).getTime() - parseDate(a.date).getTime(),
-    );
+    const sorted = sortNewsByDateDesc(news);
     if (active === "all") return sorted;
-    const cat = VALUE_TO_CATEGORY[active];
-    return sorted.filter((n) => n.category === cat);
+    // Сравниваем машинный раздел, а не русскую подпись category.
+    // «Общее» — новости без раздела (section === null).
+    const wanted: NewsSection | null = active === "general" ? null : active;
+    return sorted.filter((n) => (n.section ?? null) === wanted);
   }, [news, active]);
 
   const select = (value: FilterValue) => {
@@ -89,13 +84,8 @@ function NewsPage() {
           <Link to="/" className="transition-colors hover:text-foreground">
             Главная
           </Link>
-          <span
-            className="h-2.5 w-2.5 shrink-0 rounded-full bg-foreground/15"
-            aria-hidden="true"
-          />
-          <span aria-current="page">
-            Новости
-          </span>
+          <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-foreground/15" aria-hidden="true" />
+          <span aria-current="page">Новости</span>
         </nav>
 
         <header className="mb-6 md:mb-8">
@@ -145,10 +135,4 @@ function NewsPage() {
       <SiteFooter />
     </div>
   );
-}
-
-function parseDate(s: string): Date {
-  // dd.mm.yy
-  const [d, m, y] = s.split(".").map((x) => parseInt(x, 10));
-  return new Date(2000 + y, m - 1, d);
 }
