@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { getPersonById } from "@/lib/federation-person-server-fn";
 import { AdminBackLink } from "./-components/AdminBackLink";
 import { PersonForm } from "./-components/PersonForm";
+import { PersonPhotoSection } from "./-components/PersonPhotoSection";
 
 export const Route = createFileRoute("/admin/_authed/persons/$id")({
   component: AdminPersonEdit,
@@ -31,7 +32,10 @@ function AdminPersonEdit() {
         ) : query.isPending ? (
           <p className="text-sm text-muted-foreground">Загрузка…</p>
         ) : (
-          <PersonForm mode="edit" person={query.data} />
+          <>
+            <PersonForm mode="edit" person={query.data} />
+            <PersonPhotoSection personId={query.data.id} photoUrl={query.data.photoUrl} />
+          </>
         )}
       </div>
     </div>
