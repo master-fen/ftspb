@@ -1,5 +1,8 @@
 export type NewsCategory = "Общее" | "Федерация" | "Коллегия судей";
 
+/** Машинное значение раздела — как в колонке `news.section` (`section_enum`). */
+export type NewsSection = "federation" | "referees";
+
 export type NewsAttachment = {
   kind: string;
   title: string;
@@ -10,6 +13,13 @@ export type NewsAttachment = {
 export type NewsItem = {
   id: string;
   category: NewsCategory;
+  /**
+   * Раздел новости; `null` — «Общее». Фильтровать по нему, а не по `category`
+   * (та — русская подпись для отображения). Опционально только из-за мок-фикстур
+   * `src/data/news-archive.ts` (Lovable-зона, поля там нет): всё, что отдаёт
+   * `src/server/news.ts`, заполняет его всегда.
+   */
+  section?: NewsSection | null;
   date: string; // dd.mm.yy
   title: string;
   excerpt?: string;
