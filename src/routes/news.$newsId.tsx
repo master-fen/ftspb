@@ -1,4 +1,6 @@
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link, notFound, stripSearchParams } from "@tanstack/react-router";
+import { zodValidator, fallback } from "@tanstack/zod-adapter";
+import { z } from "zod";
 import { ChevronRight, Download, FileText } from "lucide-react";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { NewsGallery } from "@/components/site/NewsGallery";
@@ -6,14 +8,29 @@ import { SiteFooter } from "@/components/site/SiteFooter";
 import { getNewsBySlug, listNews } from "@/lib/news-server-fn";
 import type { NewsItem } from "@/lib/types/news";
 import { newsMetaLine } from "@/lib/news-meta";
+import { NEWS_ORIGINS } from "@/lib/news-origin";
+import { pickRelatedNews } from "@/lib/news-related";
 import { OG_IMAGE_URL, SITE_URL, toAbsoluteUrl } from "@/lib/site";
 
+/**
+ * `?from=` — путь, которым пришли (см. src/lib/news-origin.ts). Невалидное
+ * или отсутствующее значение → undefined (fallback), страница не падает;
+ * отсутствие параметра вычищается из адреса (stripSearchParams).
+ */
+const searchSchema = z.object({
+  from: fallback(z.enum(NEWS_ORIGINS).optional(), undefined).optional(),
+});
+
 export const Route = createFileRoute("/news/$newsId")({
+  validateSearch: zodValidator(searchSchema),
+  search: {
+    middlewares: [stripSearchParams({ from: undefined })],
+  },
   loader: async ({ params }) => {
     const item = await getNewsBySlug({ data: params.newsId });
     if (!item) throw notFound();
     const all = await listNews();
-    const related = all.filter((n) => n.id !== item.id).slice(0, 3);
+    const related = pickRelatedNews(all, item);
     return { item, related };
   },
   head: ({ loaderData }) => {
@@ -53,8 +70,21 @@ export const Route = createFileRoute("/news/$newsId")({
   component: NewsDetailPage,
 });
 
+/** Крошки отражают путь, которым пришли (`?from=`), а не раздел новости. */
+const CRUMBS_DEFAULT = [
+  { label: "Главная", to: "/" },
+  { label: "Новости", to: "/news" },
+] as const;
+const CRUMBS_FEDERATION = [
+  { label: "Главная", to: "/" },
+  { label: "Федерация", to: "/federation" },
+  { label: "Новости Федерации", to: "/federation/news" },
+] as const;
+
 function NewsDetailPage() {
   const { item, related } = Route.useLoaderData();
+  const { from } = Route.useSearch();
+  const crumbs = from === "federation" ? CRUMBS_FEDERATION : CRUMBS_DEFAULT;
 
   // Не показываем анонс, если он дублирует начало текста новости.
   const normalize = (s: string) =>
@@ -80,14 +110,14 @@ function NewsDetailPage() {
           aria-label="Хлебные крошки"
           className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground"
         >
-          <Link to="/" className="transition-colors hover:text-brand-orange">
-            Главная
-          </Link>
-          <ChevronRight className="h-4 w-4 opacity-60" aria-hidden />
-          <Link to="/news" className="transition-colors hover:text-brand-orange">
-            Новости
-          </Link>
-          <ChevronRight className="h-4 w-4 opacity-60" aria-hidden />
+          {crumbs.map((crumb) => (
+            <span key={crumb.to} className="flex items-center gap-1.5">
+              <Link to={crumb.to} className="transition-colors hover:text-brand-orange">
+                {crumb.label}
+              </Link>
+              <ChevronRight className="h-4 w-4 opacity-60" aria-hidden />
+            </span>
+          ))}
           <span className="text-foreground/80 line-clamp-1">{item.title}</span>
         </nav>
 
