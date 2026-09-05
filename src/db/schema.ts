@@ -95,6 +95,37 @@ export const newsDocument = pgTable(
   (table) => [primaryKey({ columns: [table.newsId, table.documentId] })],
 );
 
+/**
+ * Руководство Федерации — публичная страница /federation/leadership.
+ * Схема не указывается: выбирается search_path (см. заголовок файла).
+ */
+export const federationPerson = pgTable(
+  "federation_person",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    /** ФИО. */
+    fullName: text("full_name").notNull(),
+    /** Должность. */
+    role: text("role").notNull(),
+    bio: text("bio"),
+    phone: text("phone"),
+    email: text("email"),
+    /**
+     * Ключ фото в S3. В ЭТОМ PR колонка не заполняется и не читается — ни
+     * админкой, ни публичной страницей. Заведена заранее, чтобы загрузка фото
+     * (отдельный PR) не требовала второй миграции.
+     */
+    photoS3Key: text("photo_s3_key"),
+    /** Порядок вывода на странице: меньше — выше. */
+    position: integer("position").notNull(),
+    status: statusEnum("status").notNull().default("draft"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [index("federation_person_status_position_idx").on(table.status, table.position)],
+);
+
 export const adminUser = pgTable("admin_user", {
   id: uuid("id").primaryKey().defaultRandom(),
   login: text("login").notNull().unique(),

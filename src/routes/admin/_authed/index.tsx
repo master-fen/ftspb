@@ -48,6 +48,16 @@ function AdminDashboard() {
             <Link to="/admin/documents">Перейти к документам</Link>
           </Button>
         </section>
+
+        <section className="rounded-xl border bg-card p-6 text-card-foreground">
+          <h2 className="mb-2 text-lg font-semibold">Руководство</h2>
+          <p className="mb-4 text-sm text-muted-foreground">
+            Состав руководства Федерации на странице «Руководство».
+          </p>
+          <Button asChild>
+            <Link to="/admin/persons">Перейти к руководству</Link>
+          </Button>
+        </section>
       </div>
     </div>
   );

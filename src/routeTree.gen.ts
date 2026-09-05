@@ -35,8 +35,11 @@ import { Route as AdminLoginRouteImport } from './routes/admin/login'
 import { Route as AdminAuthedRouteRouteImport } from './routes/admin/_authed/route'
 import { Route as AdminAuthedIndexRouteImport } from './routes/admin/_authed/index'
 import { Route as ApiAdminUploadRouteImport } from './routes/api/admin/upload'
+import { Route as AdminAuthedPersonsIndexRouteImport } from './routes/admin/_authed/persons.index'
 import { Route as AdminAuthedNewsIndexRouteImport } from './routes/admin/_authed/news.index'
 import { Route as AdminAuthedDocumentsIndexRouteImport } from './routes/admin/_authed/documents.index'
+import { Route as AdminAuthedPersonsNewRouteImport } from './routes/admin/_authed/persons.new'
+import { Route as AdminAuthedPersonsIdRouteImport } from './routes/admin/_authed/persons.$id'
 import { Route as AdminAuthedNewsNewRouteImport } from './routes/admin/_authed/news.new'
 import { Route as AdminAuthedNewsIdRouteImport } from './routes/admin/_authed/news.$id'
 import { Route as AdminAuthedDocumentsNewRouteImport } from './routes/admin/_authed/documents.new'
@@ -171,6 +174,11 @@ const ApiAdminUploadRoute = ApiAdminUploadRouteImport.update({
   path: '/api/admin/upload',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminAuthedPersonsIndexRoute = AdminAuthedPersonsIndexRouteImport.update({
+  id: '/persons/',
+  path: '/persons/',
+  getParentRoute: () => AdminAuthedRouteRoute,
+} as any)
 const AdminAuthedNewsIndexRoute = AdminAuthedNewsIndexRouteImport.update({
   id: '/news/',
   path: '/news/',
@@ -182,6 +190,16 @@ const AdminAuthedDocumentsIndexRoute =
     path: '/documents/',
     getParentRoute: () => AdminAuthedRouteRoute,
   } as any)
+const AdminAuthedPersonsNewRoute = AdminAuthedPersonsNewRouteImport.update({
+  id: '/persons/new',
+  path: '/persons/new',
+  getParentRoute: () => AdminAuthedRouteRoute,
+} as any)
+const AdminAuthedPersonsIdRoute = AdminAuthedPersonsIdRouteImport.update({
+  id: '/persons/$id',
+  path: '/persons/$id',
+  getParentRoute: () => AdminAuthedRouteRoute,
+} as any)
 const AdminAuthedNewsNewRoute = AdminAuthedNewsNewRouteImport.update({
   id: '/news/new',
   path: '/news/new',
@@ -233,8 +251,11 @@ export interface FileRoutesByFullPath {
   '/admin/documents/new': typeof AdminAuthedDocumentsNewRoute
   '/admin/news/$id': typeof AdminAuthedNewsIdRoute
   '/admin/news/new': typeof AdminAuthedNewsNewRoute
+  '/admin/persons/$id': typeof AdminAuthedPersonsIdRoute
+  '/admin/persons/new': typeof AdminAuthedPersonsNewRoute
   '/admin/documents/': typeof AdminAuthedDocumentsIndexRoute
   '/admin/news/': typeof AdminAuthedNewsIndexRoute
+  '/admin/persons/': typeof AdminAuthedPersonsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -264,8 +285,11 @@ export interface FileRoutesByTo {
   '/admin/documents/new': typeof AdminAuthedDocumentsNewRoute
   '/admin/news/$id': typeof AdminAuthedNewsIdRoute
   '/admin/news/new': typeof AdminAuthedNewsNewRoute
+  '/admin/persons/$id': typeof AdminAuthedPersonsIdRoute
+  '/admin/persons/new': typeof AdminAuthedPersonsNewRoute
   '/admin/documents': typeof AdminAuthedDocumentsIndexRoute
   '/admin/news': typeof AdminAuthedNewsIndexRoute
+  '/admin/persons': typeof AdminAuthedPersonsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -299,8 +323,11 @@ export interface FileRoutesById {
   '/admin/_authed/documents/new': typeof AdminAuthedDocumentsNewRoute
   '/admin/_authed/news/$id': typeof AdminAuthedNewsIdRoute
   '/admin/_authed/news/new': typeof AdminAuthedNewsNewRoute
+  '/admin/_authed/persons/$id': typeof AdminAuthedPersonsIdRoute
+  '/admin/_authed/persons/new': typeof AdminAuthedPersonsNewRoute
   '/admin/_authed/documents/': typeof AdminAuthedDocumentsIndexRoute
   '/admin/_authed/news/': typeof AdminAuthedNewsIndexRoute
+  '/admin/_authed/persons/': typeof AdminAuthedPersonsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -334,8 +361,11 @@ export interface FileRouteTypes {
     | '/admin/documents/new'
     | '/admin/news/$id'
     | '/admin/news/new'
+    | '/admin/persons/$id'
+    | '/admin/persons/new'
     | '/admin/documents/'
     | '/admin/news/'
+    | '/admin/persons/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -365,8 +395,11 @@ export interface FileRouteTypes {
     | '/admin/documents/new'
     | '/admin/news/$id'
     | '/admin/news/new'
+    | '/admin/persons/$id'
+    | '/admin/persons/new'
     | '/admin/documents'
     | '/admin/news'
+    | '/admin/persons'
   id:
     | '__root__'
     | '/'
@@ -399,8 +432,11 @@ export interface FileRouteTypes {
     | '/admin/_authed/documents/new'
     | '/admin/_authed/news/$id'
     | '/admin/_authed/news/new'
+    | '/admin/_authed/persons/$id'
+    | '/admin/_authed/persons/new'
     | '/admin/_authed/documents/'
     | '/admin/_authed/news/'
+    | '/admin/_authed/persons/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -605,6 +641,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminUploadRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/_authed/persons/': {
+      id: '/admin/_authed/persons/'
+      path: '/persons'
+      fullPath: '/admin/persons/'
+      preLoaderRoute: typeof AdminAuthedPersonsIndexRouteImport
+      parentRoute: typeof AdminAuthedRouteRoute
+    }
     '/admin/_authed/news/': {
       id: '/admin/_authed/news/'
       path: '/news'
@@ -617,6 +660,20 @@ declare module '@tanstack/react-router' {
       path: '/documents'
       fullPath: '/admin/documents/'
       preLoaderRoute: typeof AdminAuthedDocumentsIndexRouteImport
+      parentRoute: typeof AdminAuthedRouteRoute
+    }
+    '/admin/_authed/persons/new': {
+      id: '/admin/_authed/persons/new'
+      path: '/persons/new'
+      fullPath: '/admin/persons/new'
+      preLoaderRoute: typeof AdminAuthedPersonsNewRouteImport
+      parentRoute: typeof AdminAuthedRouteRoute
+    }
+    '/admin/_authed/persons/$id': {
+      id: '/admin/_authed/persons/$id'
+      path: '/persons/$id'
+      fullPath: '/admin/persons/$id'
+      preLoaderRoute: typeof AdminAuthedPersonsIdRouteImport
       parentRoute: typeof AdminAuthedRouteRoute
     }
     '/admin/_authed/news/new': {
@@ -656,8 +713,11 @@ interface AdminAuthedRouteRouteChildren {
   AdminAuthedDocumentsNewRoute: typeof AdminAuthedDocumentsNewRoute
   AdminAuthedNewsIdRoute: typeof AdminAuthedNewsIdRoute
   AdminAuthedNewsNewRoute: typeof AdminAuthedNewsNewRoute
+  AdminAuthedPersonsIdRoute: typeof AdminAuthedPersonsIdRoute
+  AdminAuthedPersonsNewRoute: typeof AdminAuthedPersonsNewRoute
   AdminAuthedDocumentsIndexRoute: typeof AdminAuthedDocumentsIndexRoute
   AdminAuthedNewsIndexRoute: typeof AdminAuthedNewsIndexRoute
+  AdminAuthedPersonsIndexRoute: typeof AdminAuthedPersonsIndexRoute
 }
 
 const AdminAuthedRouteRouteChildren: AdminAuthedRouteRouteChildren = {
@@ -666,8 +726,11 @@ const AdminAuthedRouteRouteChildren: AdminAuthedRouteRouteChildren = {
   AdminAuthedDocumentsNewRoute: AdminAuthedDocumentsNewRoute,
   AdminAuthedNewsIdRoute: AdminAuthedNewsIdRoute,
   AdminAuthedNewsNewRoute: AdminAuthedNewsNewRoute,
+  AdminAuthedPersonsIdRoute: AdminAuthedPersonsIdRoute,
+  AdminAuthedPersonsNewRoute: AdminAuthedPersonsNewRoute,
   AdminAuthedDocumentsIndexRoute: AdminAuthedDocumentsIndexRoute,
   AdminAuthedNewsIndexRoute: AdminAuthedNewsIndexRoute,
+  AdminAuthedPersonsIndexRoute: AdminAuthedPersonsIndexRoute,
 }
 
 const AdminAuthedRouteRouteWithChildren =
