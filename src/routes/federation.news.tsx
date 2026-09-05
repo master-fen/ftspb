@@ -46,7 +46,7 @@ function FederationNewsPage() {
       ) : (
         <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:gap-6">
           {items.map((item) => (
-            <NewsListCard key={item.id} item={item} />
+            <NewsListCard key={item.id} item={item} from="federation" />
           ))}
         </div>
       )}
