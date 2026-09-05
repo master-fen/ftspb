@@ -52,12 +52,8 @@
           "name": "admin_session_user_id_admin_user_id_fk",
           "tableFrom": "admin_session",
           "tableTo": "admin_user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -125,9 +121,7 @@
         "admin_user_login_unique": {
           "name": "admin_user_login_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "login"
-          ]
+          "columns": ["login"]
         }
       },
       "policies": {},
@@ -489,12 +483,8 @@
           "name": "news_cover_photo_id_news_photo_id_fk",
           "tableFrom": "news",
           "tableTo": "news_photo",
-          "columnsFrom": [
-            "cover_photo_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["cover_photo_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -504,9 +494,7 @@
         "news_slug_unique": {
           "name": "news_slug_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "slug"
-          ]
+          "columns": ["slug"]
         }
       },
       "policies": {},
@@ -542,12 +530,8 @@
           "name": "news_document_news_id_news_id_fk",
           "tableFrom": "news_document",
           "tableTo": "news",
-          "columnsFrom": [
-            "news_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["news_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -555,12 +539,8 @@
           "name": "news_document_document_id_document_id_fk",
           "tableFrom": "news_document",
           "tableTo": "document",
-          "columnsFrom": [
-            "document_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["document_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -568,10 +548,7 @@
       "compositePrimaryKeys": {
         "news_document_news_id_document_id_pk": {
           "name": "news_document_news_id_document_id_pk",
-          "columns": [
-            "news_id",
-            "document_id"
-          ]
+          "columns": ["news_id", "document_id"]
         }
       },
       "uniqueConstraints": {},
@@ -640,12 +617,8 @@
           "name": "news_photo_news_id_news_id_fk",
           "tableFrom": "news_photo",
           "tableTo": "news",
-          "columnsFrom": [
-            "news_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["news_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -661,18 +634,12 @@
     "public.section_enum": {
       "name": "section_enum",
       "schema": "public",
-      "values": [
-        "federation",
-        "referees"
-      ]
+      "values": ["federation", "referees"]
     },
     "public.status_enum": {
       "name": "status_enum",
       "schema": "public",
-      "values": [
-        "draft",
-        "published"
-      ]
+      "values": ["draft", "published"]
     }
   },
   "schemas": {},
