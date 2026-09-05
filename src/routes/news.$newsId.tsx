@@ -1,4 +1,6 @@
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link, notFound, stripSearchParams } from "@tanstack/react-router";
+import { zodValidator, fallback } from "@tanstack/zod-adapter";
+import { z } from "zod";
 import { ChevronRight, Download, FileText } from "lucide-react";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { NewsGallery } from "@/components/site/NewsGallery";
@@ -6,14 +8,29 @@ import { SiteFooter } from "@/components/site/SiteFooter";
 import { getNewsBySlug, listNews } from "@/lib/news-server-fn";
 import type { NewsItem } from "@/lib/types/news";
 import { newsMetaLine } from "@/lib/news-meta";
+import { NEWS_ORIGINS } from "@/lib/news-origin";
+import { pickRelatedNews } from "@/lib/news-related";
 import { OG_IMAGE_URL, SITE_URL, toAbsoluteUrl } from "@/lib/site";
 
+/**
+ * `?from=` — путь, которым пришли (см. src/lib/news-origin.ts). Невалидное
+ * или отсутствующее значение → undefined (fallback), страница не падает;
+ * отсутствие параметра вычищается из адреса (stripSearchParams).
+ */
+const searchSchema = z.object({
+  from: fallback(z.enum(NEWS_ORIGINS).optional(), undefined).optional(),
+});
+
 export const Route = createFileRoute("/news/$newsId")({
+  validateSearch: zodValidator(searchSchema),
+  search: {
+    middlewares: [stripSearchParams({ from: undefined })],
+  },
   loader: async ({ params }) => {
     const item = await getNewsBySlug({ data: params.newsId });
     if (!item) throw notFound();
     const all = await listNews();
-    const related = all.filter((n) => n.id !== item.id).slice(0, 3);
+    const related = pickRelatedNews(all, item);
     return { item, related };
   },
   head: ({ loaderData }) => {
