@@ -45,6 +45,7 @@ function LeadershipPage() {
               bio={person.bio ?? undefined}
               phone={person.phone ?? undefined}
               email={person.email ?? undefined}
+              photo={person.photoUrl ?? undefined}
             />
           ))}
         </div>
