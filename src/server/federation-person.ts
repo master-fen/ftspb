@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { and, asc, eq, isNull } from "drizzle-orm";
 import { db } from "@/db/client";
 import { federationPerson } from "@/db/schema";
@@ -8,7 +9,14 @@ import {
   type PersonStatus,
   type UpdatePersonInput,
 } from "@/lib/federation-person-input";
+import {
+  detectImageSignature,
+  EXTENSION_BY_TYPE,
+  isWithinSizeLimit,
+  MAX_UPLOAD_BYTES,
+} from "@/lib/image-validation";
 import { getCurrentSession } from "@/server/auth";
+import { buildImageUrl, deleteObject, objectExists, uploadObject } from "@/server/storage";
 
 export type PersonRow = typeof federationPerson.$inferSelect;
 
@@ -21,6 +29,8 @@ export type PublicPerson = {
   phone: string | null;
   email: string | null;
   position: number;
+  /** Готовый URL фото (buildImageUrl на сервере) или null; сам ключ S3 наружу не отдаётся. */
+  photoUrl: string | null;
 };
 
 function requireDb(): NonNullable<typeof db> {
@@ -77,7 +87,7 @@ export async function listPublishedPersons(): Promise<PublicPerson[]> {
   if (db === null) {
     return [];
   }
-  return db
+  const rows = await db
     .select({
       id: federationPerson.id,
       fullName: federationPerson.fullName,
@@ -86,10 +96,16 @@ export async function listPublishedPersons(): Promise<PublicPerson[]> {
       phone: federationPerson.phone,
       email: federationPerson.email,
       position: federationPerson.position,
+      photoS3Key: federationPerson.photoS3Key,
     })
     .from(federationPerson)
     .where(and(eq(federationPerson.status, "published"), isNull(federationPerson.deletedAt)))
     .orderBy(asc(federationPerson.position));
+  // Ключ S3 участвует только в вычислении URL и наружу не попадает.
+  return rows.map(({ photoS3Key, ...rest }) => ({
+    ...rest,
+    photoUrl: photoS3Key ? buildImageUrl(photoS3Key) : null,
+  }));
 }
 
 /** Как getAdminDocument: deletedAt не фильтруется — удалённого можно открыть по прямой ссылке. */
@@ -142,6 +158,123 @@ export async function updatePerson(id: string, input: UpdatePersonInput): Promis
   }
 }
 
+async function pickUniquePersonKey(personId: string, ext: string): Promise<string> {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const candidate = `persons/${personId}/u${randomBytes(4).toString("hex")}.${ext}`;
+    if (!(await objectExists(candidate))) {
+      return candidate;
+    }
+  }
+  throw new Error("Не удалось подобрать уникальный ключ файла");
+}
+
+export type UploadPersonPhotoInput = {
+  personId: string;
+  body: Buffer;
+  /** Тип, заявленный клиентом; проверяется по содержимому, а не принимается на веру. */
+  contentType: string;
+};
+
+/**
+ * Замена фото. Порядок строго: (а) залить новый объект; (б) записать новый
+ * ключ в колонку; (в) только после успешной записи удалить старый объект.
+ * Сбой (б) → удалить НОВЫЙ объект и пробросить исходную ошибку, старый ключ в
+ * колонке не трогать. Сбой (в) → не падать: колонка уже верна, висячий объект
+ * уберёт отдельная чистка бакета, в лог — console.warn.
+ */
+export async function uploadPersonPhoto(
+  input: UploadPersonPhotoInput,
+): Promise<{ key: string; url: string }> {
+  await requireSession();
+  const database = requireDb();
+
+  if (!isWithinSizeLimit(input.body.length)) {
+    throw new Error(`Файл больше ${Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)} МБ`);
+  }
+  const detected = detectImageSignature(input.body);
+  if (!detected) {
+    throw new Error("Файл не похож на изображение поддерживаемого формата (jpeg/png/gif/webp)");
+  }
+  if (input.contentType && input.contentType !== detected) {
+    throw new Error(
+      `Содержимое файла (${detected}) не совпадает с заявленным типом (${input.contentType})`,
+    );
+  }
+
+  const [person] = await database
+    .select({ id: federationPerson.id, photoS3Key: federationPerson.photoS3Key })
+    .from(federationPerson)
+    .where(eq(federationPerson.id, input.personId))
+    .limit(1);
+  if (!person) {
+    throw new Error(`Персона не найдена: ${input.personId}`);
+  }
+
+  const key = await pickUniquePersonKey(person.id, EXTENSION_BY_TYPE[detected]);
+  await uploadObject(key, input.body, detected); // (а)
+
+  try {
+    const updated = await database // (б)
+      .update(federationPerson)
+      .set({ photoS3Key: key, updatedAt: new Date() })
+      .where(eq(federationPerson.id, person.id))
+      .returning({ id: federationPerson.id });
+    if (updated.length === 0) {
+      throw new Error(`Персона не найдена: ${input.personId}`);
+    }
+  } catch (error) {
+    try {
+      await deleteObject(key);
+    } catch (cleanupError) {
+      console.warn(
+        `[federation-person] не удалось откатить объект S3 после сбоя записи ключа: ${key}`,
+        cleanupError,
+      );
+    }
+    throw error; // исходная ошибка, не подменяется ошибкой отката
+  }
+
+  if (person.photoS3Key && person.photoS3Key !== key) {
+    try {
+      await deleteObject(person.photoS3Key); // (в)
+    } catch (error) {
+      console.warn(
+        `[federation-person] не удалось удалить старое фото ${person.photoS3Key}, колонка уже указывает на ${key}`,
+        error,
+      );
+    }
+  }
+
+  return { key, url: buildImageUrl(key) };
+}
+
+/** Обнулить колонку, затем удалить объект; сбой удаления объекта — только console.warn. */
+export async function deletePersonPhoto(personId: string): Promise<void> {
+  await requireSession();
+  const database = requireDb();
+  const [person] = await database
+    .select({ id: federationPerson.id, photoS3Key: federationPerson.photoS3Key })
+    .from(federationPerson)
+    .where(eq(federationPerson.id, personId))
+    .limit(1);
+  if (!person) {
+    throw new Error(`Персона не найдена: ${personId}`);
+  }
+  if (!person.photoS3Key) {
+    return;
+  }
+  await database
+    .update(federationPerson)
+    .set({ photoS3Key: null, updatedAt: new Date() })
+    .where(eq(federationPerson.id, person.id));
+  try {
+    await deleteObject(person.photoS3Key);
+  } catch (error) {
+    console.warn(`[federation-person] не удалось удалить объект S3: ${person.photoS3Key}`, error);
+  }
+}
+
+/** Фото в S3 при мягком удалении НЕ удаляется — строка остаётся, ключ вместе с ней. */
 export async function softDeletePerson(id: string): Promise<void> {
   await requireSession();
   const database = requireDb();

@@ -181,10 +181,13 @@ Code) через прежний `LeadershipCard` без `photo`/`links`; пус�
 Заголовок, подзаголовок, классы — прежние. Источник данных — таблица
 `federation_person` (`src/db/schema.ts`, `src/server/federation-person.ts`,
 админка `/admin/persons`); публичная функция отдаёт явный список колонок
-без `photo_s3_key`/`status`/служебных дат. Дальше JSX этого файла —
-по-прежнему не Claude-Code-зона без повторного согласования сверх этого
-точечного изменения. `LeadershipCard.tsx` и `PersonPhotoPlaceholder.tsx` не
-менялись.
+без `photo_s3_key`/`status`/служебных дат. Дополнение (согласовано
+05.09.2026, фото человека): в JSX добавлен единственный проп
+`photo={person.photoUrl ?? undefined}` — `photoUrl` считает сервер через
+`buildImageUrl`, ключ S3 наружу по-прежнему не уходит. Дальше JSX этого
+файла — по-прежнему не Claude-Code-зона без повторного согласования сверх
+этого точечного изменения. `LeadershipCard.tsx` и
+`PersonPhotoPlaceholder.tsx` не менялись.
 
 ### Claude Code
 

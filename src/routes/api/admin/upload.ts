@@ -10,6 +10,7 @@ import {
 } from "@/lib/image-validation";
 import { getCurrentSession } from "@/server/auth";
 import { uploadDocumentFile } from "@/server/document-upload";
+import { uploadPersonPhoto } from "@/server/federation-person";
 import { uploadNewsPhoto } from "@/server/news-admin";
 
 function errorResponse(status: number, message: string): Response {
@@ -54,7 +55,7 @@ export const Route = createFileRoute("/api/admin/upload")({
         // меняем и не заставляем присылать kind явно.
         const kindRaw = formData.get("kind");
         const kind = typeof kindRaw === "string" && kindRaw ? kindRaw : "photo";
-        if (kind !== "photo" && kind !== "document") {
+        if (kind !== "photo" && kind !== "document" && kind !== "person-photo") {
           return errorResponse(400, `Неизвестное значение kind: ${kind}`);
         }
 
@@ -92,6 +93,35 @@ export const Route = createFileRoute("/api/admin/upload")({
               : message.includes("сессия")
                 ? 401
                 : 500;
+            return errorResponse(status, message);
+          }
+        }
+
+        if (kind === "person-photo") {
+          const personId = formData.get("personId");
+          if (typeof personId !== "string" || !personId) {
+            return errorResponse(400, "Не передан personId");
+          }
+          // Тип по сигнатуре и лимит размера проверяет сама uploadPersonPhoto —
+          // заявленный клиентом file.type передаётся только для сверки.
+          try {
+            const result = await uploadPersonPhoto({
+              personId,
+              body: buffer,
+              contentType: file.type,
+            });
+            return Response.json(result);
+          } catch (error) {
+            const message = error instanceof Error ? error.message : "Не удалось загрузить фото";
+            const status = message.includes("не найдена")
+              ? 404
+              : message.includes("сессия")
+                ? 401
+                : message.includes("больше")
+                  ? 413
+                  : message.includes("не похож") || message.includes("не совпадает")
+                    ? 400
+                    : 500;
             return errorResponse(status, message);
           }
         }

@@ -2,12 +2,14 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import {
   createPerson as createPersonImpl,
+  deletePersonPhoto as deletePersonPhotoImpl,
   getPersonById as getPersonByIdImpl,
   listPersons as listPersonsImpl,
   listPublishedPersons as listPublishedPersonsImpl,
   softDeletePerson as softDeletePersonImpl,
   updatePerson as updatePersonImpl,
 } from "@/server/federation-person";
+import { buildImageUrl } from "@/server/storage";
 
 /**
  * `src/server/**` запрещён к прямому импорту из клиентского бандла
@@ -39,9 +41,21 @@ export const listPublishedPersons = createServerFn({ method: "GET" }).handler(()
   listPublishedPersonsImpl(),
 );
 
+/** Как getAdminDocument: URL фото считается здесь, в админку уходит готовым. */
 export const getPersonById = createServerFn({ method: "GET" })
   .validator((id: string) => id)
-  .handler(({ data }) => getPersonByIdImpl(data));
+  .handler(async ({ data }) => {
+    const row = await getPersonByIdImpl(data);
+    return { ...row, photoUrl: row.photoS3Key ? buildImageUrl(row.photoS3Key) : null };
+  });
+
+/**
+ * Загрузка фото — не здесь: файл идёт multipart через
+ * src/routes/api/admin/upload.ts (kind=person-photo), как фото новости.
+ */
+export const deletePersonPhoto = createServerFn({ method: "POST" })
+  .validator((personId: string) => personId)
+  .handler(({ data }) => deletePersonPhotoImpl(data));
 
 export const createPerson = createServerFn({ method: "POST" })
   .validator(personFieldsSchema)
