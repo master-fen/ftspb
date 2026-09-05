@@ -11,7 +11,7 @@ import type { NewsSection } from "@/lib/types/news";
 
 type FilterValue = "all" | "general" | "federation" | "referees";
 
-const DEFAULT_FILTER: FilterValue = "general";
+const DEFAULT_FILTER: FilterValue = "all";
 
 const searchSchema = z.object({
   category: fallback(z.enum(["all", "general", "federation", "referees"]), DEFAULT_FILTER).default(
