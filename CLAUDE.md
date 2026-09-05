@@ -172,6 +172,20 @@ JSX крошки стали данными (`CRUMBS_DEFAULT`/`CRUMBS_FEDERATION`
 Claude-Code-зона (кроме `loader`/`head()`/`validateSearch`) без повторного
 согласования сверх этого точечного изменения.
 
+**Исключение (согласовано 05.09.2026, «Руководство» из БД):**
+`src/routes/federation.leadership.tsx` — статический `LEADERSHIP_MOCK`
+удалён, компонент рисует `Route.useLoaderData()` (loader —
+`listPublishedPersons` из `@/lib/federation-person-server-fn`, зона Claude
+Code) через прежний `LeadershipCard` без `photo`/`links`; пустой список —
+«Раздел заполняется» в стиле пустого состояния `federation.news.tsx`.
+Заголовок, подзаголовок, классы — прежние. Источник данных — таблица
+`federation_person` (`src/db/schema.ts`, `src/server/federation-person.ts`,
+админка `/admin/persons`); публичная функция отдаёт явный список колонок
+без `photo_s3_key`/`status`/служебных дат. Дальше JSX этого файла —
+по-прежнему не Claude-Code-зона без повторного согласования сверх этого
+точечного изменения. `LeadershipCard.tsx` и `PersonPhotoPlaceholder.tsx` не
+менялись.
+
 ### Claude Code
 
 - `src/lib/**` — в т.ч. `src/lib/types/**` и `src/lib/news-server-fn.ts`
