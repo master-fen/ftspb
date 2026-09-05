@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { LeadershipCard } from "@/components/site/LeadershipCard";
+import { listPublishedPersons } from "@/lib/federation-person-server-fn";
 
 const TITLE = "Руководство — Федерация тенниса Санкт-Петербурга";
 const DESCRIPTION =
@@ -17,11 +18,11 @@ const LEADERSHIP_MOCK = [
 ];
 
 export const Route = createFileRoute("/federation/leadership")({
+  loader: () => listPublishedPersons(),
   head: () => ({
     meta: [
       { title: TITLE },
       { name: "description", content: DESCRIPTION },
-      { name: "robots", content: "noindex" },
       { property: "og:title", content: TITLE },
       { property: "og:description", content: DESCRIPTION },
     ],
