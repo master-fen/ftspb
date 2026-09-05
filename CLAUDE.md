@@ -156,6 +156,22 @@ Claude-Code-зона без повторного согласования све
 (кроме `loader`/`head()`) без повторного согласования сверх этого
 точечного изменения.
 
+**Исключение (согласовано 05.09.2026, навигация по новостям, PR после
+#32):** `src/routes/news.index.tsx` — `DEFAULT_FILTER` `"general"` →
+`"all"`, больше ничего. `src/components/site/NewsListCard.tsx` —
+необязательный проп `from?: NewsOrigin` (`src/lib/news-origin.ts`): при
+наличии ссылка карточки получает `?from=…`, без него — прежняя; вызовы без
+пропа не менялись. `src/routes/federation.news.tsx` — карточкам передаётся
+`from="federation"`. `src/routes/news.$newsId.tsx` — `validateSearch`
+(`?from=`, zod + `fallback`, `stripSearchParams`) и `loader`
+(`pickRelatedNews` из `src/lib/news-related.ts`) — зона Claude Code; в
+JSX крошки стали данными (`CRUMBS_DEFAULT`/`CRUMBS_FEDERATION`) внутри
+прежней `<nav>` со своей разметкой (общий `Breadcrumbs` там не
+использовался и не внедрён). Крошки отражают путь, которым пришли
+(`?from=`), а не раздел новости. Дальше эти файлы — по-прежнему не
+Claude-Code-зона (кроме `loader`/`head()`/`validateSearch`) без повторного
+согласования сверх этого точечного изменения.
+
 ### Claude Code
 
 - `src/lib/**` — в т.ч. `src/lib/types/**` и `src/lib/news-server-fn.ts`
