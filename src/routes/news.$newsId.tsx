@@ -70,8 +70,21 @@ export const Route = createFileRoute("/news/$newsId")({
   component: NewsDetailPage,
 });
 
+/** Крошки отражают путь, которым пришли (`?from=`), а не раздел новости. */
+const CRUMBS_DEFAULT = [
+  { label: "Главная", to: "/" },
+  { label: "Новости", to: "/news" },
+] as const;
+const CRUMBS_FEDERATION = [
+  { label: "Главная", to: "/" },
+  { label: "Федерация", to: "/federation" },
+  { label: "Новости Федерации", to: "/federation/news" },
+] as const;
+
 function NewsDetailPage() {
   const { item, related } = Route.useLoaderData();
+  const { from } = Route.useSearch();
+  const crumbs = from === "federation" ? CRUMBS_FEDERATION : CRUMBS_DEFAULT;
 
   // Не показываем анонс, если он дублирует начало текста новости.
   const normalize = (s: string) =>
@@ -97,14 +110,14 @@ function NewsDetailPage() {
           aria-label="Хлебные крошки"
           className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground"
         >
-          <Link to="/" className="transition-colors hover:text-brand-orange">
-            Главная
-          </Link>
-          <ChevronRight className="h-4 w-4 opacity-60" aria-hidden />
-          <Link to="/news" className="transition-colors hover:text-brand-orange">
-            Новости
-          </Link>
-          <ChevronRight className="h-4 w-4 opacity-60" aria-hidden />
+          {crumbs.map((crumb) => (
+            <span key={crumb.to} className="flex items-center gap-1.5">
+              <Link to={crumb.to} className="transition-colors hover:text-brand-orange">
+                {crumb.label}
+              </Link>
+              <ChevronRight className="h-4 w-4 opacity-60" aria-hidden />
+            </span>
+          ))}
           <span className="text-foreground/80 line-clamp-1">{item.title}</span>
         </nav>
 
