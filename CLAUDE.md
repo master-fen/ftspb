@@ -137,6 +137,25 @@ Claude Code, и сам этот документ называет его «мо�
 Claude-Code-зона без повторного согласования сверх этого точечного
 изменения.
 
+**Исключение (согласовано 05.09.2026, лента Федерации и фильтр по
+`section`):** `src/routes/news.index.tsx` — фильтр по разделам сравнивает
+`item.section` (машинное значение `"federation" | "referees" | null`,
+`null` = «Общее»), а не `item.category` с русской подписью; константа
+`VALUE_TO_CATEGORY` удалена, локальный `parseDate` заменён импортом
+`sortNewsByDateDesc` из `src/lib/news-date.ts`. Значения `?category=`,
+подписи кнопок, JSX и классы не менялись (две строки JSX хлебных крошек
+свернул `prettier` — файл на `main` не проходил `prettier --check`).
+`src/routes/federation.news.tsx` — заглушка `SectionPagePlaceholder`
+заменена лентой: `loader` (`listNews` из `@/lib/news-server-fn`), `head()`
+без `noindex`, компонент с карточками `NewsListCard` для новостей с
+`section === "federation"`. Поле `NewsItem.section` опционально только
+из-за мок-фикстур `src/data/news-archive.ts` — всё, что отдаёт
+`src/server/news.ts`, заполняет его всегда (мок-путь — обратной функцией
+`categoryToSection`); фильтровать по `section`, `category` — только для
+отображения. Дальше оба route-файла — по-прежнему не Claude-Code-зона
+(кроме `loader`/`head()`) без повторного согласования сверх этого
+точечного изменения.
+
 ### Claude Code
 
 - `src/lib/**` — в т.ч. `src/lib/types/**` и `src/lib/news-server-fn.ts`

@@ -4,14 +4,14 @@ import { news, newsPhoto } from "@/db/schema";
 import { allNews, featuredNews, latestNews } from "@/data/mock";
 import { formatFileSize } from "@/lib/format-file-size";
 import { getFileExtension } from "@/lib/image-validation";
-import type { NewsCategory, NewsItem } from "@/lib/types/news";
+import type { NewsCategory, NewsItem, NewsSection } from "@/lib/types/news";
 import { getPublishedDocumentsForNews, type PublicNewsDocument } from "@/server/documents";
 import { getNewsCache, setNewsCache, type NewsCache } from "@/server/news-cache";
 import { buildImageUrl } from "@/server/storage";
 
 const CACHE_TTL_MS = 60_000;
 
-function sectionToCategory(section: "federation" | "referees" | null): NewsCategory {
+function sectionToCategory(section: NewsSection | null): NewsCategory {
   switch (section) {
     case "federation":
       return "Федерация";
@@ -20,6 +20,26 @@ function sectionToCategory(section: "federation" | "referees" | null): NewsCateg
     case null:
       return "Общее";
   }
+}
+
+/**
+ * Обратное к `sectionToCategory`. Нужно только мок-пути (`db === null`):
+ * у фикстур `src/data/news-archive.ts` есть лишь `category`, а фильтры
+ * сравнивают `section` — восстанавливаем его в момент отдачи, файлы данных не трогая.
+ */
+function categoryToSection(category: NewsCategory): NewsSection | null {
+  switch (category) {
+    case "Федерация":
+      return "federation";
+    case "Коллегия судей":
+      return "referees";
+    case "Общее":
+      return null;
+  }
+}
+
+function withSection(item: NewsItem): NewsItem {
+  return { ...item, section: categoryToSection(item.category) };
 }
 
 /** `published_at` приходит из drizzle как строка `YYYY-MM-DD` → вид `dd.mm.yy`, который уже парсит news.index.tsx. */
@@ -104,6 +124,7 @@ async function loadCache(): Promise<NewsCache> {
     return {
       id: row.slug,
       category: sectionToCategory(row.section),
+      section: row.section,
       date: isoDateToShort(row.publishedAt),
       title: row.title,
       excerpt: row.excerpt ?? undefined,
@@ -129,7 +150,7 @@ async function loadCache(): Promise<NewsCache> {
 
 export async function listNews(): Promise<NewsItem[]> {
   if (db === null) {
-    return allNews;
+    return allNews.map(withSection);
   }
   const { items } = await loadCache();
   return items;
@@ -137,7 +158,8 @@ export async function listNews(): Promise<NewsItem[]> {
 
 export async function getNewsBySlug(slug: string): Promise<NewsItem | null> {
   if (db === null) {
-    return allNews.find((item) => item.id === slug) ?? null;
+    const found = allNews.find((item) => item.id === slug);
+    return found ? withSection(found) : null;
   }
   const { items } = await loadCache();
   return items.find((item) => item.id === slug) ?? null;
@@ -148,7 +170,7 @@ export async function getFeaturedAndLatest(): Promise<{
   latest: NewsItem[];
 }> {
   if (db === null) {
-    return { featured: featuredNews, latest: latestNews };
+    return { featured: featuredNews.map(withSection), latest: latestNews.map(withSection) };
   }
   const { items, featuredOrderById } = await loadCache();
   const featured = items
