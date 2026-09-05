@@ -1,14 +1,20 @@
 import { Link } from "@tanstack/react-router";
 import type { NewsItem } from "@/lib/types/news";
+import type { NewsOrigin } from "@/lib/news-origin";
 import { NewsCoverPlaceholder } from "./NewsCoverPlaceholder";
 import { NewsImage } from "./NewsImage";
 import { newsMetaLine } from "@/lib/news-meta";
 
-export function NewsListCard({ item }: { item: NewsItem }) {
+/**
+ * `from` — откуда ведёт ссылка (лента раздела): попадает в `?from=` и задаёт
+ * хлебные крошки на странице новости. Без пропа ссылка прежняя, без параметра.
+ */
+export function NewsListCard({ item, from }: { item: NewsItem; from?: NewsOrigin }) {
   return (
     <Link
       to="/news/$newsId"
       params={{ newsId: item.id }}
+      search={from ? { from } : undefined}
       className="group flex h-full flex-col overflow-hidden rounded-xl bg-news-card text-news-card-foreground shadow-sm ring-1 ring-black/5 transition-all duration-300 hover:-translate-y-0.5 hover:bg-news-card-hover"
     >
       <div className="aspect-[4/3] w-full overflow-hidden">
