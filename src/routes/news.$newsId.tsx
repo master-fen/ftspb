@@ -150,6 +150,8 @@ function NewsDetailPage() {
               />
             ) : null}
 
+            {item.videoUrl ? <NewsVideo src={item.videoUrl} title={item.title} /> : null}
+
             {item.attachments && item.attachments.length > 0 ? (
               <section className="mt-10 md:mt-12">
                 <div className="h-px w-full bg-brand-navy/25" />
