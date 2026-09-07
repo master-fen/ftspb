@@ -189,6 +189,20 @@ Code) через прежний `LeadershipCard` без `photo`/`links`; пус�
 этого точечного изменения. `LeadershipCard.tsx` и
 `PersonPhotoPlaceholder.tsx` не менялись.
 
+**Исключение (согласовано 07.09.2026, скрытие разделов-заглушек из
+навигации):** `src/data/mock.ts` — массив разделов стал локальным
+`ALL_SECTIONS`, у шести разделов верхнего уровня («Коллегия судей», «Сборные
+команды», «Турниры», «Корты», «Документы», «Контакты») проставлен
+`hidden: true`, а экспорт `navSections` — `ALL_SECTIONS.filter((s) =>
+!s.hidden)`. Записи, подписи, `href`, `children` «Федерации», `siteMeta`,
+`allNews`/`featuredNews`/`latestNews` не менялись. `SiteHeader.tsx` и
+`SiteFooter.tsx` не тронуты: они читают уже отфильтрованный `navSections`.
+Поле `hidden?: boolean` в `src/lib/types/nav.ts` — зона Claude Code. Скрыто
+до наполнения раздела: чтобы вернуть раздел, снять флаг вместе с `noindex`
+страницы и вернуть запись в `src/routes/sitemap[.]xml.ts`. Дальше
+`src/data/mock.ts` — по-прежнему не Claude-Code-зона без повторного
+согласования сверх этого точечного изменения.
+
 ### Claude Code
 
 - `src/lib/**` — в т.ч. `src/lib/types/**` и `src/lib/news-server-fn.ts`
