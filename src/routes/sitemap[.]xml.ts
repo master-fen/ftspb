@@ -16,20 +16,16 @@ export const Route = createFileRoute("/sitemap.xml")({
     handlers: {
       GET: async () => {
         const items = await listNews();
+        // Только страницы без noindex. Разделы-заглушки (ComingSoon /
+        // SectionPagePlaceholder, постоянный noindex в head()) и /federation
+        // (редирект на /federation/about с noindex) в карту не включаются;
+        // возвращать запись вместе со снятием noindex страницы и флага hidden
+        // в src/data/mock.ts.
         const entries: SitemapEntry[] = [
           { path: "/", changefreq: "weekly", priority: "1.0" },
           { path: "/news", changefreq: "daily", priority: "0.9" },
-          { path: "/federation", changefreq: "weekly", priority: "0.7" },
           { path: "/federation/leadership", changefreq: "weekly", priority: "0.7" },
           { path: "/federation/news", changefreq: "daily", priority: "0.9" },
-          { path: "/federation/events", changefreq: "weekly", priority: "0.7" },
-          { path: "/federation/documents", changefreq: "monthly", priority: "0.7" },
-          { path: "/referees", changefreq: "weekly", priority: "0.7" },
-          { path: "/teams", changefreq: "weekly", priority: "0.7" },
-          { path: "/tournaments", changefreq: "daily", priority: "0.8" },
-          { path: "/courts", changefreq: "weekly", priority: "0.7" },
-          { path: "/documents", changefreq: "monthly", priority: "0.7" },
-          { path: "/contacts", changefreq: "monthly", priority: "0.7" },
           ...items.map((news) => ({
             path: `/news/${news.id}`,
             changefreq: "monthly" as const,
