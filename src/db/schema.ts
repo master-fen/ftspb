@@ -39,6 +39,9 @@ export const news = pgTable(
     featured: boolean("featured").notNull().default(false),
     featuredOrder: integer("featured_order"),
     source: text("source"),
+    // Нормализованный embed-адрес Kinescope (`https://kinescope.io/embed/<id>`)
+    // или NULL — см. src/lib/news-video-url.ts. Публичный рендер — задача Lovable.
+    videoUrl: text("video_url"),
     coverPhotoId: uuid("cover_photo_id").references((): AnyPgColumn => newsPhoto.id, {
       onDelete: "set null",
     }),

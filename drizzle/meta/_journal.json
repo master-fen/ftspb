@@ -29,6 +29,13 @@
       "when": 1788596319647,
       "tag": "0003_uneven_doctor_spectrum",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788816842178,
+      "tag": "0004_stale_eternals",
+      "breakpoints": true
     }
   ]
 }

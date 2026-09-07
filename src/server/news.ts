@@ -59,8 +59,25 @@ async function loadCache(): Promise<NewsCache> {
     throw new Error("loadCache() вызван без БД — обрабатывать через fallback на mock");
   }
 
+  // Публичная функция, сессии нет — колонки перечислены явно, как в
+  // listPublishedPersons: при `.select()` без списка любая новая колонка
+  // (source, status, created_at/updated_at, deleted_at…) автоматически
+  // попадала бы в кэш и дальше в SSR/loaderData. Наружу — только то, что
+  // рисуют страницы.
   const newsRows = await db
-    .select()
+    .select({
+      id: news.id,
+      slug: news.slug,
+      title: news.title,
+      excerpt: news.excerpt,
+      body: news.body,
+      section: news.section,
+      publishedAt: news.publishedAt,
+      featured: news.featured,
+      featuredOrder: news.featuredOrder,
+      coverPhotoId: news.coverPhotoId,
+      videoUrl: news.videoUrl,
+    })
     .from(news)
     .where(and(eq(news.status, "published"), isNull(news.deletedAt)))
     .orderBy(desc(news.publishedAt));
@@ -93,6 +110,7 @@ async function loadCache(): Promise<NewsCache> {
   }
 
   const featuredOrderById = new Map<string, number>();
+  const videoUrlBySlug = new Map<string, string | null>();
 
   const items: NewsItem[] = newsRows.map((row) => {
     const photos = photosByNewsId.get(row.id) ?? [];
@@ -120,6 +138,9 @@ async function loadCache(): Promise<NewsCache> {
     if (row.featured) {
       featuredOrderById.set(row.slug, row.featuredOrder ?? Number.MAX_SAFE_INTEGER);
     }
+    // Видео — только для деталки: в `items` не кладём, иначе listNews и
+    // getFeaturedAndLatest отдавали бы его во все списки.
+    videoUrlBySlug.set(row.slug, row.videoUrl);
 
     return {
       id: row.slug,
@@ -143,7 +164,12 @@ async function loadCache(): Promise<NewsCache> {
     };
   });
 
-  const next: NewsCache = { items, featuredOrderById, expiresAt: now + CACHE_TTL_MS };
+  const next: NewsCache = {
+    items,
+    featuredOrderById,
+    videoUrlBySlug,
+    expiresAt: now + CACHE_TTL_MS,
+  };
   setNewsCache(next);
   return next;
 }
@@ -161,8 +187,13 @@ export async function getNewsBySlug(slug: string): Promise<NewsItem | null> {
     const found = allNews.find((item) => item.id === slug);
     return found ? withSection(found) : null;
   }
-  const { items } = await loadCache();
-  return items.find((item) => item.id === slug) ?? null;
+  const { items, videoUrlBySlug } = await loadCache();
+  const item = items.find((item) => item.id === slug);
+  if (!item) {
+    return null;
+  }
+  // Значение колонки как есть (null, если видео нет).
+  return { ...item, videoUrl: videoUrlBySlug.get(slug) ?? null };
 }
 
 export async function getFeaturedAndLatest(): Promise<{

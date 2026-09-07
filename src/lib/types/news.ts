@@ -31,4 +31,10 @@ export type NewsItem = {
   /** Дополнительные фотографии новости, без обложки (см. cover), position ASC. */
   gallery?: string[];
   featured?: boolean;
+  /**
+   * Embed-адрес видео Kinescope (`https://kinescope.io/embed/<id>`) или `null`.
+   * Отдаёт только деталка (`getNewsBySlug`); в списках (`listNews` и др.) ключа
+   * нет. Необязательно из-за мок-фикстур `src/data/news-archive.ts` (Lovable-зона).
+   */
+  videoUrl?: string | null;
 };
