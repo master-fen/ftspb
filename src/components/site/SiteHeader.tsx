@@ -150,7 +150,7 @@ export function SiteHeader() {
           <nav
             ref={navRef}
             onMouseLeave={() => setHovered(null)}
-            className="absolute top-1/2 right-0 left-0 flex -translate-y-1/2 items-center justify-between"
+            className="absolute top-1/2 right-0 left-0 flex -translate-y-1/2 items-center justify-start gap-10"
           >
           {navSections.map((s) => {
             const setRef = (el: HTMLElement | null) => {
