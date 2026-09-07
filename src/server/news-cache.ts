@@ -3,6 +3,8 @@ import type { NewsItem } from "@/lib/types/news";
 export type NewsCache = {
   items: NewsItem[];
   featuredOrderById: Map<string, number>;
+  /** slug → video_url как в колонке; в `items` не кладётся, чтобы списки его не отдавали. */
+  videoUrlBySlug: Map<string, string | null>;
   expiresAt: number;
 };
 
