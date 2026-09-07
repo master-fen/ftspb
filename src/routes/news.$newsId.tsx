@@ -4,6 +4,7 @@ import { z } from "zod";
 import { ChevronRight, Download, FileText } from "lucide-react";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { NewsGallery } from "@/components/site/NewsGallery";
+import { NewsVideo } from "@/components/site/NewsVideo";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { getNewsBySlug, listNews } from "@/lib/news-server-fn";
 import type { NewsItem } from "@/lib/types/news";
@@ -148,6 +149,8 @@ function NewsDetailPage() {
                 dangerouslySetInnerHTML={{ __html: item.body }}
               />
             ) : null}
+
+            {item.videoUrl ? <NewsVideo src={item.videoUrl} title={item.title} /> : null}
 
             {item.attachments && item.attachments.length > 0 ? (
               <section className="mt-10 md:mt-12">
