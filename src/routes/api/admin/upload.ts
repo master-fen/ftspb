@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import type {} from "@tanstack/react-start";
 import { MAX_TITLE_LENGTH, sanitizeTitle } from "@/lib/content-disposition";
+import { HttpError } from "@/lib/http-error";
 import {
   detectDocumentSignature,
   detectImageSignature,
@@ -87,12 +88,9 @@ export const Route = createFileRoute("/api/admin/upload")({
             const result = await uploadNewsPhoto({ newsId, contentType, body: buffer });
             return Response.json(result);
           } catch (error) {
+            // Статус — из HttpError, не из текста сообщения; всё прочее — 500.
             const message = error instanceof Error ? error.message : "Не удалось загрузить фото";
-            const status = message.includes("не найдена")
-              ? 404
-              : message.includes("сессия")
-                ? 401
-                : 500;
+            const status = error instanceof HttpError ? error.status : 500;
             return errorResponse(status, message);
           }
         }
@@ -113,15 +111,7 @@ export const Route = createFileRoute("/api/admin/upload")({
             return Response.json(result);
           } catch (error) {
             const message = error instanceof Error ? error.message : "Не удалось загрузить фото";
-            const status = message.includes("не найдена")
-              ? 404
-              : message.includes("сессия")
-                ? 401
-                : message.includes("больше")
-                  ? 413
-                  : message.includes("не похож") || message.includes("не совпадает")
-                    ? 400
-                    : 500;
+            const status = error instanceof HttpError ? error.status : 500;
             return errorResponse(status, message);
           }
         }
@@ -163,7 +153,7 @@ export const Route = createFileRoute("/api/admin/upload")({
           return Response.json(result);
         } catch (error) {
           const message = error instanceof Error ? error.message : "Не удалось загрузить файл";
-          const status = message.includes("сессия") ? 401 : 500;
+          const status = error instanceof HttpError ? error.status : 500;
           return errorResponse(status, message);
         }
       },

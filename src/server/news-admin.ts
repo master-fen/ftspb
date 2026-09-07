@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { and, asc, desc, eq, ilike, inArray, isNull, ne, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { news, newsPhoto } from "@/db/schema";
+import { HttpError } from "@/lib/http-error";
 import { EXTENSION_BY_TYPE, type SupportedImageType } from "@/lib/image-validation";
 import { getCurrentSession } from "@/server/auth";
 import { resetNewsCache } from "@/server/news-cache";
@@ -27,7 +28,7 @@ function requireDb(): NonNullable<typeof db> {
 async function requireSession() {
   const session = await getCurrentSession();
   if (!session) {
-    throw new Error("Требуется активная сессия администратора");
+    throw new HttpError(401, "Требуется активная сессия администратора");
   }
   return session;
 }
@@ -360,7 +361,7 @@ export async function getNewsSlug(id: string): Promise<string> {
     .where(eq(news.id, id))
     .limit(1);
   if (!row) {
-    throw new Error(`Новость не найдена: ${id}`);
+    throw new HttpError(404, `Новость не найдена: ${id}`);
   }
   return row.slug;
 }

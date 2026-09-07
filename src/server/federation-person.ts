@@ -9,6 +9,7 @@ import {
   type PersonStatus,
   type UpdatePersonInput,
 } from "@/lib/federation-person-input";
+import { HttpError } from "@/lib/http-error";
 import {
   detectImageSignature,
   EXTENSION_BY_TYPE,
@@ -46,7 +47,7 @@ function requireDb(): NonNullable<typeof db> {
 async function requireSession() {
   const session = await getCurrentSession();
   if (!session) {
-    throw new Error("Требуется активная сессия администратора");
+    throw new HttpError(401, "Требуется активная сессия администратора");
   }
   return session;
 }
@@ -189,14 +190,18 @@ export async function uploadPersonPhoto(
   const database = requireDb();
 
   if (!isWithinSizeLimit(input.body.length)) {
-    throw new Error(`Файл больше ${Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)} МБ`);
+    throw new HttpError(413, `Файл больше ${Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)} МБ`);
   }
   const detected = detectImageSignature(input.body);
   if (!detected) {
-    throw new Error("Файл не похож на изображение поддерживаемого формата (jpeg/png/gif/webp)");
+    throw new HttpError(
+      400,
+      "Файл не похож на изображение поддерживаемого формата (jpeg/png/gif/webp)",
+    );
   }
   if (input.contentType && input.contentType !== detected) {
-    throw new Error(
+    throw new HttpError(
+      400,
       `Содержимое файла (${detected}) не совпадает с заявленным типом (${input.contentType})`,
     );
   }
@@ -207,7 +212,7 @@ export async function uploadPersonPhoto(
     .where(eq(federationPerson.id, input.personId))
     .limit(1);
   if (!person) {
-    throw new Error(`Персона не найдена: ${input.personId}`);
+    throw new HttpError(404, `Персона не найдена: ${input.personId}`);
   }
 
   const key = await pickUniquePersonKey(person.id, EXTENSION_BY_TYPE[detected]);
@@ -220,7 +225,7 @@ export async function uploadPersonPhoto(
       .where(eq(federationPerson.id, person.id))
       .returning({ id: federationPerson.id });
     if (updated.length === 0) {
-      throw new Error(`Персона не найдена: ${input.personId}`);
+      throw new HttpError(404, `Персона не найдена: ${input.personId}`);
     }
   } catch (error) {
     try {
