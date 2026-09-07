@@ -25,7 +25,6 @@ export const archiveNews: NewsItem[] = [
     <p>Турнир призван способствовать развитию тенниса в России, популяризации здорового образа жизни и укреплению спортивных традиций города на Неве.</p>
     `,
     cover: img_2026_07_sevcup,
-    videoUrl: "https://kinescope.io/embed/xt4Yo1fCPJRC3GyTQUUe3N",
   },
   {
     id: "pervenstvo-rossii-po-plyazhnomu-tennisu-do-17-let",
