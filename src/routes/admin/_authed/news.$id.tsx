@@ -346,6 +346,10 @@ function NewsEditForm({
                   <FormControl>
                     <Textarea rows={3} {...field} />
                   </FormControl>
+                  <p className="text-[0.8rem] text-muted-foreground">
+                    Краткое вступление для карточки и начала новости. Обычно достаточно 1–2
+                    предложений.
+                  </p>
                   <FormMessage />
                 </FormItem>
               )}
@@ -361,8 +365,17 @@ function NewsEditForm({
                     <Textarea rows={12} {...field} />
                   </FormControl>
                   <p className="text-[0.8rem] text-muted-foreground">
-                    Разрешённые теги: {ALLOWED_TAGS_HINT}. Остальное будет вырезано при сохранении.
+                    Пишите обычным текстом: пустая строка отделяет абзац, перенос строки
+                    сохраняется. HTML вручную добавлять не нужно.
                   </p>
+                  <details className="text-[0.8rem] text-muted-foreground">
+                    <summary className="cursor-pointer">Форматирование архивных новостей</summary>
+                    <p className="mt-2">
+                      В перенесённых новостях сохранена HTML-разметка: {ALLOWED_TAGS_HINT}. Она
+                      задаёт абзацы, ссылки и выделения. Существующие теги можно оставить;
+                      неподдерживаемая разметка удаляется при сохранении.
+                    </p>
+                  </details>
                   <FormMessage />
                 </FormItem>
               )}
