@@ -54,6 +54,9 @@ export const createNews = createServerFn({ method: "POST" })
       status: statusSchema.optional(),
       featured: z.boolean().optional(),
       featuredOrder: z.number().int().min(0).nullable().optional(),
+      // Форма payload; правила (kinescope.io, embed-адрес) — в src/lib/news-video-url.ts,
+      // применяет src/server/news-admin.ts.
+      videoUrl: z.string().nullable().optional(),
     }),
   )
   .handler(({ data }) => createNewsImpl(data));
@@ -72,6 +75,7 @@ export const updateNews = createServerFn({ method: "POST" })
         status: statusSchema.optional(),
         featured: z.boolean().optional(),
         featuredOrder: z.number().int().min(0).nullable().optional(),
+        videoUrl: z.string().nullable().optional(),
       }),
     }),
   )

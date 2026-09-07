@@ -4,6 +4,7 @@ import { db } from "@/db/client";
 import { news, newsPhoto } from "@/db/schema";
 import { HttpError } from "@/lib/http-error";
 import { EXTENSION_BY_TYPE, type SupportedImageType } from "@/lib/image-validation";
+import { normalizeVideoUrl } from "@/lib/news-video-url";
 import { getCurrentSession } from "@/server/auth";
 import { resetNewsCache } from "@/server/news-cache";
 import { sanitizeBody } from "@/server/sanitize";
@@ -124,6 +125,23 @@ export async function getAdminNews(id: string): Promise<{ news: NewsRow; photos:
   return { news: row, photos };
 }
 
+/**
+ * Ссылка на видео для записи в БД: undefined/null/пустая строка → null,
+ * иначе — нормализованный embed-адрес или ошибка валидатора. Форма
+ * проверяет то же самое, но эндпоинт вызывается по HTTP напрямую
+ * (CLAUDE.md), поэтому сырое значение в таблицу не попадает никогда.
+ */
+function videoUrlForStorage(value: string | null | undefined): string | null {
+  if (value === undefined || value === null || value.trim() === "") {
+    return null;
+  }
+  const result = normalizeVideoUrl(value);
+  if (!result.ok) {
+    throw new Error(result.message);
+  }
+  return result.url;
+}
+
 export type CreateNewsInput = {
   slug: string;
   title: string;
@@ -135,6 +153,7 @@ export type CreateNewsInput = {
   featured?: boolean;
   featuredOrder?: number | null;
   source?: string | null;
+  videoUrl?: string | null;
 };
 
 export async function createNews(input: CreateNewsInput): Promise<{ id: string; slug: string }> {
@@ -157,6 +176,7 @@ export async function createNews(input: CreateNewsInput): Promise<{ id: string; 
     featured: input.featured ?? false,
     featuredOrder: input.featuredOrder ?? null,
     source: input.source ?? null,
+    videoUrl: videoUrlForStorage(input.videoUrl),
   };
 
   try {
@@ -185,6 +205,7 @@ export type UpdateNewsInput = Partial<{
   featured: boolean;
   featuredOrder: number | null;
   source: string | null;
+  videoUrl: string | null;
 }>;
 
 export async function updateNews(id: string, input: UpdateNewsInput): Promise<void> {
@@ -201,6 +222,9 @@ export async function updateNews(id: string, input: UpdateNewsInput): Promise<vo
   const values: Partial<typeof news.$inferInsert> = { ...input, updatedAt: new Date() };
   if (input.body !== undefined) {
     values.body = input.body ? sanitizeBody(input.body) : null;
+  }
+  if (input.videoUrl !== undefined) {
+    values.videoUrl = videoUrlForStorage(input.videoUrl);
   }
 
   try {

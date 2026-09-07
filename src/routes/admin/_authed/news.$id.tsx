@@ -32,6 +32,7 @@ import {
   suggestSlug,
   updateNews,
 } from "@/lib/news-admin-server-fn";
+import { normalizeVideoUrl } from "@/lib/news-video-url";
 import { NewsDocumentGallery } from "./-components/NewsDocumentGallery";
 import { NewsPhotoGallery } from "./-components/NewsPhotoGallery";
 import { AdminBackLink } from "./-components/AdminBackLink";
@@ -54,9 +55,27 @@ const formSchema = z.object({
   status: z.enum(["draft", "published"]),
   featured: z.boolean(),
   featuredOrder: z.number().int().min(0),
+  // Подсказка у поля текстом валидатора; сервер (news-admin.ts) проверяет независимо.
+  videoUrl: z.string().superRefine((value, ctx) => {
+    if (!value.trim()) return;
+    const result = normalizeVideoUrl(value);
+    if (!result.ok) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: result.message });
+    }
+  }),
 });
 
 type FormValues = z.infer<typeof formSchema>;
+
+/** "" → null (как excerpt/body); непустое — embed-адрес. Сервер нормализует повторно. */
+function videoUrlToPayload(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const result = normalizeVideoUrl(trimmed);
+  // ok:false сюда не доходит — formSchema уже отклонила; на всякий случай
+  // отдаём сырую строку, её отклонит сервер.
+  return result.ok ? result.url : trimmed;
+}
 
 function AdminNewsEdit() {
   const { id } = Route.useParams();
@@ -103,6 +122,7 @@ function NewsEditForm({
     coverPhotoId: string | null;
     featured: boolean;
     featuredOrder: number | null;
+    videoUrl: string | null;
   };
 }) {
   const [persisted, setPersisted] = useState({ slug: news.slug, status: news.status });
@@ -123,6 +143,7 @@ function NewsEditForm({
       status: news.status,
       featured: news.featured,
       featuredOrder: news.featuredOrder ?? 0,
+      videoUrl: news.videoUrl ?? "",
     },
   });
 
@@ -179,13 +200,15 @@ function NewsEditForm({
             status: values.status,
             featured: values.featured,
             featuredOrder: values.featured ? values.featuredOrder : null,
+            videoUrl: videoUrlToPayload(values.videoUrl),
           },
         },
       }),
     onSuccess: (_result, values) => {
       toast.success("Изменения сохранены");
       setPersisted({ slug: values.slug, status: values.status });
-      form.reset(values);
+      // Поле сразу показывает сохранённый (нормализованный) адрес, как после перезагрузки.
+      form.reset({ ...values, videoUrl: videoUrlToPayload(values.videoUrl) ?? "" });
     },
     onError: () => toast.error("Не удалось сохранить изменения"),
   });
@@ -339,6 +362,23 @@ function NewsEditForm({
                   </FormControl>
                   <p className="text-[0.8rem] text-muted-foreground">
                     Разрешённые теги: {ALLOWED_TAGS_HINT}. Остальное будет вырезано при сохранении.
+                  </p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="videoUrl"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Ссылка на видео (Kinescope)</FormLabel>
+                  <FormControl>
+                    <Input inputMode="url" placeholder="https://kinescope.io/…" {...field} />
+                  </FormControl>
+                  <p className="text-[0.8rem] text-muted-foreground">
+                    Скопируйте ссылку «Поделиться» из Kinescope
                   </p>
                   <FormMessage />
                 </FormItem>
