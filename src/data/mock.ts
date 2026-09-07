@@ -20,7 +20,13 @@ export const featuredNews: NewsItem[] = FEATURED_IDS.map((id) =>
 
 export const latestNews: NewsItem[] = archiveNews.filter((n) => !featuredSet.has(n.id)).slice(0, 6);
 
-export const navSections: NavSection[] = [
+/**
+ * Разделы верхнего уровня. `hidden: true` — скрыто до наполнения раздела
+ * (страница пока ComingSoon с noindex): снять флаг вместе с noindex страницы и
+ * вернуть запись в src/routes/sitemap[.]xml.ts. SiteHeader и SiteFooter читают
+ * только `navSections` — уже отфильтрованный список.
+ */
+const ALL_SECTIONS: NavSection[] = [
   { label: "Новости", href: "/news" },
   {
     label: "Федерация",
@@ -30,13 +36,15 @@ export const navSections: NavSection[] = [
       { label: "Деятельность", href: "/federation/news" },
     ],
   },
-  { label: "Коллегия судей", href: "/referees" },
-  { label: "Сборные команды", href: "/teams" },
-  { label: "Турниры", href: "/tournaments" },
-  { label: "Корты", href: "/courts" },
-  { label: "Документы", href: "/documents" },
-  { label: "Контакты", href: "/contacts" },
+  { label: "Коллегия судей", href: "/referees", hidden: true },
+  { label: "Сборные команды", href: "/teams", hidden: true },
+  { label: "Турниры", href: "/tournaments", hidden: true },
+  { label: "Корты", href: "/courts", hidden: true },
+  { label: "Документы", href: "/documents", hidden: true },
+  { label: "Контакты", href: "/contacts", hidden: true },
 ];
+
+export const navSections: NavSection[] = ALL_SECTIONS.filter((s) => !s.hidden);
 
 export const siteMeta = {
   name: "Федерация тенниса Санкт-Петербурга",
