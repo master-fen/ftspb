@@ -5,6 +5,7 @@ import { ChevronRight, Download, FileText } from "lucide-react";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { NewsGallery } from "@/components/site/NewsGallery";
 import { NewsVideo } from "@/components/site/NewsVideo";
+import { NewsBody } from "@/components/site/NewsBody";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { getNewsBySlug, listNews } from "@/lib/news-server-fn";
 import type { NewsItem } from "@/lib/types/news";
@@ -105,7 +106,7 @@ function NewsDetailPage() {
     <div className="min-h-screen bg-background">
       <SiteHeader />
 
-      <main className="mx-auto max-w-7xl px-4 pt-6 pb-14 md:px-6 md:pt-8 md:pb-20 lg:px-10">
+      <main className="mx-auto max-w-[1120px] px-5 pt-6 pb-14 md:px-8 md:pt-8 md:pb-20">
         {/* Breadcrumbs */}
         <nav
           aria-label="Хлебные крошки"
@@ -122,38 +123,33 @@ function NewsDetailPage() {
           <span className="text-foreground/80 line-clamp-1">{item.title}</span>
         </nav>
 
-        <header className="mt-5 md:mt-7">
+        <header className="mt-5 md:mt-7 lg:max-w-[calc(100%-304px)]">
           <div className="text-[11px] font-semibold tracking-[0.14em] text-brand-orange uppercase">
             {newsMetaLine(item.category, item.date)}
           </div>
-          <h1 className="mt-3 text-[1.35rem] leading-tight font-black tracking-tight text-foreground md:text-4xl lg:text-5xl">
+          <h1 className="mt-3 text-[28px] leading-[1.18] font-bold tracking-tight text-foreground [text-wrap:balance] md:text-[36px]">
             {item.title}
           </h1>
           {showLead ? (
-            <p className="mt-4 max-w-3xl text-base leading-relaxed text-muted-foreground md:text-lg">
+            <p className="mt-4 text-[17px] leading-relaxed text-muted-foreground md:text-lg">
               {item.excerpt}
             </p>
           ) : null}
         </header>
 
-        <div className="mt-8 grid grid-cols-1 gap-8 md:mt-10 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-10">
+        <div className="mt-7 grid grid-cols-1 gap-10 md:mt-8 lg:grid-cols-[minmax(0,1fr)_264px]">
           {/* Main column */}
-          <div className="min-w-0">
+          <div className="min-w-0 space-y-8">
+            {item.videoUrl ? <NewsVideo src={item.videoUrl} title={item.title} /> : null}
+
             {item.cover || item.gallery?.length ? (
               <NewsGallery cover={item.cover} gallery={item.gallery ?? []} title={item.title} />
             ) : null}
 
-            {item.body ? (
-              <div
-                className="news-prose mt-8 text-[15px] text-foreground md:mt-10 md:text-base"
-                dangerouslySetInnerHTML={{ __html: item.body }}
-              />
-            ) : null}
-
-            {item.videoUrl ? <NewsVideo src={item.videoUrl} title={item.title} /> : null}
+            {item.body ? <NewsBody body={item.body} /> : null}
 
             {item.attachments && item.attachments.length > 0 ? (
-              <section className="mt-10 md:mt-12">
+              <section>
                 <div className="h-px w-full bg-brand-navy/25" />
                 <h2 className="mt-6 text-sm font-bold tracking-wide text-foreground uppercase">
                   Прикреплённые файлы
