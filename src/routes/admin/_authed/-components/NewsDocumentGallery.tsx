@@ -19,6 +19,8 @@ type NewsDocumentGalleryProps = {
   newsTitle: string;
   newsPublishedAt: string;
   newsSection: "federation" | "referees" | null;
+  onBusyChange?: (busy: boolean) => void;
+  onDirtyChange?: (dirty: boolean) => void;
 };
 
 function moveDocument<T extends { id: string }>(items: T[], id: string, direction: -1 | 1): T[] {
@@ -35,6 +37,8 @@ export function NewsDocumentGallery({
   newsTitle,
   newsPublishedAt,
   newsSection,
+  onBusyChange,
+  onDirtyChange,
 }: NewsDocumentGalleryProps) {
   const queryClient = useQueryClient();
   const [attachOpen, setAttachOpen] = useState(false);
@@ -81,8 +85,21 @@ export function NewsDocumentGallery({
   const attachedIds = documents.map((doc) => doc.id);
 
   return (
-    <div className="mt-8 flex flex-col gap-4">
-      <h3 className="text-sm font-medium text-foreground">Прикреплённые документы</h3>
+    <div className="mt-4 flex flex-col gap-4">
+      <p className="text-sm text-muted-foreground">
+        Изменения здесь сохраняются сразу. Загружайте новый файл или выбирайте уже созданный
+        документ.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" onClick={() => setUploadOpen(true)}>
+          <UploadCloud className="h-4 w-4" />
+          Загрузить файл
+        </Button>
+        <Button type="button" variant="outline" onClick={() => setAttachOpen(true)}>
+          <Paperclip className="h-4 w-4" />
+          Выбрать из документов
+        </Button>
+      </div>
 
       {documentsQuery.isError ? (
         <div className="flex items-center gap-3 rounded-lg border p-4 text-sm text-destructive">
@@ -109,15 +126,18 @@ export function NewsDocumentGallery({
                   href={doc.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="truncate font-medium underline-offset-2 hover:underline"
+                  className="break-words font-medium underline-offset-2 hover:underline"
                 >
                   {doc.title}
                 </a>
+                <span className="break-all text-xs text-muted-foreground">{doc.fileName}</span>
                 <span className="text-xs text-muted-foreground">
                   {getFileExtension(doc.fileName).toUpperCase()} · {formatFileSize(doc.sizeBytes)}
                 </span>
               </div>
-              {doc.status !== "published" ? <Badge variant="secondary">Черновик</Badge> : null}
+              {doc.status !== "published" ? (
+                <Badge variant="secondary">Черновик · скрыт на сайте</Badge>
+              ) : null}
               <div className="flex items-center gap-1.5">
                 <Button
                   type="button"
@@ -159,17 +179,6 @@ export function NewsDocumentGallery({
         «Открепить» снимает документ с этой новости, но оставляет его в разделе «Документы».
       </p>
 
-      <div className="flex flex-wrap gap-2">
-        <Button type="button" variant="outline" size="sm" onClick={() => setAttachOpen(true)}>
-          <Paperclip className="h-4 w-4" />
-          Прикрепить существующий
-        </Button>
-        <Button type="button" variant="outline" size="sm" onClick={() => setUploadOpen(true)}>
-          <UploadCloud className="h-4 w-4" />
-          Загрузить новый
-        </Button>
-      </div>
-
       <DocumentAttachDialog
         open={attachOpen}
         onOpenChange={setAttachOpen}
@@ -186,6 +195,8 @@ export function NewsDocumentGallery({
           documentDate: newsPublishedAt,
           section: newsSection ?? "none",
         }}
+        onBusyChange={onBusyChange}
+        onDirtyChange={onDirtyChange}
       />
     </div>
   );

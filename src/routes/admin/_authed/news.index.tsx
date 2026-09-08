@@ -2,6 +2,14 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { toast } from "sonner";
+import { MoreHorizontal } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,6 +41,7 @@ import {
 } from "@/components/ui/table";
 import { listAdminNews, restoreNews, softDeleteNews } from "@/lib/news-admin-server-fn";
 import { AdminBackLink } from "./-components/AdminBackLink";
+import { FeaturedNewsManager } from "./-components/FeaturedNewsManager";
 
 export const Route = createFileRoute("/admin/_authed/news/")({
   component: AdminNewsList,
@@ -80,7 +89,11 @@ function AdminNewsList() {
       }),
   });
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["admin-news"] });
+  const invalidate = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["admin-news"] }),
+      queryClient.invalidateQueries({ queryKey: ["admin-featured"] }),
+    ]);
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => softDeleteNews({ data: id }),
@@ -108,6 +121,7 @@ function AdminNewsList() {
           </Button>
         </header>
 
+        <FeaturedNewsManager />
         <div className="flex flex-wrap items-end gap-4 rounded-xl border bg-card p-4">
           <div className="flex min-w-48 flex-1 flex-col gap-1.5">
             <label className="text-sm font-medium text-foreground" htmlFor="news-search">
@@ -184,49 +198,70 @@ function AdminNewsList() {
               <TableBody>
                 {query.data.map((row) => (
                   <TableRow key={row.id} className={row.deletedAt ? "opacity-60" : undefined}>
-                    <TableCell className="max-w-80 truncate font-medium">{row.title}</TableCell>
-                    <TableCell>{formatDate(row.publishedAt)}</TableCell>
+                    <TableCell className="min-w-52 max-w-lg whitespace-normal font-medium">
+                      <Link
+                        to="/admin/news/$id"
+                        params={{ id: row.id }}
+                        className="hover:underline"
+                      >
+                        {row.title}
+                      </Link>
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      {formatDate(row.publishedAt)}
+                    </TableCell>
                     <TableCell>{row.section ? SECTION_LABEL[row.section] : "—"}</TableCell>
                     <TableCell>
                       <Badge variant={row.status === "published" ? "default" : "secondary"}>
                         {row.status === "published" ? "Опубликовано" : "Черновик"}
                       </Badge>
                     </TableCell>
-                    <TableCell>{row.featured ? `★ ${row.featuredOrder ?? "—"}` : "—"}</TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      {row.featured ? "★ В подборке" : "—"}
+                    </TableCell>
                     <TableCell>{row.photoCount}</TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button variant="outline" size="sm" asChild>
-                          <Link to="/admin/news/$id" params={{ id: row.id }}>
-                            Редактировать
-                          </Link>
-                        </Button>
-                        {row.status === "published" && !row.deletedAt ? (
-                          <Button variant="outline" size="sm" asChild>
-                            <Link to="/news/$newsId" params={{ newsId: row.slug }} target="_blank">
-                              Открыть на сайте
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" aria-label={`Действия: ${row.title}`}>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem asChild>
+                            <Link to="/admin/news/$id" params={{ id: row.id }}>
+                              Редактировать
                             </Link>
-                          </Button>
-                        ) : null}
-                        {row.deletedAt ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={restoreMutation.isPending}
-                            onClick={() => restoreMutation.mutate(row.id)}
-                          >
-                            Восстановить
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => setDeleteTarget({ id: row.id, title: row.title })}
-                          >
-                            Удалить
-                          </Button>
-                        )}
-                      </div>
+                          </DropdownMenuItem>
+                          {row.status === "published" && !row.deletedAt ? (
+                            <DropdownMenuItem asChild>
+                              <Link
+                                to="/news/$newsId"
+                                params={{ newsId: row.slug }}
+                                target="_blank"
+                              >
+                                Открыть на сайте
+                              </Link>
+                            </DropdownMenuItem>
+                          ) : null}
+                          <DropdownMenuSeparator />
+                          {row.deletedAt ? (
+                            <DropdownMenuItem
+                              disabled={restoreMutation.isPending}
+                              onClick={() => restoreMutation.mutate(row.id)}
+                            >
+                              Восстановить
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onClick={() => setDeleteTarget({ id: row.id, title: row.title })}
+                            >
+                              Удалить
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))}

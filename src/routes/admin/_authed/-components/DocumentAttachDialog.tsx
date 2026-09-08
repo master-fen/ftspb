@@ -3,7 +3,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -66,7 +72,10 @@ export function DocumentAttachDialog({
     if (excludeSet.has(row.id)) return false;
     if (section === "none" && row.section !== null) return false;
     if (section !== "all" && section !== "none" && row.section !== section) return false;
-    if (search.trim() && !row.title.toLowerCase().includes(search.trim().toLowerCase())) {
+    if (
+      search.trim() &&
+      !`${row.title} ${row.fileName}`.toLowerCase().includes(search.trim().toLowerCase())
+    ) {
       return false;
     }
     return true;
@@ -74,14 +83,18 @@ export function DocumentAttachDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="flex max-h-[90vh] w-[calc(100%-2rem)] max-w-2xl flex-col overflow-y-auto rounded-lg">
         <DialogHeader>
           <DialogTitle>Прикрепить существующий документ</DialogTitle>
+          <DialogDescription>
+            Найдите файл по названию. Можно прикрепить несколько документов.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-wrap gap-3">
           <Input
-            placeholder="Поиск по названию"
+            placeholder="Название документа или файла"
+            aria-label="Поиск документа"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="flex-1"
@@ -101,7 +114,12 @@ export function DocumentAttachDialog({
 
         <div className="flex max-h-96 flex-col gap-2 overflow-y-auto">
           {documentsQuery.isError ? (
-            <p className="text-sm text-destructive">Не удалось загрузить список документов.</p>
+            <div className="space-y-2">
+              <p className="text-sm text-destructive">Не удалось загрузить список документов.</p>
+              <Button variant="outline" onClick={() => documentsQuery.refetch()}>
+                Повторить
+              </Button>
+            </div>
           ) : documentsQuery.isPending ? (
             <p className="text-sm text-muted-foreground">Загрузка…</p>
           ) : filtered.length === 0 ? (
@@ -110,7 +128,8 @@ export function DocumentAttachDialog({
             filtered.map((row) => (
               <div key={row.id} className="flex flex-wrap items-center gap-3 rounded-lg border p-3">
                 <div className="flex min-w-0 flex-1 flex-col">
-                  <span className="truncate font-medium">{row.title}</span>
+                  <span className="break-words font-medium">{row.title}</span>
+                  <span className="break-all text-xs text-muted-foreground">{row.fileName}</span>
                   <span className="text-xs text-muted-foreground">
                     {getFileExtension(row.fileName).toUpperCase()} · {formatFileSize(row.sizeBytes)}
                     {row.section ? ` · ${SECTION_LABEL[row.section]}` : ""}
@@ -131,6 +150,9 @@ export function DocumentAttachDialog({
             ))
           )}
         </div>
+        <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          Готово
+        </Button>
       </DialogContent>
     </Dialog>
   );

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowDown, ArrowUp, Star, Trash2, UploadCloud } from "lucide-react";
 import { toast } from "sonner";
@@ -29,6 +29,7 @@ import {
   setCoverPhoto,
   updatePhoto,
 } from "@/lib/news-admin-server-fn";
+import { CoverCropDialog } from "./CoverCropDialog";
 
 const MAX_DIMENSION = 1600;
 const JPEG_QUALITY = 0.82;
@@ -36,9 +37,10 @@ const JPEG_QUALITY = 0.82;
 type NewsPhotoGalleryProps = {
   newsId: string;
   coverPhotoId: string | null;
+  onBusyChange?: (busy: boolean) => void;
 };
 
-type UploadStatus = "compressing" | "uploading" | "error";
+type UploadStatus = "compressing" | "uploading" | "error" | "done";
 
 type UploadItem = {
   id: number;
@@ -46,6 +48,9 @@ type UploadItem = {
   progress: number;
   status: UploadStatus;
   error?: string;
+  file: File;
+  asCover: boolean;
+  uploadedId?: string;
 };
 
 type UploadResult = { id: string; key: string; url: string };
@@ -166,13 +171,18 @@ function movePhoto<T extends { id: string }>(items: T[], id: string, direction: 
   return next;
 }
 
-export function NewsPhotoGallery({ newsId, coverPhotoId }: NewsPhotoGalleryProps) {
+export function NewsPhotoGallery({ newsId, coverPhotoId, onBusyChange }: NewsPhotoGalleryProps) {
   const queryClient = useQueryClient();
   const [isDragging, setIsDragging] = useState(false);
   const [uploads, setUploads] = useState<UploadItem[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const uploadIdRef = useRef(0);
+  const coverInputRef = useRef<HTMLInputElement>(null);
+  const [cropFile, setCropFile] = useState<File | null>(null);
+  const [loadingCover, setLoadingCover] = useState(false);
+  const uploadBatchRef = useRef(false);
+  const [batchPending, setBatchPending] = useState(false);
 
   const photosQueryKey = ["news-photos", newsId] as const;
 
@@ -182,6 +192,12 @@ export function NewsPhotoGallery({ newsId, coverPhotoId }: NewsPhotoGalleryProps
   });
 
   const invalidatePhotos = () => queryClient.invalidateQueries({ queryKey: photosQueryKey });
+  const invalidateMedia = () =>
+    Promise.all([
+      invalidatePhotos(),
+      queryClient.invalidateQueries({ queryKey: ["admin-news"] }),
+      queryClient.invalidateQueries({ queryKey: ["admin-featured"] }),
+    ]);
 
   const updateAltMutation = useMutation({
     mutationFn: (input: { id: string; alt: string | null }) =>
@@ -204,8 +220,8 @@ export function NewsPhotoGallery({ newsId, coverPhotoId }: NewsPhotoGalleryProps
   const coverMutation = useMutation({
     mutationFn: (photoId: string) => setCoverPhoto({ data: { newsId, photoId } }),
     onSuccess: () => {
-      invalidatePhotos();
-      queryClient.invalidateQueries({ queryKey: ["admin-news", newsId] });
+      void invalidateMedia();
+      toast.success("Обложка выбрана");
     },
     onError: () => toast.error("Не удалось назначить обложку"),
   });
@@ -214,7 +230,7 @@ export function NewsPhotoGallery({ newsId, coverPhotoId }: NewsPhotoGalleryProps
     mutationFn: (id: string) => deletePhoto({ data: id }),
     onSuccess: () => {
       setDeleteTarget(null);
-      invalidatePhotos();
+      void invalidateMedia();
     },
     onError: () => toast.error("Не удалось удалить фото"),
   });
@@ -227,47 +243,169 @@ export function NewsPhotoGallery({ newsId, coverPhotoId }: NewsPhotoGalleryProps
     reorderMutation.mutate(next.map((photo) => photo.id));
   };
 
-  const processAndUploadFile = async (file: File) => {
-    const uploadId = ++uploadIdRef.current;
-    setUploads((prev) => [
-      ...prev,
-      { id: uploadId, name: file.name, progress: 0, status: "compressing" },
-    ]);
+  const processAndUploadFile = async (file: File, asCover = false, retry?: UploadItem) => {
+    const uploadId = retry?.id ?? ++uploadIdRef.current;
+    const item: UploadItem = {
+      id: uploadId,
+      name: file.name,
+      progress: 0,
+      status: "compressing",
+      file,
+      asCover,
+      uploadedId: retry?.uploadedId,
+    };
+    setUploads((prev) =>
+      retry ? prev.map((u) => (u.id === uploadId ? item : u)) : [...prev, item],
+    );
     try {
-      const prepared = await prepareFileForUpload(file);
+      if (!item.uploadedId) {
+        const prepared = await prepareFileForUpload(file);
+        setUploads((prev) =>
+          prev.map((u) => (u.id === uploadId ? { ...u, status: "uploading" } : u)),
+        );
+        const uploaded = await uploadFile(newsId, prepared.blob, prepared.filename, (progress) => {
+          setUploads((prev) => prev.map((u) => (u.id === uploadId ? { ...u, progress } : u)));
+        });
+        item.uploadedId = uploaded.id;
+        setUploads((prev) =>
+          prev.map((u) => (u.id === uploadId ? { ...u, uploadedId: uploaded.id } : u)),
+        );
+      }
+      if (asCover) await setCoverPhoto({ data: { newsId, photoId: item.uploadedId! } });
       setUploads((prev) =>
-        prev.map((u) => (u.id === uploadId ? { ...u, status: "uploading" } : u)),
+        prev.map((u) => (u.id === uploadId ? { ...u, status: "done", progress: 100 } : u)),
       );
-      await uploadFile(newsId, prepared.blob, prepared.filename, (progress) => {
-        setUploads((prev) => prev.map((u) => (u.id === uploadId ? { ...u, progress } : u)));
-      });
-      setUploads((prev) => prev.filter((u) => u.id !== uploadId));
-      invalidatePhotos();
+      await invalidateMedia();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Не удалось загрузить файл";
       setUploads((prev) =>
         prev.map((u) => (u.id === uploadId ? { ...u, status: "error", error: message } : u)),
       );
       toast.error(`${file.name}: ${message}`);
+      void invalidateMedia();
     }
   };
 
-  const handleFiles = (fileList: FileList | File[]) => {
-    for (const file of Array.from(fileList)) {
-      const validationError = validateFile(file);
-      if (validationError) {
-        toast.error(`${file.name}: ${validationError}`);
-        continue;
+  const handleFiles = async (fileList: FileList | File[]) => {
+    if (uploadBatchRef.current || busy || loadingCover || cropFile) {
+      toast("Дождитесь завершения текущей операции");
+      return;
+    }
+    uploadBatchRef.current = true;
+    setBatchPending(true);
+    try {
+      for (const file of Array.from(fileList)) {
+        const validationError = validateFile(file);
+        if (validationError) {
+          toast.error(`${file.name}: ${validationError}`);
+          continue;
+        }
+        await processAndUploadFile(file);
       }
-      void processAndUploadFile(file);
+    } finally {
+      uploadBatchRef.current = false;
+      setBatchPending(false);
     }
   };
 
   const photos = photosQuery.data ?? [];
+  const cover = photos.find((photo) => photo.id === coverPhotoId);
+  const busy =
+    batchPending ||
+    uploads.some((u) => u.status === "compressing" || u.status === "uploading") ||
+    coverMutation.isPending ||
+    deleteMutation.isPending ||
+    reorderMutation.isPending ||
+    updateAltMutation.isPending;
+  useEffect(() => {
+    onBusyChange?.(busy || loadingCover || cropFile !== null);
+  }, [busy, loadingCover, cropFile, onBusyChange]);
+  const editCover = async () => {
+    if (!cover) return;
+    setLoadingCover(true);
+    try {
+      const response = await fetch(`/api/admin/photo-source?id=${encodeURIComponent(cover.id)}`);
+      if (!response.ok) throw new Error("Не удалось открыть исходную обложку");
+      const blob = await response.blob();
+      if (!["image/jpeg", "image/png", "image/webp"].includes(blob.type))
+        throw new Error("Для кадрирования выберите JPEG, PNG или WebP");
+      setCropFile(new File([blob], "cover-original", { type: blob.type }));
+    } catch {
+      toast.error(
+        "Не удалось открыть исходное фото. Скачайте его и выберите через «Загрузить и кадрировать».",
+      );
+    } finally {
+      setLoadingCover(false);
+    }
+  };
 
   return (
-    <div className="mt-8 flex flex-col gap-4">
-      <h3 className="text-sm font-medium text-foreground">Фотографии</h3>
+    <div className="mt-4 flex flex-col gap-5">
+      <p className="text-sm text-muted-foreground">
+        Изменения здесь сохраняются сразу. Обложка используется в карточках новости и на её
+        странице.
+      </p>
+      <div className="grid gap-4 rounded-xl border bg-muted/20 p-4 sm:grid-cols-[200px_minmax(0,1fr)]">
+        {cover ? (
+          <img
+            src={cover.url}
+            alt={cover.alt ?? "Текущая обложка"}
+            className="aspect-video w-full rounded-lg object-cover"
+          />
+        ) : (
+          <div className="flex aspect-video items-center justify-center rounded-lg bg-muted text-sm text-muted-foreground">
+            Обложка не выбрана
+          </div>
+        )}
+        <div>
+          <h3 className="font-semibold">Обложка новости</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Выберите фото в галерее ниже или загрузите новое и настройте кадр.
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            className="mt-3"
+            disabled={busy}
+            onClick={() => coverInputRef.current?.click()}
+          >
+            Загрузить и кадрировать
+          </Button>
+          {cover ? (
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={busy || loadingCover}
+                onClick={() => void editCover()}
+              >
+                {loadingCover ? "Открываем…" : "Изменить кадр"}
+              </Button>
+              <Button type="button" variant="ghost" asChild>
+                <a href={cover.url} target="_blank" rel="noreferrer">
+                  Оригинал ↗
+                </a>
+              </Button>
+            </div>
+          ) : null}
+          <input
+            ref={coverInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                const error = validateFile(file);
+                if (error) toast.error(error);
+                else setCropFile(file);
+              }
+              e.target.value = "";
+            }}
+          />
+        </div>
+      </div>
+      <h3 className="text-sm font-semibold">Галерея · {photos.length} фото</h3>
 
       <div
         onDragOver={(e) => {
@@ -290,10 +428,12 @@ export function NewsPhotoGallery({ newsId, coverPhotoId }: NewsPhotoGalleryProps
           type="button"
           variant="outline"
           size="sm"
+          disabled={busy}
           onClick={() => fileInputRef.current?.click()}
         >
           Выбрать файлы
         </Button>
+        <p className="text-xs">JPEG, PNG, WebP, GIF · до 15 МБ на файл · можно выбрать несколько</p>
         <input
           ref={fileInputRef}
           type="file"
@@ -316,18 +456,44 @@ export function NewsPhotoGallery({ newsId, coverPhotoId }: NewsPhotoGalleryProps
                 <span className="shrink-0 text-muted-foreground">
                   {u.status === "compressing"
                     ? "Сжатие…"
-                    : u.status === "error"
-                      ? "Ошибка"
-                      : `${u.progress}%`}
+                    : u.status === "done"
+                      ? "Готово"
+                      : u.status === "error"
+                        ? "Ошибка"
+                        : `${u.progress}%`}
                 </span>
               </div>
               {u.status === "error" ? (
-                <p className="text-destructive">{u.error}</p>
+                <div>
+                  <p className="text-destructive">
+                    {u.uploadedId ? "Фото загружено; не удалось назначить обложку. " : ""}
+                    {u.error}
+                  </p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() => void processAndUploadFile(u.file, u.asCover, u)}
+                  >
+                    Повторить
+                  </Button>
+                </div>
               ) : (
                 <Progress value={u.status === "compressing" ? 0 : u.progress} />
               )}
             </div>
           ))}
+          {!busy ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => setUploads((items) => items.filter((item) => item.status !== "done"))}
+            >
+              Скрыть завершённые
+            </Button>
+          ) : null}
         </div>
       )}
 
@@ -343,7 +509,7 @@ export function NewsPhotoGallery({ newsId, coverPhotoId }: NewsPhotoGalleryProps
       ) : photos.length === 0 ? (
         <p className="text-sm text-muted-foreground">Пока нет фотографий.</p>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {photos.map((photo, index) => (
             <div key={photo.id} className="flex flex-col gap-2 rounded-lg border p-3">
               <div className="relative aspect-[4/3] overflow-hidden rounded-md bg-muted">
@@ -352,9 +518,13 @@ export function NewsPhotoGallery({ newsId, coverPhotoId }: NewsPhotoGalleryProps
                   <Badge className="absolute left-2 top-2">Обложка</Badge>
                 )}
               </div>
+              <label className="text-xs text-muted-foreground" htmlFor={`photo-alt-${photo.id}`}>
+                Описание фотографии
+              </label>
               <Input
+                id={`photo-alt-${photo.id}`}
                 defaultValue={photo.alt ?? ""}
-                placeholder="Alt-текст"
+                placeholder="Кто или что на снимке"
                 onBlur={(e) => {
                   const value = e.target.value.trim();
                   if (value !== (photo.alt ?? "")) {
@@ -400,6 +570,7 @@ export function NewsPhotoGallery({ newsId, coverPhotoId }: NewsPhotoGalleryProps
                   className="ml-auto"
                   onClick={() => setDeleteTarget(photo.id)}
                   aria-label="Удалить фото"
+                  disabled={busy || deleteMutation.isPending || coverMutation.isPending}
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -434,6 +605,14 @@ export function NewsPhotoGallery({ newsId, coverPhotoId }: NewsPhotoGalleryProps
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <CoverCropDialog
+        file={cropFile}
+        onClose={() => setCropFile(null)}
+        onConfirm={(file) => {
+          setCropFile(null);
+          void processAndUploadFile(file, true);
+        }}
+      />
     </div>
   );
 }

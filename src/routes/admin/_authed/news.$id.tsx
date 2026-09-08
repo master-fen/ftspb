@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { ExternalLink, FileText, Image, Paperclip, Save, Video } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
   Form,
   FormControl,
@@ -24,7 +25,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import {
   checkSlugAvailable,
@@ -53,8 +53,6 @@ const formSchema = z.object({
   excerpt: z.string(),
   body: z.string(),
   status: z.enum(["draft", "published"]),
-  featured: z.boolean(),
-  featuredOrder: z.number().int().min(0),
   // Подсказка у поля текстом валидатора; сервер (news-admin.ts) проверяет независимо.
   videoUrl: z.string().superRefine((value, ctx) => {
     if (!value.trim()) return;
@@ -86,8 +84,8 @@ function AdminNewsEdit() {
   });
 
   return (
-    <div className="min-h-screen bg-background px-4 py-8">
-      <div className="mx-auto max-w-2xl">
+    <div className="min-h-screen bg-muted/30 px-4 py-6 md:px-8">
+      <div className="mx-auto max-w-6xl">
         <AdminBackLink to="/admin/news" label="К списку новостей" />
         {query.isError ? (
           <div className="flex flex-col items-start gap-3 rounded-xl border bg-card p-6">
@@ -99,7 +97,7 @@ function AdminNewsEdit() {
         ) : query.isPending ? (
           <p className="text-sm text-muted-foreground">Загрузка…</p>
         ) : (
-          <NewsEditForm id={id} news={query.data.news} />
+          <NewsEditForm key={id} id={id} news={query.data.news} />
         )}
       </div>
     </div>
@@ -125,11 +123,16 @@ function NewsEditForm({
     videoUrl: string | null;
   };
 }) {
+  const queryClient = useQueryClient();
   const [persisted, setPersisted] = useState({ slug: news.slug, status: news.status });
   const [slugStatus, setSlugStatus] = useState<
     "idle" | "checking" | "available" | "taken" | "error"
   >("idle");
   const [isSuggestingSlug, setIsSuggestingSlug] = useState(false);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [documentBusy, setDocumentBusy] = useState(false);
+  const [documentDirty, setDocumentDirty] = useState(false);
+  const [addressOpen, setAddressOpen] = useState(false);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -141,8 +144,6 @@ function NewsEditForm({
       excerpt: news.excerpt ?? "",
       body: news.body ?? "",
       status: news.status,
-      featured: news.featured,
-      featuredOrder: news.featuredOrder ?? 0,
       videoUrl: news.videoUrl ?? "",
     },
   });
@@ -150,23 +151,13 @@ function NewsEditForm({
   const {
     formState: { isDirty },
   } = form;
-  const blocker = useUnsavedChangesBlocker(isDirty);
+  const blocker = useUnsavedChangesBlocker(
+    isDirty || photoBusy || documentBusy || documentDirty,
+    true,
+  );
   const watchedSlug = form.watch("slug");
   const watchedTitle = form.watch("title");
   const watchedPublishedAt = form.watch("publishedAt");
-  const watchedFeatured = form.watch("featured");
-
-  useEffect(() => {
-    if (!isDirty) {
-      return;
-    }
-    const handler = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      e.returnValue = "";
-    };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, [isDirty]);
 
   useEffect(() => {
     if (watchedSlug === persisted.slug || watchedSlug.length === 0) {
@@ -198,8 +189,6 @@ function NewsEditForm({
             excerpt: values.excerpt.trim() ? values.excerpt : null,
             body: values.body.trim() ? values.body : null,
             status: values.status,
-            featured: values.featured,
-            featuredOrder: values.featured ? values.featuredOrder : null,
             videoUrl: videoUrlToPayload(values.videoUrl),
           },
         },
@@ -209,11 +198,19 @@ function NewsEditForm({
       setPersisted({ slug: values.slug, status: values.status });
       // Поле сразу показывает сохранённый (нормализованный) адрес, как после перезагрузки.
       form.reset({ ...values, videoUrl: videoUrlToPayload(values.videoUrl) ?? "" });
+      void queryClient.invalidateQueries({ queryKey: ["admin-news"] });
+      void queryClient.invalidateQueries({ queryKey: ["admin-featured"] });
     },
     onError: () => toast.error("Не удалось сохранить изменения"),
   });
 
-  const onSubmit = form.handleSubmit((values) => mutation.mutate(values));
+  const onSubmit = form.handleSubmit(
+    (values) => mutation.mutate(values),
+    (errors) => {
+      if (errors.slug) setAddressOpen(true);
+      toast.error("Проверьте поля с ошибками");
+    },
+  );
 
   const handleGenerateSlug = async () => {
     setIsSuggestingSlug(true);
@@ -232,13 +229,64 @@ function NewsEditForm({
   const showSlugChangeWarning = persisted.status === "published" && watchedSlug !== persisted.slug;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Редактирование новости</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Form {...form}>
-          <form onSubmit={onSubmit} className="space-y-6" noValidate>
+    <>
+      <header className="sticky top-0 z-20 mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-background/95 p-4 shadow-sm backdrop-blur">
+        <div className="min-w-0">
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl font-semibold">Редактор новости</h1>
+            <Badge variant={persisted.status === "published" ? "default" : "secondary"}>
+              {persisted.status === "published" ? "Опубликована" : "Черновик"}
+            </Badge>
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground" role="status">
+            {mutation.isPending
+              ? "Сохраняем изменения…"
+              : isDirty
+                ? "Есть несохранённые изменения текста и настроек"
+                : "Текст и настройки сохранены"}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          {persisted.status === "published" ? (
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/news/$newsId" params={{ newsId: persisted.slug }} target="_blank">
+                <ExternalLink className="h-4 w-4" />
+                На сайте
+              </Link>
+            </Button>
+          ) : null}
+          <Button type="submit" form="news-editor" disabled={mutation.isPending || !isDirty}>
+            <Save className="h-4 w-4" />
+            {mutation.isPending ? "Сохраняем…" : "Сохранить"}
+          </Button>
+        </div>
+      </header>
+      <Form {...form}>
+        <form
+          id="news-editor"
+          onSubmit={onSubmit}
+          className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_280px]"
+          noValidate
+        >
+          <fieldset
+            disabled={mutation.isPending}
+            className="min-w-0 space-y-6 rounded-xl border bg-card p-5 md:p-6"
+          >
+            <h2 className="flex items-center gap-2 text-lg font-semibold">
+              <FileText className="h-5 w-5" />
+              Содержание
+            </h2>
+            <nav aria-label="Разделы редактора" className="flex flex-wrap gap-2 text-sm">
+              <a href="#news-photos" className="rounded-lg border px-3 py-2">
+                Обложка и фото
+              </a>
+              <a href="#news-documents" className="rounded-lg border px-3 py-2">
+                Документы
+              </a>
+              <a href="#news-video" className="rounded-lg border px-3 py-2">
+                Видео
+              </a>
+            </nav>
             <FormField
               control={form.control}
               name="title"
@@ -248,90 +296,6 @@ function NewsEditForm({
                   <FormControl>
                     <Input {...field} />
                   </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="slug"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Slug</FormLabel>
-                  <div className="flex gap-2">
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={isSuggestingSlug}
-                      onClick={handleGenerateSlug}
-                    >
-                      Сгенерировать из заголовка
-                    </Button>
-                  </div>
-                  {slugStatus === "checking" ? (
-                    <p className="text-[0.8rem] text-muted-foreground">Проверяем занятость…</p>
-                  ) : slugStatus === "taken" ? (
-                    <p className="text-[0.8rem] font-medium text-destructive">
-                      Такой slug уже используется
-                    </p>
-                  ) : slugStatus === "available" ? (
-                    <p className="text-[0.8rem] text-muted-foreground">Свободен</p>
-                  ) : slugStatus === "error" ? (
-                    <p className="text-[0.8rem] text-muted-foreground">
-                      Не удалось проверить занятость
-                    </p>
-                  ) : null}
-                  {showSlugChangeWarning ? (
-                    <Alert variant="destructive">
-                      <AlertDescription>
-                        Новость опубликована — при смене slug старая ссылка перестанет работать.
-                      </AlertDescription>
-                    </Alert>
-                  ) : null}
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="publishedAt"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Дата</FormLabel>
-                  <FormControl>
-                    <Input type="date" {...field} />
-                  </FormControl>
-                  <p className="text-[0.8rem] text-muted-foreground">
-                    Дата в будущем не откладывает публикацию — новость появится сразу.
-                  </p>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="section"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Раздел</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="none">Без раздела</SelectItem>
-                      <SelectItem value="federation">Федерация</SelectItem>
-                      <SelectItem value="referees">Коллегия судей</SelectItem>
-                    </SelectContent>
-                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
@@ -386,7 +350,10 @@ function NewsEditForm({
               name="videoUrl"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Ссылка на видео (Kinescope)</FormLabel>
+                  <FormLabel id="news-video" className="flex scroll-mt-28 items-center gap-2">
+                    <Video className="h-4 w-4" />
+                    Видео Kinescope
+                  </FormLabel>
                   <FormControl>
                     <Input inputMode="url" placeholder="https://kinescope.io/…" {...field} />
                   </FormControl>
@@ -398,6 +365,66 @@ function NewsEditForm({
               )}
             />
 
+            <details
+              open={addressOpen}
+              onToggle={(event) => setAddressOpen(event.currentTarget.open)}
+              className="rounded-lg border p-4"
+            >
+              <summary className="cursor-pointer text-sm font-medium">
+                Адрес страницы и дополнительные настройки
+              </summary>
+              <div className="mt-4">
+                <FormField
+                  control={form.control}
+                  name="slug"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Адрес новости</FormLabel>
+                      <div className="flex flex-wrap gap-2">
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={isSuggestingSlug}
+                          onClick={handleGenerateSlug}
+                        >
+                          Из заголовка
+                        </Button>
+                      </div>
+                      {slugStatus === "checking" ? (
+                        <p className="text-[0.8rem] text-muted-foreground">Проверяем занятость…</p>
+                      ) : slugStatus === "taken" ? (
+                        <p className="text-[0.8rem] font-medium text-destructive">
+                          Такой slug уже используется
+                        </p>
+                      ) : slugStatus === "available" ? (
+                        <p className="text-[0.8rem] text-muted-foreground">Свободен</p>
+                      ) : slugStatus === "error" ? (
+                        <p className="text-[0.8rem] text-muted-foreground">
+                          Не удалось проверить занятость
+                        </p>
+                      ) : null}
+                      {showSlugChangeWarning ? (
+                        <Alert variant="destructive">
+                          <AlertDescription>
+                            Новость опубликована — при смене slug старая ссылка перестанет работать.
+                          </AlertDescription>
+                        </Alert>
+                      ) : null}
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </details>
+          </fieldset>
+          <fieldset
+            disabled={mutation.isPending}
+            className="space-y-5 rounded-xl border bg-card p-5 lg:sticky lg:top-28"
+          >
+            <h2 className="text-lg font-semibold">Публикация</h2>
             <FormField
               control={form.control}
               name="status"
@@ -420,65 +447,90 @@ function NewsEditForm({
               )}
             />
 
-            <div className="space-y-4 rounded-lg border p-4">
-              <h3 className="text-sm font-medium text-foreground">Главная страница</h3>
+            <FormField
+              control={form.control}
+              name="publishedAt"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Дата</FormLabel>
+                  <FormControl>
+                    <Input type="date" {...field} />
+                  </FormControl>
+                  <p className="text-[0.8rem] text-muted-foreground">
+                    Дата в будущем не откладывает публикацию — новость появится сразу.
+                  </p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-              <FormField
-                control={form.control}
-                name="featured"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center gap-2 space-y-0">
+            <FormField
+              control={form.control}
+              name="section"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Раздел</FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange}>
                     <FormControl>
-                      <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
                     </FormControl>
-                    <FormLabel className="font-normal">Показывать на главной странице</FormLabel>
-                  </FormItem>
-                )}
-              />
+                    <SelectContent>
+                      <SelectItem value="none">Без раздела</SelectItem>
+                      <SelectItem value="federation">Федерация</SelectItem>
+                      <SelectItem value="referees">Коллегия судей</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-              <FormField
-                control={form.control}
-                name="featuredOrder"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Порядок</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        min={0}
-                        step={1}
-                        disabled={!watchedFeatured}
-                        value={field.value}
-                        onChange={(e) => field.onChange(e.target.valueAsNumber || 0)}
-                        className="w-24"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <p className="text-[0.8rem] text-muted-foreground">
-                На главной показываются три новости. Порядок 0 — большая карточка слева, 1 и 2 —
-                маленькие справа. Остальные отмеченные остаются в общей ленте.
+            <div className="border-t pt-4">
+              <p className="text-sm font-medium">Главные новости</p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Три позиции на главной странице выбираются вместе в списке новостей.
               </p>
+              <Button type="button" variant="outline" className="mt-3 w-full" asChild>
+                <Link to="/admin/news">Настроить главные</Link>
+              </Button>
             </div>
-
-            <Button type="submit" disabled={mutation.isPending}>
-              {mutation.isPending ? "Сохраняем…" : "Сохранить"}
-            </Button>
-          </form>
-        </Form>
-
-        <NewsPhotoGallery newsId={id} coverPhotoId={news.coverPhotoId} />
-        <NewsDocumentGallery
-          newsId={id}
-          newsTitle={news.title}
-          newsPublishedAt={news.publishedAt}
-          newsSection={news.section}
-        />
-      </CardContent>
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              Кнопка «Сохранить» применяет текст и настройки публикации. Фотографии и документы ниже
+              сохраняются отдельно.
+            </p>
+          </fieldset>
+        </form>
+      </Form>
+      <div className="mt-6 space-y-6 lg:mr-[304px]">
+        <section id="news-photos" className="scroll-mt-28 rounded-xl border bg-card p-5 md:p-6">
+          <h2 className="flex items-center gap-2 text-lg font-semibold">
+            <Image className="h-5 w-5" />
+            Обложка и фотографии
+          </h2>
+          <NewsPhotoGallery
+            newsId={id}
+            coverPhotoId={news.coverPhotoId}
+            onBusyChange={setPhotoBusy}
+          />
+        </section>
+        <section id="news-documents" className="scroll-mt-28 rounded-xl border bg-card p-5 md:p-6">
+          <h2 className="flex items-center gap-2 text-lg font-semibold">
+            <Paperclip className="h-5 w-5" />
+            Документы новости
+          </h2>
+          <NewsDocumentGallery
+            newsId={id}
+            newsTitle={news.title}
+            newsPublishedAt={news.publishedAt}
+            newsSection={news.section}
+            onBusyChange={setDocumentBusy}
+            onDirtyChange={setDocumentDirty}
+          />
+        </section>
+      </div>
       <UnsavedChangesDialog blocker={blocker} />
-    </Card>
+    </>
   );
 }

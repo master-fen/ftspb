@@ -35,6 +35,7 @@ import { Route as AdminLoginRouteImport } from './routes/admin/login'
 import { Route as AdminAuthedRouteRouteImport } from './routes/admin/_authed/route'
 import { Route as AdminAuthedIndexRouteImport } from './routes/admin/_authed/index'
 import { Route as ApiAdminUploadRouteImport } from './routes/api/admin/upload'
+import { Route as ApiAdminPhotoSourceRouteImport } from './routes/api/admin/photo-source'
 import { Route as AdminAuthedPersonsIndexRouteImport } from './routes/admin/_authed/persons.index'
 import { Route as AdminAuthedNewsIndexRouteImport } from './routes/admin/_authed/news.index'
 import { Route as AdminAuthedDocumentsIndexRouteImport } from './routes/admin/_authed/documents.index'
@@ -174,6 +175,11 @@ const ApiAdminUploadRoute = ApiAdminUploadRouteImport.update({
   path: '/api/admin/upload',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAdminPhotoSourceRoute = ApiAdminPhotoSourceRouteImport.update({
+  id: '/api/admin/photo-source',
+  path: '/api/admin/photo-source',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminAuthedPersonsIndexRoute = AdminAuthedPersonsIndexRouteImport.update({
   id: '/persons/',
   path: '/persons/',
@@ -245,6 +251,7 @@ export interface FileRoutesByFullPath {
   '/news/$newsId': typeof NewsNewsIdRoute
   '/federation/': typeof FederationIndexRoute
   '/news/': typeof NewsIndexRoute
+  '/api/admin/photo-source': typeof ApiAdminPhotoSourceRoute
   '/api/admin/upload': typeof ApiAdminUploadRoute
   '/admin/': typeof AdminAuthedIndexRoute
   '/admin/documents/$id': typeof AdminAuthedDocumentsIdRoute
@@ -280,6 +287,7 @@ export interface FileRoutesByTo {
   '/news/$newsId': typeof NewsNewsIdRoute
   '/federation': typeof FederationIndexRoute
   '/news': typeof NewsIndexRoute
+  '/api/admin/photo-source': typeof ApiAdminPhotoSourceRoute
   '/api/admin/upload': typeof ApiAdminUploadRoute
   '/admin/documents/$id': typeof AdminAuthedDocumentsIdRoute
   '/admin/documents/new': typeof AdminAuthedDocumentsNewRoute
@@ -317,6 +325,7 @@ export interface FileRoutesById {
   '/news/$newsId': typeof NewsNewsIdRoute
   '/federation/': typeof FederationIndexRoute
   '/news/': typeof NewsIndexRoute
+  '/api/admin/photo-source': typeof ApiAdminPhotoSourceRoute
   '/api/admin/upload': typeof ApiAdminUploadRoute
   '/admin/_authed/': typeof AdminAuthedIndexRoute
   '/admin/_authed/documents/$id': typeof AdminAuthedDocumentsIdRoute
@@ -355,6 +364,7 @@ export interface FileRouteTypes {
     | '/news/$newsId'
     | '/federation/'
     | '/news/'
+    | '/api/admin/photo-source'
     | '/api/admin/upload'
     | '/admin/'
     | '/admin/documents/$id'
@@ -390,6 +400,7 @@ export interface FileRouteTypes {
     | '/news/$newsId'
     | '/federation'
     | '/news'
+    | '/api/admin/photo-source'
     | '/api/admin/upload'
     | '/admin/documents/$id'
     | '/admin/documents/new'
@@ -426,6 +437,7 @@ export interface FileRouteTypes {
     | '/news/$newsId'
     | '/federation/'
     | '/news/'
+    | '/api/admin/photo-source'
     | '/api/admin/upload'
     | '/admin/_authed/'
     | '/admin/_authed/documents/$id'
@@ -454,6 +466,7 @@ export interface RootRouteChildren {
   TournamentsRoute: typeof TournamentsRoute
   NewsNewsIdRoute: typeof NewsNewsIdRoute
   NewsIndexRoute: typeof NewsIndexRoute
+  ApiAdminPhotoSourceRoute: typeof ApiAdminPhotoSourceRoute
   ApiAdminUploadRoute: typeof ApiAdminUploadRoute
 }
 
@@ -641,6 +654,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminUploadRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/admin/photo-source': {
+      id: '/api/admin/photo-source'
+      path: '/api/admin/photo-source'
+      fullPath: '/api/admin/photo-source'
+      preLoaderRoute: typeof ApiAdminPhotoSourceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/_authed/persons/': {
       id: '/admin/_authed/persons/'
       path: '/persons'
@@ -791,6 +811,7 @@ const rootRouteChildren: RootRouteChildren = {
   TournamentsRoute: TournamentsRoute,
   NewsNewsIdRoute: NewsNewsIdRoute,
   NewsIndexRoute: NewsIndexRoute,
+  ApiAdminPhotoSourceRoute: ApiAdminPhotoSourceRoute,
   ApiAdminUploadRoute: ApiAdminUploadRoute,
 }
 export const routeTree = rootRouteImport
