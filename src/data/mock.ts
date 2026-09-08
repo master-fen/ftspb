@@ -1,6 +1,7 @@
 import { archiveNews } from "@/data/news-archive";
 import type { NewsItem } from "@/lib/types/news";
 import type { NavSection } from "@/lib/types/nav";
+import { ORG_REQUISITES } from "@/lib/site";
 
 const FEATURED_IDS = [
   "kubok-severnoy-stolitsy",
@@ -49,7 +50,7 @@ export const navSections: NavSection[] = ALL_SECTIONS.filter((s) => !s.hidden);
 export const siteMeta = {
   name: "Федерация тенниса Санкт-Петербурга",
   shortName: "ФТ СПб",
-  address: "193230, Санкт-Петербург, пер. Челиева, дом 13, корпус 3, литера Т, помещение 16",
+  address: ORG_REQUISITES.address,
   copyright: "Copyright © Федерация тенниса Санкт-Петербурга, 2026",
   legal: [
     { label: "Политика конфиденциальности", href: "/privacy" },

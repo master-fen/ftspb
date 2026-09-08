@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { navSections, siteMeta } from "@/data/mock";
+import { ORG_REQUISITES } from "@/lib/site";
 import { Logo } from "./Logo";
 
 export function SiteFooter() {
@@ -40,12 +41,18 @@ export function SiteFooter() {
                 {l.label}
               </Link>
             ))}
-            <div className="mt-4 leading-relaxed">{siteMeta.address}</div>
+            <div className="mt-4 leading-relaxed">
+              {ORG_REQUISITES.fullName}, ОГРН {ORG_REQUISITES.ogrn}
+            </div>
+            <div className="leading-relaxed">{siteMeta.address}</div>
             <div>{siteMeta.copyright}</div>
           </div>
 
           <div className="hidden grid-cols-2 gap-3 text-xs text-white/75 md:grid">
             <div className="space-y-1.5">
+              <div>
+                {ORG_REQUISITES.fullName}, ОГРН {ORG_REQUISITES.ogrn}
+              </div>
               <div>{siteMeta.address}</div>
               <div>{siteMeta.copyright}</div>
             </div>

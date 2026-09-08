@@ -211,6 +211,8 @@ Code) через прежний `LeadershipCard` без `photo`/`links`; пус�
 
 **Исключение (согласовано 09.09.2026, обложка 4:3):** в `src/components/site/NewsCard.tsx` заменена одна утилита `object-[50%_25%]` → `object-center`: кадр обложки теперь выбирается в редакторе (`CoverCropDialog`, 4:3), вертикальную композицию решает редактор, не CSS. Разметка и остальные классы не менялись; файл остаётся зоной Lovable.
 
+**Исключение (согласовано 09.09.2026, витрина Устава и реквизиты):** `src/routes/federation.tsx` — убран условный рендер `CharterPageAside` (компонент удалён); `src/routes/federation.about.tsx` — добавлен блок «Реквизиты» из `ORG_REQUISITES` (`src/lib/site.ts`); `src/components/site/SiteFooter.tsx` — добавлена строка с полным наименованием и ОГРН; `src/data/mock.ts` — адрес читается из `ORG_REQUISITES`. Новая страница `src/routes/federation_.charter.text.tsx` и `src/components/site/DocumentFileRow.tsx` — зона Claude Code. Остальная разметка перечисленных файлов — по-прежнему зона Lovable.
+
 ### Claude Code
 
 - `src/lib/**` — в т.ч. `src/lib/types/**` и `src/lib/news-server-fn.ts`
