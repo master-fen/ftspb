@@ -6,19 +6,32 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { coverCrop } from "@/lib/cover-crop";
+import { COVER_RATIO, coverCrop } from "@/lib/cover-crop";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
-/** Изменяется только выбранный локальный файл. Оригинал в хранилище не перезаписывается. */
+/**
+ * Изменяется только выбранный локальный файл. Оригинал в хранилище не перезаписывается.
+ * Результат — File (JPEG) через onConfirm; загрузку делает вызывающая сторона.
+ * По умолчанию — обложка новости 16:9; для фото персоны передаются ratio 3:4 и свои тексты.
+ */
 export function CoverCropDialog({
   file,
   onClose,
   onConfirm,
+  ratio = COVER_RATIO,
+  title = "Кадрирование обложки",
+  description = "Выберите область снимка. Сохранится отдельная обложка 16:9; исходное фото останется целым.",
+  confirmLabel = "Загрузить обложку",
 }: {
   file: File | null;
   onClose: () => void;
   onConfirm: (file: File) => void;
+  /** width / height кадра. */
+  ratio?: number;
+  title?: string;
+  description?: string;
+  confirmLabel?: string;
 }) {
   const [source, setSource] = useState<{ url: string; width: number; height: number } | null>(null);
   const [zoom, setZoom] = useState(1);
@@ -46,7 +59,7 @@ export function CoverCropDialog({
       URL.revokeObjectURL(url);
     };
   }, [file]);
-  const crop = source ? coverCrop(source.width, source.height, zoom, x, y) : null;
+  const crop = source ? coverCrop(source.width, source.height, zoom, x, y, ratio) : null;
   const confirm = async () => {
     if (!source || !file || !crop) return;
     setBusy(true);
@@ -99,13 +112,18 @@ export function CoverCropDialog({
     >
       <DialogContent className="flex max-h-[90vh] w-[calc(100%-2rem)] max-w-2xl flex-col overflow-y-auto rounded-lg">
         <DialogHeader>
-          <DialogTitle>Кадрирование обложки</DialogTitle>
-          <DialogDescription>
-            Выберите область снимка. Сохранится отдельная обложка 16:9; исходное фото останется
-            целым.
-          </DialogDescription>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
-        <div className="relative aspect-video shrink-0 overflow-hidden rounded-lg bg-muted">
+        {/* Бокс держит ровно ratio (позиции img считаются в его процентах); портретный
+            кадр ограничен по ширине так, чтобы высота не превышала ~60vh. */}
+        <div
+          className="relative mx-auto shrink-0 overflow-hidden rounded-lg bg-muted"
+          style={{
+            aspectRatio: ratio,
+            width: ratio < 1 ? `min(100%, calc(60vh * ${ratio}))` : "100%",
+          }}
+        >
           {source && crop ? (
             <img
               src={source.url}
@@ -147,7 +165,7 @@ export function CoverCropDialog({
             Отмена
           </Button>
           <Button type="button" disabled={!source || busy} onClick={() => void confirm()}>
-            {busy ? "Готовим…" : "Загрузить обложку"}
+            {busy ? "Готовим…" : confirmLabel}
           </Button>
         </div>
       </DialogContent>
