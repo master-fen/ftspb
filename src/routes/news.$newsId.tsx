@@ -101,12 +101,14 @@ function NewsDetailPage() {
   const bodyNorm = item.body ? normalize(item.body) : "";
   const probe = excerptNorm.slice(0, 60);
   const showLead = Boolean(excerptNorm && !(probe.length > 20 && bodyNorm.startsWith(probe)));
+  // Флаг news.hide_cover_on_page прячет обложку только здесь; карточки и og:image (head) читают item.cover.
+  const pageCover = item.hideCoverOnPage ? undefined : item.cover;
 
   return (
     <div className="min-h-screen bg-background">
       <SiteHeader />
 
-      <main className="mx-auto max-w-[1120px] px-5 pt-6 pb-14 md:px-8 md:pt-8 md:pb-20">
+      <main className="mx-auto max-w-7xl px-4 pt-6 pb-14 md:px-6 md:pt-8 md:pb-20 lg:px-10">
         {/* Breadcrumbs */}
         <nav
           aria-label="Хлебные крошки"
@@ -123,7 +125,7 @@ function NewsDetailPage() {
           <span className="text-foreground/80 line-clamp-1">{item.title}</span>
         </nav>
 
-        <header className="mt-5 md:mt-7 lg:max-w-[calc(100%-304px)]">
+        <header className="mt-5 md:mt-7 lg:max-w-[calc(100%-304px)] xl:max-w-[calc(100%-440px)]">
           <div className="text-[11px] font-semibold tracking-[0.14em] text-brand-orange uppercase">
             {newsMetaLine(item.category, item.date)}
           </div>
@@ -137,13 +139,13 @@ function NewsDetailPage() {
           ) : null}
         </header>
 
-        <div className="mt-7 grid grid-cols-1 gap-10 md:mt-8 lg:grid-cols-[minmax(0,1fr)_264px]">
+        <div className="mt-7 grid grid-cols-1 gap-10 md:mt-8 lg:grid-cols-[minmax(0,1fr)_264px] xl:grid-cols-[minmax(0,1fr)_320px] xl:gap-[120px]">
           {/* Main column */}
           <div className="min-w-0 space-y-8">
             {item.videoUrl ? <NewsVideo src={item.videoUrl} title={item.title} /> : null}
 
-            {item.cover || item.gallery?.length ? (
-              <NewsGallery cover={item.cover} gallery={item.gallery ?? []} title={item.title} />
+            {pageCover || item.gallery?.length ? (
+              <NewsGallery cover={pageCover} gallery={item.gallery ?? []} title={item.title} />
             ) : null}
 
             {item.body ? <NewsBody body={item.body} /> : null}

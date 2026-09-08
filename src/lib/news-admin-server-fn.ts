@@ -57,6 +57,7 @@ export const createNews = createServerFn({ method: "POST" })
       // Форма payload; правила (kinescope.io, embed-адрес) — в src/lib/news-video-url.ts,
       // применяет src/server/news-admin.ts.
       videoUrl: z.string().nullable().optional(),
+      hideCoverOnPage: z.boolean().optional(),
     }),
   )
   .handler(({ data }) => createNewsImpl(data));
@@ -76,6 +77,7 @@ export const updateNews = createServerFn({ method: "POST" })
         featured: z.boolean().optional(),
         featuredOrder: z.number().int().min(0).nullable().optional(),
         videoUrl: z.string().nullable().optional(),
+        hideCoverOnPage: z.boolean().optional(),
       }),
     }),
   )

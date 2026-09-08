@@ -154,6 +154,7 @@ export type CreateNewsInput = {
   featuredOrder?: number | null;
   source?: string | null;
   videoUrl?: string | null;
+  hideCoverOnPage?: boolean;
 };
 
 export async function createNews(input: CreateNewsInput): Promise<{ id: string; slug: string }> {
@@ -177,6 +178,7 @@ export async function createNews(input: CreateNewsInput): Promise<{ id: string; 
     featuredOrder: input.featuredOrder ?? null,
     source: input.source ?? null,
     videoUrl: videoUrlForStorage(input.videoUrl),
+    hideCoverOnPage: input.hideCoverOnPage ?? false,
   };
 
   try {
@@ -206,6 +208,7 @@ export type UpdateNewsInput = Partial<{
   featuredOrder: number | null;
   source: string | null;
   videoUrl: string | null;
+  hideCoverOnPage: boolean;
 }>;
 
 export async function updateNews(id: string, input: UpdateNewsInput): Promise<void> {
