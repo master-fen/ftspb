@@ -5,21 +5,27 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { deletePersonPhoto } from "@/lib/federation-person-server-fn";
+import { prepareFileForUpload } from "@/lib/image-resize";
 import { detectImageSignature, isWithinSizeLimit } from "@/lib/image-validation";
+import { CoverCropDialog } from "./CoverCropDialog";
+
+/** Как aspect-[3/4] карточки руководства (LeadershipCard). */
+const PERSON_PHOTO_RATIO = 3 / 4;
 
 type UploadResult = { key: string; url: string };
 
 /** Тот же транспорт, что у фото новости (NewsPhotoGallery): multipart на /api/admin/upload. */
 function uploadFile(
   personId: string,
-  file: File,
+  blob: Blob,
+  filename: string,
   onProgress: (percent: number) => void,
 ): Promise<UploadResult> {
   return new Promise((resolve, reject) => {
     const formData = new FormData();
     formData.append("kind", "person-photo");
     formData.append("personId", personId);
-    formData.append("file", file, file.name);
+    formData.append("file", blob, filename);
 
     const xhr = new XMLHttpRequest();
     xhr.open("POST", "/api/admin/upload");
@@ -53,15 +59,20 @@ function uploadFile(
 async function validateImageFile(file: File): Promise<string | null> {
   if (!isWithinSizeLimit(file.size)) return "Файл больше 15 МБ";
   const head = new Uint8Array(await file.slice(0, 16).arrayBuffer());
-  if (!detectImageSignature(head)) {
-    return "Файл не похож на изображение поддерживаемого формата (jpeg/png/gif/webp)";
+  const detected = detectImageSignature(head);
+  if (!detected) {
+    return "Файл не похож на изображение поддерживаемого формата (jpeg/png/webp)";
   }
+  // Кадр всегда растрируется в JPEG — анимированный GIF потерял бы смысл (как у обложки новости).
+  if (detected === "image/gif") return "GIF для фото персоны не поддерживается";
   return null;
 }
 
 /**
  * Фото человека. Только для уже сохранённой записи: ключ объекта
  * `persons/{id}/…` требует id, на странице создания блок не показывается.
+ * Выбранный файл проходит через диалог кадрирования 3:4; хранится только кадр,
+ * оригинал не сохраняется, «изменить кадр» нет — переснять = загрузить заново.
  */
 export function PersonPhotoSection({
   personId,
@@ -73,14 +84,16 @@ export function PersonPhotoSection({
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [progress, setProgress] = useState<number | null>(null);
+  const [cropFile, setCropFile] = useState<File | null>(null);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["admin-person", personId] });
 
   const uploadMutation = useMutation({
+    // Сюда приходит уже кадрированный JPEG из CoverCropDialog.
     mutationFn: async (file: File) => {
-      const validationError = await validateImageFile(file);
-      if (validationError) throw new Error(validationError);
-      return uploadFile(personId, file, setProgress);
+      // Тот же порог и формат, что у фото новости: >1600px по длинной стороне → JPEG.
+      const prepared = await prepareFileForUpload(file);
+      return uploadFile(personId, prepared.blob, prepared.filename, setProgress);
     },
     onSuccess: () => {
       toast.success("Фото загружено");
@@ -88,10 +101,7 @@ export function PersonPhotoSection({
     },
     onError: (error) =>
       toast.error(error instanceof Error ? error.message : "Не удалось загрузить фото"),
-    onSettled: () => {
-      setProgress(null);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    },
+    onSettled: () => setProgress(null),
   });
 
   const deleteMutation = useMutation({
@@ -104,7 +114,16 @@ export function PersonPhotoSection({
       toast.error(error instanceof Error ? error.message : "Не удалось удалить фото"),
   });
 
-  const busy = uploadMutation.isPending || deleteMutation.isPending;
+  const busy = uploadMutation.isPending || deleteMutation.isPending || cropFile !== null;
+
+  const handleFileChosen = async (file: File) => {
+    const validationError = await validateImageFile(file);
+    if (validationError) {
+      toast.error(validationError);
+      return;
+    }
+    setCropFile(file);
+  };
 
   return (
     <Card>
@@ -130,11 +149,14 @@ export function PersonPhotoSection({
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/jpeg,image/png,image/gif,image/webp"
+            accept="image/jpeg,image/png,image/webp"
             className="hidden"
             onChange={(e) => {
               const file = e.target.files?.[0];
-              if (file) uploadMutation.mutate(file);
+              if (file) void handleFileChosen(file);
+              // Сброс сразу после чтения (как в NewsPhotoGallery): повторный выбор того же
+              // файла после отмены диалога снова вызовет onChange.
+              e.target.value = "";
             }}
           />
           <Button
@@ -161,9 +183,21 @@ export function PersonPhotoSection({
           ) : null}
         </div>
         <p className="text-xs text-muted-foreground">
-          JPEG, PNG, GIF или WebP до 15 МБ. Новое фото заменяет прежнее.
+          JPEG, PNG или WebP до 15 МБ. Сохраняется только кадр 3:4; новое фото заменяет прежнее.
         </p>
       </CardContent>
+      <CoverCropDialog
+        file={cropFile}
+        ratio={PERSON_PHOTO_RATIO}
+        title="Кадр для карточки руководства"
+        description="Выберите область снимка. Сохранится только выбранный кадр 3:4, как на странице руководства."
+        confirmLabel="Загрузить фото"
+        onClose={() => setCropFile(null)}
+        onConfirm={(file) => {
+          setCropFile(null);
+          uploadMutation.mutate(file);
+        }}
+      />
     </Card>
   );
 }
