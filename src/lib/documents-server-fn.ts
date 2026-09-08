@@ -1,11 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { DOCUMENT_SLUG_PATTERN } from "@/lib/document-slug";
 import {
   attachDocumentToNews as attachDocumentToNewsImpl,
   createDocument as createDocumentImpl,
   detachDocumentFromNews as detachDocumentFromNewsImpl,
   getAdminDocument as getAdminDocumentImpl,
   getNewsDocuments as getNewsDocumentsImpl,
+  getPublishedDocumentBySlug as getPublishedDocumentBySlugImpl,
   listAdminDocuments as listAdminDocumentsImpl,
   reorderNewsDocuments as reorderNewsDocumentsImpl,
   softDeleteDocument as softDeleteDocumentImpl,
@@ -58,6 +60,7 @@ export const createDocument = createServerFn({ method: "POST" })
       documentDate: z.string().min(1),
       status: statusSchema.optional(),
       inLibrary: z.boolean().optional(),
+      slug: z.string().nullable().optional(),
     }),
   )
   .handler(({ data }) => createDocumentImpl(data));
@@ -76,6 +79,7 @@ export const updateDocument = createServerFn({ method: "POST" })
         documentDate: z.string().min(1).optional(),
         status: statusSchema.optional(),
         inLibrary: z.boolean().optional(),
+        slug: z.string().nullable().optional(),
       }),
     }),
   )
@@ -102,3 +106,22 @@ export const reorderNewsDocuments = createServerFn({ method: "POST" })
     z.object({ newsId: z.string().min(1), orderedDocumentIds: z.array(z.string().min(1)) }),
   )
   .handler(({ data }) => reorderNewsDocumentsImpl(data.newsId, data.orderedDocumentIds));
+
+/** Публичная выдача опубликованного документа по адресу постоянной страницы.
+ * `s3Key` наружу не уходит — как photoUrl у персон: наружу только готовый URL. */
+export const getPublishedDocumentBySlug = createServerFn({ method: "GET" })
+  .validator(z.string().regex(DOCUMENT_SLUG_PATTERN))
+  .handler(async ({ data }) => {
+    const row = await getPublishedDocumentBySlugImpl(data);
+    if (row === null) {
+      return null;
+    }
+    return {
+      title: row.title,
+      fileName: row.fileName,
+      sizeBytes: row.sizeBytes,
+      mimeType: row.mimeType,
+      documentDate: row.documentDate,
+      url: buildImageUrl(row.s3Key),
+    };
+  });
