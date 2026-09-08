@@ -47,6 +47,7 @@ type AdminDocument = {
   documentDate: string;
   status: "draft" | "published";
   inLibrary: boolean;
+  slug: string | null;
   url: string;
 };
 
@@ -97,6 +98,8 @@ const formSchema = z.object({
   documentDate: z.string().min(1, "Укажите дату"),
   status: z.enum(["draft", "published"]),
   inLibrary: z.boolean(),
+  // Формат проверяет сервер (normalizeDocumentSlug) — здесь строка как есть.
+  slug: z.string(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -181,6 +184,7 @@ export function DocumentForm(props: DocumentFormProps) {
             documentDate: props.initialValues?.documentDate ?? todayIso(),
             status: props.initialValues?.status ?? "draft",
             inLibrary: props.initialValues?.inLibrary ?? true,
+            slug: "",
           }
         : {
             title: props.document.title,
@@ -188,6 +192,7 @@ export function DocumentForm(props: DocumentFormProps) {
             documentDate: props.document.documentDate,
             status: props.document.status,
             inLibrary: props.document.inLibrary,
+            slug: props.document.slug ?? "",
           },
   });
 
@@ -238,6 +243,7 @@ export function DocumentForm(props: DocumentFormProps) {
           documentDate: input.values.documentDate,
           status: input.values.status,
           inLibrary: input.values.inLibrary,
+          slug: input.values.slug,
         },
       }),
     onSuccess: ({ id, status }, variables) => {
@@ -266,6 +272,7 @@ export function DocumentForm(props: DocumentFormProps) {
             documentDate: input.values.documentDate,
             status: input.values.status,
             inLibrary: input.values.inLibrary,
+            slug: input.values.slug,
             ...(input.upload
               ? {
                   s3Key: input.upload.result.key,
@@ -485,6 +492,23 @@ export function DocumentForm(props: DocumentFormProps) {
                         <SelectItem value="published">Опубликован</SelectItem>
                       </SelectContent>
                     </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="slug"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Адрес страницы (slug)</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <p className="text-[0.8rem] text-muted-foreground">
+                      латиница, цифры, дефис; пусто — без адреса
+                    </p>
                     <FormMessage />
                   </FormItem>
                 )}

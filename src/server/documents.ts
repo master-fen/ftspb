@@ -1,6 +1,7 @@
-import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, ne, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { document, newsDocument } from "@/db/schema";
+import { normalizeDocumentSlug } from "@/lib/document-slug";
 import { requireSession } from "@/server/auth";
 import { resetNewsCache } from "@/server/news-cache";
 import { buildImageUrl } from "@/server/storage";
@@ -14,6 +15,38 @@ function requireDb(): NonNullable<typeof db> {
     throw new Error("Требуется БД (DATABASE_URL не задан), а для админки мок-фолбэка нет");
   }
   return db;
+}
+
+/**
+ * Нормализует slug из ввода админки и проверяет занятость среди живых
+ * записей (`deleted_at is null`), кроме самой записи `excludeId`. Частичный
+ * уникальный индекс document_slug_active_idx — страховка от гонки.
+ */
+async function normalizeAndCheckSlug(
+  database: NonNullable<typeof db>,
+  input: string | null | undefined,
+  excludeId?: string,
+): Promise<string | null> {
+  const normalized = normalizeDocumentSlug(input);
+  if (!normalized.ok) {
+    throw new Error(normalized.error);
+  }
+  if (normalized.slug !== null) {
+    const conditions = [
+      eq(document.slug, normalized.slug),
+      isNull(document.deletedAt),
+      ...(excludeId !== undefined ? [ne(document.id, excludeId)] : []),
+    ];
+    const [taken] = await database
+      .select({ id: document.id })
+      .from(document)
+      .where(and(...conditions))
+      .limit(1);
+    if (taken) {
+      throw new Error("Адрес уже занят другим документом");
+    }
+  }
+  return normalized.slug;
 }
 
 export type ListAdminDocumentsParams = {
@@ -69,6 +102,7 @@ export type CreateDocumentInput = {
   documentDate: string;
   status?: Status;
   inLibrary?: boolean;
+  slug?: string | null;
 };
 
 /** Не заливает файл в S3 сама — как `addPhoto` в news-admin.ts, а не
@@ -88,6 +122,7 @@ export async function createDocument(input: CreateDocumentInput): Promise<Docume
     documentDate: input.documentDate,
     status: input.status ?? "draft",
     inLibrary: input.inLibrary ?? true,
+    slug: await normalizeAndCheckSlug(database, input.slug),
   };
 
   const [row] = await database.insert(document).values(values).returning();
@@ -104,6 +139,7 @@ export type UpdateDocumentInput = Partial<{
   documentDate: string;
   status: Status;
   inLibrary: boolean;
+  slug: string | null;
 }>;
 
 /** Помимо метаданных принимает замену файла целиком (`s3Key`/`fileName`/
@@ -128,6 +164,9 @@ export async function updateDocument(id: string, input: UpdateDocumentInput): Pr
   if (input.documentDate !== undefined) values.documentDate = input.documentDate;
   if (input.status !== undefined) values.status = input.status;
   if (input.inLibrary !== undefined) values.inLibrary = input.inLibrary;
+  if (input.slug !== undefined) {
+    values.slug = await normalizeAndCheckSlug(database, input.slug, id);
+  }
 
   await database.update(document).set(values).where(eq(document.id, id));
   resetNewsCache();
@@ -267,4 +306,45 @@ export async function getPublishedDocumentsForNews(newsId: string): Promise<Publ
     sizeBytes: row.document.sizeBytes,
     url: buildImageUrl(row.document.s3Key),
   }));
+}
+
+export type PublishedDocumentBySlug = {
+  id: string;
+  title: string;
+  fileName: string;
+  sizeBytes: number;
+  mimeType: string;
+  documentDate: string;
+  s3Key: string;
+};
+
+/** Опубликованный документ по адресу постоянной страницы (document.slug).
+ * Публичная функция: `db === null` (превью без БД) и отсутствие документа
+ * одинаково возвращают null, не бросают — страница обязана жить без файла.
+ * Колонки перечислены явно (см. комментарий в federation-person.ts): новая
+ * колонка не должна автоматически утекать в SSR-ответ. */
+export async function getPublishedDocumentBySlug(
+  slug: string,
+): Promise<PublishedDocumentBySlug | null> {
+  if (db === null) {
+    return null;
+  }
+
+  const [row] = await db
+    .select({
+      id: document.id,
+      title: document.title,
+      fileName: document.fileName,
+      sizeBytes: document.sizeBytes,
+      mimeType: document.mimeType,
+      documentDate: document.documentDate,
+      s3Key: document.s3Key,
+    })
+    .from(document)
+    .where(
+      and(eq(document.slug, slug), eq(document.status, "published"), isNull(document.deletedAt)),
+    )
+    .limit(1);
+
+  return row ?? null;
 }

@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   bigint,
   boolean,
@@ -9,6 +10,7 @@ import {
   primaryKey,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
@@ -71,21 +73,36 @@ export const newsPhoto = pgTable("news_photo", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-export const document = pgTable("document", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  title: text("title").notNull(),
-  s3Key: text("s3_key").notNull(),
-  mimeType: text("mime_type").notNull(),
-  sizeBytes: bigint("size_bytes", { mode: "number" }).notNull(),
-  section: sectionEnum("section"),
-  documentDate: date("document_date").notNull(),
-  fileName: text("file_name").notNull(),
-  status: statusEnum("status").notNull().default("draft"),
-  inLibrary: boolean("in_library").notNull().default(true),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-  deletedAt: timestamp("deleted_at", { withTimezone: true }),
-});
+export const document = pgTable(
+  "document",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    title: text("title").notNull(),
+    s3Key: text("s3_key").notNull(),
+    mimeType: text("mime_type").notNull(),
+    sizeBytes: bigint("size_bytes", { mode: "number" }).notNull(),
+    section: sectionEnum("section"),
+    documentDate: date("document_date").notNull(),
+    fileName: text("file_name").notNull(),
+    status: statusEnum("status").notNull().default("draft"),
+    inLibrary: boolean("in_library").notNull().default(true),
+    /**
+     * Адрес постоянной публичной страницы документа (например, "charter" для
+     * /federation/charter). Формат — src/lib/document-slug.ts.
+     */
+    slug: text("slug"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [
+    // Уникальность адреса только среди живых записей: мягко удалённый
+    // документ освобождает адрес без дополнительного кода.
+    uniqueIndex("document_slug_active_idx")
+      .on(table.slug)
+      .where(sql`deleted_at is null`),
+  ],
+);
 
 export const newsDocument = pgTable(
   "news_document",
