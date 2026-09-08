@@ -1,15 +1,13 @@
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { news, newsPhoto } from "@/db/schema";
-import { HttpError } from "@/lib/http-error";
 import { featuredNewsInput, featuredSignature } from "@/lib/featured-news-input";
-import { getCurrentSession } from "@/server/auth";
+import { requireSession } from "@/server/auth";
 import { resetNewsCache } from "@/server/news-cache";
 import { buildImageUrl } from "@/server/storage";
 
 async function requireEditor() {
-  if (!(await getCurrentSession()))
-    throw new HttpError(401, "Требуется активная сессия администратора");
+  await requireSession();
   if (!db) throw new Error("Требуется БД");
   return db;
 }

@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { document, newsDocument } from "@/db/schema";
-import { getCurrentSession } from "@/server/auth";
+import { requireSession } from "@/server/auth";
 import { resetNewsCache } from "@/server/news-cache";
 import { buildImageUrl } from "@/server/storage";
 
@@ -14,17 +14,6 @@ function requireDb(): NonNullable<typeof db> {
     throw new Error("Требуется БД (DATABASE_URL не задан), а для админки мок-фолбэка нет");
   }
   return db;
-}
-
-/** Guard в src/routes/admin/_authed/route.tsx — навигационный, не граница
- * безопасности (см. CLAUDE.md). Каждая функция этого файла проверяет
- * активную сессию сама, первой строкой. */
-async function requireSession() {
-  const session = await getCurrentSession();
-  if (!session) {
-    throw new Error("Требуется активная сессия администратора");
-  }
-  return session;
 }
 
 export type ListAdminDocumentsParams = {

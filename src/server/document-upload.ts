@@ -1,8 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { buildContentDisposition } from "@/lib/content-disposition";
-import { HttpError } from "@/lib/http-error";
 import type { SupportedDocumentType } from "@/lib/image-validation";
-import { getCurrentSession } from "@/server/auth";
+import { requireSession } from "@/server/auth";
 import { buildImageUrl, objectExists, uploadObject } from "@/server/storage";
 
 async function pickUniqueDocumentKey(extension: string): Promise<string> {
@@ -40,10 +39,7 @@ export type UploadDocumentResult = {
 export async function uploadDocumentFile(
   input: UploadDocumentInput,
 ): Promise<UploadDocumentResult> {
-  const session = await getCurrentSession();
-  if (!session) {
-    throw new HttpError(401, "Требуется активная сессия администратора");
-  }
+  await requireSession();
 
   const key = await pickUniqueDocumentKey(input.extension);
   const disposition = buildContentDisposition(input.title, input.extension);

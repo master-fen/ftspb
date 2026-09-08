@@ -4,6 +4,7 @@ import { and, eq, gt, lt } from "drizzle-orm";
 import { getCookie } from "@tanstack/react-start/server";
 import { db } from "@/db/client";
 import { adminSession, adminUser } from "@/db/schema";
+import { HttpError } from "@/lib/http-error";
 
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -123,4 +124,20 @@ export async function getCurrentSession(): Promise<AdminSessionInfo | null> {
     return null;
   }
   return { id: user.id, login: user.login, displayName: user.displayName };
+}
+
+/**
+ * Единая проверка сессии для всех серверных функций админки (`src/server/**`).
+ * Guard в `src/routes/admin/_authed/route.tsx` — навигационный, не граница
+ * безопасности (см. CLAUDE.md): каждая админская функция вызывает это первой
+ * строкой, потому что эндпоинты `createServerFn` доступны по HTTP напрямую.
+ * Без сессии — `HttpError(401)`: роут `api/admin/upload.ts` берёт код ответа
+ * из `status`.
+ */
+export async function requireSession(): Promise<AdminSessionInfo> {
+  const session = await getCurrentSession();
+  if (!session) {
+    throw new HttpError(401, "Требуется активная сессия администратора");
+  }
+  return session;
 }
