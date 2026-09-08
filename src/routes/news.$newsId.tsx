@@ -101,6 +101,8 @@ function NewsDetailPage() {
   const bodyNorm = item.body ? normalize(item.body) : "";
   const probe = excerptNorm.slice(0, 60);
   const showLead = Boolean(excerptNorm && !(probe.length > 20 && bodyNorm.startsWith(probe)));
+  // Флаг news.hide_cover_on_page прячет обложку только здесь; карточки и og:image (head) читают item.cover.
+  const pageCover = item.hideCoverOnPage ? undefined : item.cover;
 
   return (
     <div className="min-h-screen bg-background">
@@ -142,8 +144,8 @@ function NewsDetailPage() {
           <div className="min-w-0 space-y-8">
             {item.videoUrl ? <NewsVideo src={item.videoUrl} title={item.title} /> : null}
 
-            {item.cover || item.gallery?.length ? (
-              <NewsGallery cover={item.cover} gallery={item.gallery ?? []} title={item.title} />
+            {pageCover || item.gallery?.length ? (
+              <NewsGallery cover={pageCover} gallery={item.gallery ?? []} title={item.title} />
             ) : null}
 
             {item.body ? <NewsBody body={item.body} /> : null}
