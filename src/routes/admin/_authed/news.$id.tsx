@@ -9,6 +9,7 @@ import { z } from "zod";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Form,
   FormControl,
@@ -61,6 +62,7 @@ const formSchema = z.object({
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: result.message });
     }
   }),
+  hideCoverOnPage: z.boolean(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -121,6 +123,7 @@ function NewsEditForm({
     featured: boolean;
     featuredOrder: number | null;
     videoUrl: string | null;
+    hideCoverOnPage: boolean;
   };
 }) {
   const queryClient = useQueryClient();
@@ -145,6 +148,7 @@ function NewsEditForm({
       body: news.body ?? "",
       status: news.status,
       videoUrl: news.videoUrl ?? "",
+      hideCoverOnPage: news.hideCoverOnPage,
     },
   });
 
@@ -190,6 +194,7 @@ function NewsEditForm({
             body: values.body.trim() ? values.body : null,
             status: values.status,
             videoUrl: videoUrlToPayload(values.videoUrl),
+            hideCoverOnPage: values.hideCoverOnPage,
           },
         },
       }),
@@ -482,6 +487,27 @@ function NewsEditForm({
                       <SelectItem value="referees">Коллегия судей</SelectItem>
                     </SelectContent>
                   </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="hideCoverOnPage"
+              render={({ field }) => (
+                <FormItem className="space-y-2">
+                  <div className="flex flex-row items-center gap-2 space-y-0">
+                    <FormControl>
+                      <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                    </FormControl>
+                    <FormLabel className="font-normal">
+                      Не показывать обложку на странице новости
+                    </FormLabel>
+                  </div>
+                  <p className="text-[0.8rem] text-muted-foreground">
+                    Обложка останется в списках, на главной и в превью для соцсетей.
+                  </p>
                   <FormMessage />
                 </FormItem>
               )}

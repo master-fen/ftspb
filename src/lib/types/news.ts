@@ -37,4 +37,11 @@ export type NewsItem = {
    * нет. Необязательно из-за мок-фикстур `src/data/news-archive.ts` (Lovable-зона).
    */
   videoUrl?: string | null;
+  /**
+   * `news.hide_cover_on_page`: страница новости не показывает `cover` вовсе;
+   * карточки списков, главная, «Читайте также» и `og:image` читают `cover` как
+   * раньше. `undefined` = `false` — необязательно из-за мок-фикстур
+   * `src/data/news-archive.ts` (Lovable-зона); `src/server/news.ts` заполняет всегда.
+   */
+  hideCoverOnPage?: boolean;
 };

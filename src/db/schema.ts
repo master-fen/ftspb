@@ -42,6 +42,9 @@ export const news = pgTable(
     // Нормализованный embed-адрес Kinescope (`https://kinescope.io/embed/<id>`)
     // или NULL — см. src/lib/news-video-url.ts. Публичный рендер — задача Lovable.
     videoUrl: text("video_url"),
+    // Прячет обложку (cover_photo_id) только на странице новости; карточки
+    // списков, главная и og:image читают обложку как раньше.
+    hideCoverOnPage: boolean("hide_cover_on_page").notNull().default(false),
     coverPhotoId: uuid("cover_photo_id").references((): AnyPgColumn => newsPhoto.id, {
       onDelete: "set null",
     }),

@@ -1,0 +1,1 @@
+ALTER TABLE "news" ADD COLUMN "hide_cover_on_page" boolean DEFAULT false NOT NULL;
