@@ -44,4 +44,12 @@ export type NewsItem = {
    * `src/data/news-archive.ts` (Lovable-зона); `src/server/news.ts` заполняет всегда.
    */
   hideCoverOnPage?: boolean;
+  /**
+   * `news.published_at` как в колонке: `YYYY-MM-DD`, без времени и зоны — их в
+   * данных нет, и выдумывать не надо. Для machine-readable мета (article:*,
+   * JSON-LD); отображение — по-прежнему `date`. Необязательно из-за мок-фикстур.
+   */
+  publishedAtIso?: string;
+  /** `news.updated_at`, полный ISO-8601 (`toISOString()`). Необязательно из-за мок-фикстур. */
+  updatedAtIso?: string;
 };
