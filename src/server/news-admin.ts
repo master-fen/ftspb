@@ -5,7 +5,7 @@ import { news, newsPhoto } from "@/db/schema";
 import { HttpError } from "@/lib/http-error";
 import { EXTENSION_BY_TYPE, type SupportedImageType } from "@/lib/image-validation";
 import { normalizeVideoUrl } from "@/lib/news-video-url";
-import { getCurrentSession } from "@/server/auth";
+import { requireSession } from "@/server/auth";
 import { resetNewsCache } from "@/server/news-cache";
 import { sanitizeBody } from "@/server/sanitize";
 import { slugify } from "@/server/slug";
@@ -21,17 +21,6 @@ function requireDb(): NonNullable<typeof db> {
     throw new Error("Требуется БД (DATABASE_URL не задан), а для админки мок-фолбэка нет");
   }
   return db;
-}
-
-/** Guard в src/routes/admin/_authed/route.tsx — навигационный, не граница
- * безопасности (см. CLAUDE.md). Каждая функция этого файла проверяет
- * активную сессию сама, первой строкой. */
-async function requireSession() {
-  const session = await getCurrentSession();
-  if (!session) {
-    throw new HttpError(401, "Требуется активная сессия администратора");
-  }
-  return session;
 }
 
 /** Postgres unique_violation — коллизия slug на уровне constraint БД (гонка

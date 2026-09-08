@@ -16,7 +16,7 @@ import {
   isWithinSizeLimit,
   MAX_UPLOAD_BYTES,
 } from "@/lib/image-validation";
-import { getCurrentSession } from "@/server/auth";
+import { requireSession } from "@/server/auth";
 import { buildImageUrl, deleteObject, objectExists, uploadObject } from "@/server/storage";
 
 export type PersonRow = typeof federationPerson.$inferSelect;
@@ -39,17 +39,6 @@ function requireDb(): NonNullable<typeof db> {
     throw new Error("Требуется БД (DATABASE_URL не задан), а для админки мок-фолбэка нет");
   }
   return db;
-}
-
-/** Guard в src/routes/admin/_authed/route.tsx — навигационный, не граница
- * безопасности (см. CLAUDE.md). Каждая админская функция этого файла
- * проверяет активную сессию сама, первой строкой. */
-async function requireSession() {
-  const session = await getCurrentSession();
-  if (!session) {
-    throw new HttpError(401, "Требуется активная сессия администратора");
-  }
-  return session;
 }
 
 export type ListPersonsParams = {
