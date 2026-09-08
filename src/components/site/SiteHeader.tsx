@@ -152,85 +152,85 @@ export function SiteHeader() {
             onMouseLeave={() => setHovered(null)}
             className="absolute top-1/2 right-0 left-0 flex -translate-y-1/2 items-center justify-start gap-10 pl-10"
           >
-          {navSections.map((s) => {
-            const setRef = (el: HTMLElement | null) => {
-              itemRefs.current[s.label] = el;
-            };
+            {navSections.map((s) => {
+              const setRef = (el: HTMLElement | null) => {
+                itemRefs.current[s.label] = el;
+              };
 
-            if (s.children) {
-              return (
-                <div
-                  key={s.label}
-                  className="relative"
-                  onMouseEnter={() => {
-                    setHovered(s.label);
-                    setOpenMenu(s.label);
-                  }}
-                  onMouseLeave={() => setOpenMenu((cur) => (cur === s.label ? null : cur))}
-                >
-                  <button
-                    ref={setRef}
-                    type="button"
-                    aria-haspopup="true"
-                    aria-expanded={openMenu === s.label}
-                    onClick={() => setOpenMenu((cur) => (cur === s.label ? null : s.label))}
-                    className={navItemClass}
+              if (s.children) {
+                return (
+                  <div
+                    key={s.label}
+                    className="relative"
+                    onMouseEnter={() => {
+                      setHovered(s.label);
+                      setOpenMenu(s.label);
+                    }}
+                    onMouseLeave={() => setOpenMenu((cur) => (cur === s.label ? null : cur))}
                   >
-                    {s.label}
-                  </button>
+                    <button
+                      ref={setRef}
+                      type="button"
+                      aria-haspopup="true"
+                      aria-expanded={openMenu === s.label}
+                      onClick={() => setOpenMenu((cur) => (cur === s.label ? null : s.label))}
+                      className={navItemClass}
+                    >
+                      {s.label}
+                    </button>
 
-                  {openMenu === s.label ? (
-                    <div className="absolute top-full left-0 z-40 flex flex-col items-start gap-2 pt-4 pb-2 whitespace-nowrap">
-                      {s.children.map((c) =>
-                        c.href.startsWith("/") ? (
-                          <Link key={c.label} to={c.href} className={dropdownItemClass}>
-                            {c.label}
-                          </Link>
-                        ) : (
-                          <a key={c.label} href={c.href} className={dropdownItemClass}>
-                            {c.label}
-                          </a>
-                        ),
-                      )}
-                    </div>
-                  ) : null}
-                </div>
+                    {openMenu === s.label ? (
+                      <div className="absolute top-full left-0 z-40 flex flex-col items-start gap-2 pt-4 pb-2 whitespace-nowrap">
+                        {s.children.map((c) =>
+                          c.href.startsWith("/") ? (
+                            <Link key={c.label} to={c.href} className={dropdownItemClass}>
+                              {c.label}
+                            </Link>
+                          ) : (
+                            <a key={c.label} href={c.href} className={dropdownItemClass}>
+                              {c.label}
+                            </a>
+                          ),
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              }
+
+              return s.href.startsWith("/") ? (
+                <Link
+                  key={s.label}
+                  to={s.href}
+                  ref={setRef}
+                  onMouseEnter={() => setHovered(s.label)}
+                  className={navItemClass}
+                >
+                  {s.label}
+                </Link>
+              ) : (
+                <a
+                  key={s.label}
+                  href={s.href}
+                  ref={setRef}
+                  onMouseEnter={() => setHovered(s.label)}
+                  className={navItemClass}
+                >
+                  {s.label}
+                </a>
               );
-            }
+            })}
 
-            return s.href.startsWith("/") ? (
-              <Link
-                key={s.label}
-                to={s.href}
-                ref={setRef}
-                onMouseEnter={() => setHovered(s.label)}
-                className={navItemClass}
-              >
-                {s.label}
-              </Link>
-            ) : (
-              <a
-                key={s.label}
-                href={s.href}
-                ref={setRef}
-                onMouseEnter={() => setHovered(s.label)}
-                className={navItemClass}
-              >
-                {s.label}
-              </a>
-            );
-          })}
-
-          <span
-            aria-hidden
-            className="pointer-events-none absolute -bottom-2 h-[2px] rounded-full transition-all duration-300 ease-out"
-            style={{
-              backgroundColor: "var(--color-brand-blue)",
-              left: indicator.left,
-              width: indicator.width,
-              opacity: indicator.visible ? 1 : 0,
-            }}
-          />
+            <span
+              aria-hidden
+              className="pointer-events-none absolute -bottom-2 h-[2px] rounded-full transition-all duration-300 ease-out"
+              style={{
+                backgroundColor: "var(--color-brand-blue)",
+                left: indicator.left,
+                width: indicator.width,
+                opacity: indicator.visible ? 1 : 0,
+              }}
+            />
           </nav>
         </div>
 

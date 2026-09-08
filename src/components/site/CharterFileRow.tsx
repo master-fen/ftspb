@@ -20,11 +20,19 @@ export function CharterFileRow({ format, action, date, size, preview }: CharterF
         <span className="block text-xs text-muted-foreground">Устав · {date}</span>
       </span>
       <span
-        aria-label={preview ? "Предпросмотр будет доступен после публикации" : "Скачивание будет доступно после публикации"}
+        aria-label={
+          preview
+            ? "Предпросмотр будет доступен после публикации"
+            : "Скачивание будет доступно после публикации"
+        }
         className="flex items-center gap-2 text-xs text-muted-foreground"
       >
         {size ? <span>{size}</span> : null}
-        {preview ? <Eye className="size-4" aria-hidden="true" /> : <Download className="size-4" aria-hidden="true" />}
+        {preview ? (
+          <Eye className="size-4" aria-hidden="true" />
+        ) : (
+          <Download className="size-4" aria-hidden="true" />
+        )}
       </span>
     </div>
   );
