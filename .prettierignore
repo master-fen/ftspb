@@ -9,3 +9,5 @@ routeTree.gen.ts
 .lovable/
 AGENTS.md
 src/routes/README.md
+# Выгрузка текстового слоя Устава защищена SHA256 (docs/charter/README.md) — не форматировать.
+docs/charter/ustav.lines.json
