@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { deletePersonPhoto } from "@/lib/federation-person-server-fn";
+import { prepareFileForUpload } from "@/lib/image-resize";
 import { detectImageSignature, isWithinSizeLimit } from "@/lib/image-validation";
 
 type UploadResult = { key: string; url: string };
@@ -12,14 +13,15 @@ type UploadResult = { key: string; url: string };
 /** Тот же транспорт, что у фото новости (NewsPhotoGallery): multipart на /api/admin/upload. */
 function uploadFile(
   personId: string,
-  file: File,
+  blob: Blob,
+  filename: string,
   onProgress: (percent: number) => void,
 ): Promise<UploadResult> {
   return new Promise((resolve, reject) => {
     const formData = new FormData();
     formData.append("kind", "person-photo");
     formData.append("personId", personId);
-    formData.append("file", file, file.name);
+    formData.append("file", blob, filename);
 
     const xhr = new XMLHttpRequest();
     xhr.open("POST", "/api/admin/upload");
@@ -80,7 +82,9 @@ export function PersonPhotoSection({
     mutationFn: async (file: File) => {
       const validationError = await validateImageFile(file);
       if (validationError) throw new Error(validationError);
-      return uploadFile(personId, file, setProgress);
+      // Тот же порог и формат, что у фото новости: >1600px по длинной стороне → JPEG.
+      const prepared = await prepareFileForUpload(file);
+      return uploadFile(personId, prepared.blob, prepared.filename, setProgress);
     },
     onSuccess: () => {
       toast.success("Фото загружено");
