@@ -12,7 +12,8 @@ import type { NewsItem } from "@/lib/types/news";
 import { newsMetaLine } from "@/lib/news-meta";
 import { NEWS_ORIGINS } from "@/lib/news-origin";
 import { pickRelatedNews } from "@/lib/news-related";
-import { OG_IMAGE_URL, SITE_URL, toAbsoluteUrl } from "@/lib/site";
+import { buildNewsArticleJsonLd, serializeJsonLd } from "@/lib/news-jsonld";
+import { OG_IMAGE_URL, SITE_NAME, SITE_URL, toAbsoluteUrl } from "@/lib/site";
 
 /**
  * `?from=` — путь, которым пришли (см. src/lib/news-origin.ts). Невалидное
@@ -48,6 +49,16 @@ export const Route = createFileRoute("/news/$newsId")({
     const desc = item.excerpt ?? item.title;
     const image = toAbsoluteUrl(item.cover) ?? OG_IMAGE_URL;
     const url = `${SITE_URL}/news/${item.id}`;
+    // Машиночитаемые даты — только при наличии (мок-фикстуры без БД их не имеют).
+    const jsonLd = buildNewsArticleJsonLd({
+      title: item.title,
+      description: desc,
+      url,
+      image,
+      datePublished: item.publishedAtIso,
+      dateModified: item.updatedAtIso,
+      publisherName: SITE_NAME,
+    });
 
     return {
       meta: [
@@ -58,12 +69,19 @@ export const Route = createFileRoute("/news/$newsId")({
         { property: "og:type", content: "article" },
         { property: "og:url", content: url },
         { property: "og:image", content: image },
+        ...(item.publishedAtIso
+          ? [{ property: "article:published_time", content: item.publishedAtIso }]
+          : []),
+        ...(item.updatedAtIso
+          ? [{ property: "article:modified_time", content: item.updatedAtIso }]
+          : []),
         { name: "twitter:card", content: "summary_large_image" },
         { name: "twitter:title", content: item.title },
         { name: "twitter:description", content: desc },
         { name: "twitter:image", content: image },
       ],
       links: [{ rel: "canonical", href: url }],
+      scripts: jsonLd ? [{ type: "application/ld+json", children: serializeJsonLd(jsonLd) }] : [],
     };
   },
 

@@ -78,6 +78,7 @@ async function loadCache(): Promise<NewsCache> {
       coverPhotoId: news.coverPhotoId,
       videoUrl: news.videoUrl,
       hideCoverOnPage: news.hideCoverOnPage,
+      updatedAt: news.updatedAt,
     })
     .from(news)
     .where(and(eq(news.status, "published"), isNull(news.deletedAt)))
@@ -163,6 +164,8 @@ async function loadCache(): Promise<NewsCache> {
       gallery: gallery.length ? gallery : undefined,
       featured: row.featured,
       hideCoverOnPage: row.hideCoverOnPage,
+      publishedAtIso: row.publishedAt,
+      updatedAtIso: row.updatedAt.toISOString(),
     };
   });
 
