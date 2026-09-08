@@ -209,6 +209,8 @@ Code) через прежний `LeadershipCard` без `photo`/`links`; пус�
 
 **Исключение (согласовано 08.09.2026, страница Устава):** `src/routes/federation.charter.tsx` и `src/components/site/CharterPageAside.tsx` переписаны, `src/components/site/CharterFileRow.tsx` удалён; добавлены `src/components/site/CharterText.tsx`, `CharterToc.tsx`, `DocumentFileCard.tsx`. Текст Устава — `src/lib/charter/content.ts`, генерируется `scripts/build-charter-content.ts` из `docs/charter/ustav.lines.json`; править текст руками нельзя — правится генератор или выгрузка. Реквизиты — `src/lib/charter/meta.ts`; файл — `getPublishedDocumentBySlug("charter")`. `docs/charter/**` и `src/lib/charter/**` — зона Claude Code. Перечисленные компоненты и route — не Lovable-зона без повторного согласования.
 
+**Исключение (согласовано 09.09.2026, обложка 4:3):** в `src/components/site/NewsCard.tsx` заменена одна утилита `object-[50%_25%]` → `object-center`: кадр обложки теперь выбирается в редакторе (`CoverCropDialog`, 4:3), вертикальную композицию решает редактор, не CSS. Разметка и остальные классы не менялись; файл остаётся зоной Lovable.
+
 ### Claude Code
 
 - `src/lib/**` — в т.ч. `src/lib/types/**` и `src/lib/news-server-fn.ts`
