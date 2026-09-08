@@ -205,6 +205,8 @@ Code) через прежний `LeadershipCard` без `photo`/`links`; пус�
 
 **Исключение (согласовано 08.09.2026, контейнер и обложка страницы новости):** `src/routes/news.$newsId.tsx` — (1) `<main>` возвращён в общий контейнер сайта (`max-w-7xl px-4 md:px-6 lg:px-10`, как у шапки, подвала и `news.index.tsx`) вместо `max-w-[1120px]` из PR #39; на `xl` сетка `[minmax(0,1fr)_320px]` с `gap-[120px]` и ограничение `<header>` `calc(100%-440px)`, чтобы колонка чтения осталась 760px — `max-w-[1120px]` не возвращать; (2) `NewsGallery` получает `cover` через `pageCover = item.hideCoverOnPage ? undefined : item.cover`: флаг `news.hide_cover_on_page` (админка, «Не показывать обложку на странице новости») прячет обложку только на странице, карточки и `og:image` читают `item.cover` как раньше. Дальше JSX файла — по-прежнему не Claude-Code-зона без повторного согласования.
 
+**Исключение (согласовано 08.09.2026, только форматирование):** `CharterFileRow.tsx`, `CharterPageAside.tsx`, `SiteHeader.tsx`, `federation.charter.tsx` прогнаны через `prettier --write` без изменения кода — чтобы `format` и `lint` в CI стали зелёными и проверки PR снова что-то значили. Содержательно файлы не менялись; их JSX — по-прежнему зона Lovable.
+
 ### Claude Code
 
 - `src/lib/**` — в т.ч. `src/lib/types/**` и `src/lib/news-server-fn.ts`
