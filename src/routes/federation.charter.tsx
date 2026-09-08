@@ -79,7 +79,7 @@ function CharterPage() {
               , ОГРН {CHARTER_META.ogrn}
             </dd>
           </div>
-          <div>
+          <div className="lg:hidden">
             <dt className="font-semibold">Файл</dt>
             <dd className="mt-1.5">
               {documentFile ? (
