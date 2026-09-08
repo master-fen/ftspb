@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, redirect } from "@tanstack/react-router";
 import { getSessionFn } from "@/lib/auth-server-fn";
 
 /**
@@ -14,5 +14,48 @@ export const Route = createFileRoute("/admin/_authed")({
     }
     return { session };
   },
-  component: () => <Outlet />,
+  component: AdminLayout,
 });
+
+function AdminLayout() {
+  return (
+    <>
+      <nav aria-label="Управление сайтом" className="border-b bg-card px-4 md:px-8">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-1 py-3 text-sm">
+          <Link
+            to="/admin"
+            activeOptions={{ exact: true }}
+            className="mr-3 rounded-lg px-3 py-2 font-semibold"
+            activeProps={{ className: "bg-muted" }}
+          >
+            Управление сайтом
+          </Link>
+          {(
+            [
+              { to: "/admin/news", label: "Новости" },
+              { to: "/admin/documents", label: "Документы" },
+              { to: "/admin/persons", label: "Руководство" },
+            ] as const
+          ).map((item) => (
+            <Link
+              key={item.to}
+              to={item.to}
+              className="rounded-lg px-3 py-2 text-muted-foreground hover:bg-muted"
+              activeProps={{ className: "bg-muted font-medium text-foreground" }}
+            >
+              {item.label}
+            </Link>
+          ))}
+          <Link
+            to="/"
+            target="_blank"
+            className="ml-auto rounded-lg px-3 py-2 text-muted-foreground hover:bg-muted"
+          >
+            Открыть сайт ↗
+          </Link>
+        </div>
+      </nav>
+      <Outlet />
+    </>
+  );
+}
