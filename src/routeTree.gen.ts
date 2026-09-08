@@ -34,6 +34,7 @@ import { Route as FederationAboutRouteImport } from './routes/federation.about'
 import { Route as AdminLoginRouteImport } from './routes/admin/login'
 import { Route as AdminAuthedRouteRouteImport } from './routes/admin/_authed/route'
 import { Route as AdminAuthedIndexRouteImport } from './routes/admin/_authed/index'
+import { Route as FederationCharterTextRouteImport } from './routes/federation_.charter.text'
 import { Route as ApiAdminUploadRouteImport } from './routes/api/admin/upload'
 import { Route as ApiAdminPhotoSourceRouteImport } from './routes/api/admin/photo-source'
 import { Route as AdminAuthedPersonsIndexRouteImport } from './routes/admin/_authed/persons.index'
@@ -170,6 +171,11 @@ const AdminAuthedIndexRoute = AdminAuthedIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AdminAuthedRouteRoute,
 } as any)
+const FederationCharterTextRoute = FederationCharterTextRouteImport.update({
+  id: '/federation_/charter/text',
+  path: '/federation/charter/text',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAdminUploadRoute = ApiAdminUploadRouteImport.update({
   id: '/api/admin/upload',
   path: '/api/admin/upload',
@@ -253,6 +259,7 @@ export interface FileRoutesByFullPath {
   '/news/': typeof NewsIndexRoute
   '/api/admin/photo-source': typeof ApiAdminPhotoSourceRoute
   '/api/admin/upload': typeof ApiAdminUploadRoute
+  '/federation/charter/text': typeof FederationCharterTextRoute
   '/admin/': typeof AdminAuthedIndexRoute
   '/admin/documents/$id': typeof AdminAuthedDocumentsIdRoute
   '/admin/documents/new': typeof AdminAuthedDocumentsNewRoute
@@ -289,6 +296,7 @@ export interface FileRoutesByTo {
   '/news': typeof NewsIndexRoute
   '/api/admin/photo-source': typeof ApiAdminPhotoSourceRoute
   '/api/admin/upload': typeof ApiAdminUploadRoute
+  '/federation/charter/text': typeof FederationCharterTextRoute
   '/admin/documents/$id': typeof AdminAuthedDocumentsIdRoute
   '/admin/documents/new': typeof AdminAuthedDocumentsNewRoute
   '/admin/news/$id': typeof AdminAuthedNewsIdRoute
@@ -327,6 +335,7 @@ export interface FileRoutesById {
   '/news/': typeof NewsIndexRoute
   '/api/admin/photo-source': typeof ApiAdminPhotoSourceRoute
   '/api/admin/upload': typeof ApiAdminUploadRoute
+  '/federation_/charter/text': typeof FederationCharterTextRoute
   '/admin/_authed/': typeof AdminAuthedIndexRoute
   '/admin/_authed/documents/$id': typeof AdminAuthedDocumentsIdRoute
   '/admin/_authed/documents/new': typeof AdminAuthedDocumentsNewRoute
@@ -366,6 +375,7 @@ export interface FileRouteTypes {
     | '/news/'
     | '/api/admin/photo-source'
     | '/api/admin/upload'
+    | '/federation/charter/text'
     | '/admin/'
     | '/admin/documents/$id'
     | '/admin/documents/new'
@@ -402,6 +412,7 @@ export interface FileRouteTypes {
     | '/news'
     | '/api/admin/photo-source'
     | '/api/admin/upload'
+    | '/federation/charter/text'
     | '/admin/documents/$id'
     | '/admin/documents/new'
     | '/admin/news/$id'
@@ -439,6 +450,7 @@ export interface FileRouteTypes {
     | '/news/'
     | '/api/admin/photo-source'
     | '/api/admin/upload'
+    | '/federation_/charter/text'
     | '/admin/_authed/'
     | '/admin/_authed/documents/$id'
     | '/admin/_authed/documents/new'
@@ -468,6 +480,7 @@ export interface RootRouteChildren {
   NewsIndexRoute: typeof NewsIndexRoute
   ApiAdminPhotoSourceRoute: typeof ApiAdminPhotoSourceRoute
   ApiAdminUploadRoute: typeof ApiAdminUploadRoute
+  FederationCharterTextRoute: typeof FederationCharterTextRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -647,6 +660,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAuthedIndexRouteImport
       parentRoute: typeof AdminAuthedRouteRoute
     }
+    '/federation_/charter/text': {
+      id: '/federation_/charter/text'
+      path: '/federation/charter/text'
+      fullPath: '/federation/charter/text'
+      preLoaderRoute: typeof FederationCharterTextRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/admin/upload': {
       id: '/api/admin/upload'
       path: '/api/admin/upload'
@@ -813,6 +833,7 @@ const rootRouteChildren: RootRouteChildren = {
   NewsIndexRoute: NewsIndexRoute,
   ApiAdminPhotoSourceRoute: ApiAdminPhotoSourceRoute,
   ApiAdminUploadRoute: ApiAdminUploadRoute,
+  FederationCharterTextRoute: FederationCharterTextRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

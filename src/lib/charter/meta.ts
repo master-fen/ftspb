@@ -1,23 +1,22 @@
 /**
- * Реквизиты Устава и отображаемые заголовки разделов для страницы
- * /federation/charter. Источники значений — сам документ (титульный лист,
- * пп. 1.3, 1.4, 1.6); текст Устава лежит отдельно в ./content.ts.
+ * Реквизиты редакций Устава и отображаемые заголовки разделов для страниц
+ * /federation/charter и /federation/charter/text. Источники значений — сам
+ * документ (титульный лист); текст Устава лежит отдельно в ./content.ts.
+ * Реквизиты организации (наименования, ОГРН, дата регистрации, адрес) —
+ * `ORG_REQUISITES` в src/lib/site.ts.
  */
 export const CHARTER_DOCUMENT_SLUG = "charter";
 
+/** Адрес страницы полного текста Устава (src/routes/federation_.charter.text.tsx). */
+export const CHARTER_TEXT_PATH = "/federation/charter/text";
+
 export const CHARTER_META = {
-  fullName:
-    "Санкт-Петербургская Региональная общественная организация «Спортивная Федерация тенниса»", // п. 1.4, регистр как в документе
-  shortName: "СПб РОО «Федерация тенниса»", // п. 1.4
   editionApprovedBy: "решением ежегодного Общего собрания членов", // титульный лист
   editionDate: "2016-03-17",
   editionDateText: "17 марта 2016 года",
   originalApprovedBy: "решением Учредительного собрания", // титульный лист
   originalDate: "2004-04-22",
   originalDateText: "22 апреля 2004 года",
-  registrationDate: "2004-05-27", // п. 1.3, 1.6
-  registrationDateText: "27 мая 2004 года",
-  ogrn: "1047831002614", // п. 1.3
 } as const;
 
 export const CHARTER_SECTION_TITLES: Record<number, string> = {
