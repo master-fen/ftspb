@@ -13,7 +13,7 @@ import { toast } from "sonner";
 /**
  * Изменяется только выбранный локальный файл. Оригинал в хранилище не перезаписывается.
  * Результат — File (JPEG) через onConfirm; загрузку делает вызывающая сторона.
- * По умолчанию — обложка новости 16:9; для фото персоны передаются ratio 3:4 и свои тексты.
+ * По умолчанию — обложка новости 4:3; для фото персоны передаются ratio 3:4 и свои тексты.
  */
 export function CoverCropDialog({
   file,
@@ -21,7 +21,7 @@ export function CoverCropDialog({
   onConfirm,
   ratio = COVER_RATIO,
   title = "Кадрирование обложки",
-  description = "Выберите область снимка. Сохранится отдельная обложка 16:9; исходное фото останется целым.",
+  description = "Выберите область снимка. Сохранится отдельная обложка 4:3; исходное фото останется целым.",
   confirmLabel = "Загрузить обложку",
 }: {
   file: File | null;
@@ -140,13 +140,31 @@ export function CoverCropDialog({
             <p className="p-8">Подготовка изображения…</p>
           )}
         </div>
+        {/* Ползунок оси блокируется, когда кадр по ней уже занимает весь снимок —
+            двигать нечего, пока не увеличен масштаб. */}
         {(
           [
-            ["Масштаб", zoom, setZoom, 1, 3, 0.05],
-            ["По горизонтали", x, setX, 0, 100, 1],
-            ["По вертикали", y, setY, 0, 100, 1],
+            ["Масштаб", zoom, setZoom, 1, 3, 0.05, false],
+            [
+              "По горизонтали",
+              x,
+              setX,
+              0,
+              100,
+              1,
+              !!source && !!crop && source.width - crop.width < 1,
+            ],
+            [
+              "По вертикали",
+              y,
+              setY,
+              0,
+              100,
+              1,
+              !!source && !!crop && source.height - crop.height < 1,
+            ],
           ] as const
-        ).map(([label, value, setValue, min, max, step]) => (
+        ).map(([label, value, setValue, min, max, step, locked]) => (
           <label key={label} className="flex flex-col gap-2 text-sm">
             {label}
             <input
@@ -155,9 +173,14 @@ export function CoverCropDialog({
               max={max}
               step={step}
               value={value}
-              disabled={busy || !source}
+              disabled={busy || !source || locked}
               onChange={(e) => setValue(Number(e.target.value))}
             />
+            {locked ? (
+              <span className="text-xs text-muted-foreground">
+                Нет запаса по этой оси — увеличьте масштаб
+              </span>
+            ) : null}
           </label>
         ))}
         <div className="flex justify-end gap-2">

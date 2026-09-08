@@ -31,7 +31,7 @@ describe("cover cropping", () => {
       }
     }
   });
-  test("omitted ratio is exactly the 16:9 news cover", () => {
+  test("omitted ratio is exactly the 4:3 news cover", () => {
     for (const [width, height, zoom, x, y] of [
       [4000, 2000, 1, 50, 50],
       [600, 1600, 1.5, 0, 100],
@@ -42,9 +42,21 @@ describe("cover cropping", () => {
       );
     }
     const crop = coverCrop(4000, 2000, 1, 50, 50);
-    expect(crop.width / crop.height).toBeCloseTo(16 / 9);
+    expect(crop.width / crop.height).toBeCloseTo(4 / 3);
     expect(crop.outputWidth).toBe(1600);
-    expect(crop.outputHeight).toBe(900);
+    expect(crop.outputHeight).toBe(1200);
+  });
+  test("axis slack: zero when the source already matches the frame, positive after zoom", () => {
+    // CoverCropDialog блокирует ползунок оси при `source - crop < 1`.
+    const exact = coverCrop(4000, 3000, 1, 50, 50, 4 / 3);
+    expect(4000 - exact.width).toBe(0);
+    expect(3000 - exact.height).toBe(0);
+    const zoomed = coverCrop(4000, 3000, 2, 50, 50, 4 / 3);
+    expect(4000 - zoomed.width).toBeGreaterThan(0);
+    expect(3000 - zoomed.height).toBeGreaterThan(0);
+    const wide = coverCrop(6000, 4000, 1, 50, 50, 4 / 3);
+    expect(6000 - wide.width).toBeGreaterThan(0);
+    expect(4000 - wide.height).toBe(0);
   });
   test("portrait photo can reach its top and bottom; export is not upscaled", () => {
     const top = coverCrop(900, 1600, 1, 50, 0);

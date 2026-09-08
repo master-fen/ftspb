@@ -1,11 +1,16 @@
-export const COVER_RATIO = 16 / 9;
+/**
+ * Кадр обложки новости. Обложка показывается в `NewsListCard` и
+ * `FeaturedNewsSection` (слоты 4:3) и в `LatestNewsSection` (1:1); 4:3 выбран как
+ * кадр, который эти слоты режут меньше всего.
+ */
+export const COVER_RATIO = 4 / 3;
 
 /** Длинная сторона экспорта — не больше 1600px, как у prepareFileForUpload. */
 const MAX_OUTPUT_LONG_SIDE = 1600;
 
 /**
  * Source coordinates shared by the preview and canvas export.
- * `ratio` = width / height кадра: 16:9 для обложки новости (по умолчанию),
+ * `ratio` = width / height кадра: 4:3 для обложки новости (по умолчанию),
  * 3:4 для фото персоны. Длинная сторона экспорта ограничена 1600px по любой
  * стороне: при портретном ratio ограничивается высота, иначе ширина.
  */
