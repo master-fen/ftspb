@@ -1,9 +1,14 @@
 /**
- * Реквизиты Устава и отображаемые заголовки разделов для страницы
- * /federation/charter. Источники значений — сам документ (титульный лист,
- * пп. 1.3, 1.4, 1.6); текст Устава лежит отдельно в ./content.ts.
+ * Реквизиты редакций Устава и отображаемые заголовки разделов для страниц
+ * /federation/charter и /federation/charter/text. Источники значений — сам
+ * документ (титульный лист); текст Устава лежит отдельно в ./content.ts.
+ * Реквизиты организации (наименования, ОГРН, дата регистрации, адрес) —
+ * `ORG_REQUISITES` в src/lib/site.ts.
  */
 export const CHARTER_DOCUMENT_SLUG = "charter";
+
+/** Адрес страницы полного текста Устава (src/routes/federation_.charter.text.tsx). */
+export const CHARTER_TEXT_PATH = "/federation/charter/text";
 
 export const CHARTER_META = {
   fullName:
