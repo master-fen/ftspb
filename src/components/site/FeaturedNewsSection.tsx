@@ -84,12 +84,12 @@ export function FeaturedNewsSection({ items = featuredNews }: FeaturedNewsSectio
           </div>
         )}
         {second && (
-          <div className="md:col-span-1 md:row-span-1">
+          <div className="md:col-span-1 md:row-span-1 md:min-h-0">
             <NewsCard item={second} />
           </div>
         )}
         {third && (
-          <div className="md:col-span-1 md:row-span-1">
+          <div className="md:col-span-1 md:row-span-1 md:min-h-0">
             <NewsCard item={third} />
           </div>
         )}
