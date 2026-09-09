@@ -64,8 +64,12 @@ function CharterTextPage() {
         <FederationSidebar activeHref="/federation/charter" />
       </div>
       {/* Карточка оглавления на широких экранах; на узких — <details> над текстом.
-          Колонка (SectionFrame) липкая и ограничена высотой окна: навигация
-          не сжимается, карточка занимает остаток, список прокручивается внутри. */}
+          На высоком окне колонка (SectionFrame, stickyAside="tall") липкая и
+          ограничена его высотой: навигация не сжимается, карточка занимает
+          остаток, список прокручивается внутри. На низком колонка идёт в
+          потоке и оглавление показывается целиком. Строки файла PDF здесь нет
+          намеренно — она в шапке статьи: в колонке она съедала 80px, которых
+          не хватало списку. */}
       <section
         className="mt-5 hidden rounded-[30px] border border-brand-blue/10 bg-background px-0 py-6 md:py-8 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col"
         aria-labelledby="charter-toc-title"
@@ -77,13 +81,12 @@ function CharterTextPage() {
           Содержание
         </h2>
         <CharterToc className="mt-3 px-6 lg:min-h-0 lg:flex-1 lg:overflow-y-auto" />
-        {pdfRow ? <div className="mt-6 shrink-0 px-6">{pdfRow}</div> : null}
       </section>
     </>
   );
 
   return (
-    <SectionFrame crumbs={CRUMBS} aside={aside}>
+    <SectionFrame crumbs={CRUMBS} aside={aside} stickyAside="tall">
       {/* На узких экранах оглавление сворачивается над текстом. */}
       <details className="rounded-md bg-muted px-4 py-3 lg:hidden">
         <summary className="cursor-pointer font-sans text-lg font-medium text-foreground">
@@ -103,6 +106,7 @@ function CharterTextPage() {
           Редакция от{" "}
           <time dateTime={CHARTER_META.editionDate}>{CHARTER_META.editionDateText}</time>
         </p>
+        {pdfRow ? <div className="mt-4 max-w-md">{pdfRow}</div> : null}
         <p className="mt-6 text-foreground/80">
           Текст приводится для ознакомления. При расхождениях приоритет имеет документ в формате
           PDF.
