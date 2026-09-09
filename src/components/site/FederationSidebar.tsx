@@ -31,9 +31,9 @@ export function findFederationItem(pathname: string) {
   return null;
 }
 
-export function FederationSidebar() {
+export function FederationSidebar({ activeHref }: { activeHref?: string } = {}) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const current = pathname === "/federation" ? "/federation/about" : pathname;
+  const current = activeHref ?? (pathname === "/federation" ? "/federation/about" : pathname);
 
   return (
     <nav
