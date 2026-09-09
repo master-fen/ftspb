@@ -27,7 +27,9 @@ export function SectionFrame({ crumbs, aside, children }: SectionFrameProps) {
 
         <div className="flex flex-col gap-10 lg:grid lg:grid-cols-3 lg:items-start lg:gap-6">
           <div className="min-w-0 lg:order-1 lg:col-span-2">{children}</div>
-          <aside className="w-full lg:order-2 lg:col-span-1">{aside}</aside>
+          <aside className="w-full lg:sticky lg:top-6 lg:order-2 lg:col-span-1 lg:flex lg:max-h-[calc(100vh-3rem)] lg:flex-col">
+            {aside}
+          </aside>
         </div>
       </main>
 

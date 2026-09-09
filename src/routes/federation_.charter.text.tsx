@@ -60,17 +60,24 @@ function CharterTextPage() {
 
   const aside = (
     <>
-      <FederationSidebar activeHref="/federation/charter" />
-      {/* Карточка оглавления на широких экранах; на узких — <details> над текстом. */}
+      <div className="lg:shrink-0">
+        <FederationSidebar activeHref="/federation/charter" />
+      </div>
+      {/* Карточка оглавления на широких экранах; на узких — <details> над текстом.
+          Колонка (SectionFrame) липкая и ограничена высотой окна: навигация
+          не сжимается, карточка занимает остаток, список прокручивается внутри. */}
       <section
-        className="mt-5 hidden rounded-[30px] border border-brand-blue/10 bg-background px-0 py-6 md:py-8 lg:block"
+        className="mt-5 hidden rounded-[30px] border border-brand-blue/10 bg-background px-0 py-6 md:py-8 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col"
         aria-labelledby="charter-toc-title"
       >
-        <h2 id="charter-toc-title" className="px-6 text-xl font-medium text-foreground md:text-2xl">
+        <h2
+          id="charter-toc-title"
+          className="shrink-0 px-6 text-xl font-medium text-foreground md:text-2xl"
+        >
           Содержание
         </h2>
-        <CharterToc className="mt-3 px-6" />
-        {pdfRow ? <div className="mt-6 px-6">{pdfRow}</div> : null}
+        <CharterToc className="mt-3 px-6 lg:min-h-0 lg:flex-1 lg:overflow-y-auto" />
+        {pdfRow ? <div className="mt-6 shrink-0 px-6">{pdfRow}</div> : null}
       </section>
     </>
   );
