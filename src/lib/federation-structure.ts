@@ -91,10 +91,14 @@ export const STRUCTURE_NODES = [
 
 export type StructureNodeId = (typeof STRUCTURE_NODES)[number]["id"];
 
-/** Уровень узла: 0 у корня, дальше — длина цепочки `parent`. */
-export function structureLevel(id: string): number {
+/**
+ * Уровень узла: 0 у корня, дальше — длина цепочки `parent`. Параметр — союз
+ * StructureNodeId, а не string: опечатка в вызове должна падать компиляцией,
+ * а не молча возвращать 0.
+ */
+export function structureLevel(id: StructureNodeId): number {
   let level = 0;
-  let current = STRUCTURE_NODES.find((node) => node.id === id);
+  let current: StructureNode | undefined = STRUCTURE_NODES.find((node) => node.id === id);
   while (current && current.parent !== null) {
     const parentId: string = current.parent;
     current = STRUCTURE_NODES.find((node) => node.id === parentId);
@@ -104,7 +108,7 @@ export function structureLevel(id: string): number {
 }
 
 export const STRUCTURE_INTRO =
-  "Управление Федерацией устроено по Уставу: высший орган — Общее собрание, между собраниями работает Правление из девяти человек во главе с Президентом, контроль осуществляет независимый Контрольно-ревизионный орган. Схема показывает состав Правления и распределение направлений между его членами; работу обеспечивает аппарат Федерации. Подробно полномочия каждого органа описаны в разделе 6 Устава.";
+  "Структура управления Федерацией определена Уставом: высший орган — Общее собрание, между собраниями работает Правление из девяти человек во главе с Президентом, контроль осуществляет независимый Контрольно-ревизионный орган.";
 
 export const STRUCTURE_BOARD_CAPTION =
   "Правление — 9 человек: Президент, два вице-президента и шесть членов Правления.";
