@@ -2,29 +2,25 @@ import { useMemo } from "react";
 import { createFileRoute, Link, useNavigate, stripSearchParams } from "@tanstack/react-router";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
+import { CategoryFilterChips } from "@/components/site/CategoryFilterChips";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { listNews } from "@/lib/news-server-fn";
 import { NewsListCard } from "@/components/site/NewsListCard";
 import { sortNewsByDateDesc } from "@/lib/news-date";
+import {
+  DEFAULT_SECTION_CATEGORY,
+  SECTION_CATEGORIES,
+  SECTION_CATEGORY_LABELS,
+  type SectionCategory,
+} from "@/lib/section-category";
 import type { NewsSection } from "@/lib/types/news";
 
-type FilterValue = "all" | "general" | "federation" | "referees";
-
-const DEFAULT_FILTER: FilterValue = "all";
+const DEFAULT_FILTER: SectionCategory = DEFAULT_SECTION_CATEGORY;
 
 const searchSchema = z.object({
-  category: fallback(z.enum(["all", "general", "federation", "referees"]), DEFAULT_FILTER).default(
-    DEFAULT_FILTER,
-  ),
+  category: fallback(z.enum(SECTION_CATEGORIES), DEFAULT_FILTER).default(DEFAULT_FILTER),
 });
-
-const FILTERS: { value: FilterValue; label: string }[] = [
-  { value: "all", label: "Все" },
-  { value: "general", label: "Общее" },
-  { value: "federation", label: "Федерация" },
-  { value: "referees", label: "Коллегия судей" },
-];
 
 export const Route = createFileRoute("/news/")({
   validateSearch: zodValidator(searchSchema),
@@ -57,7 +53,7 @@ function NewsPage() {
   const news = Route.useLoaderData();
   const { category } = Route.useSearch();
   const navigate = useNavigate({ from: "/news/" });
-  const active: FilterValue = category;
+  const active: SectionCategory = category;
 
   const items = useMemo(() => {
     const sorted = sortNewsByDateDesc(news);
@@ -68,7 +64,7 @@ function NewsPage() {
     return sorted.filter((n) => (n.section ?? null) === wanted);
   }, [news, active]);
 
-  const select = (value: FilterValue) => {
+  const select = (value: SectionCategory) => {
     navigate({ search: { category: value }, resetScroll: false });
   };
 
@@ -94,30 +90,7 @@ function NewsPage() {
           </h1>
         </header>
 
-        <div
-          role="group"
-          aria-label="Фильтр по разделам"
-          className="mb-8 flex flex-wrap gap-2 md:mb-10"
-        >
-          {FILTERS.map((f) => {
-            const isActive = active === f.value;
-            return (
-              <button
-                key={f.value}
-                type="button"
-                aria-pressed={isActive}
-                onClick={() => select(f.value)}
-                className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
-                  isActive
-                    ? "bg-brand-navy text-brand-navy-foreground"
-                    : "bg-muted text-brand-navy hover:bg-brand-orange/10 hover:text-brand-orange"
-                }`}
-              >
-                {f.label}
-              </button>
-            );
-          })}
-        </div>
+        <CategoryFilterChips active={active} onSelect={select} labels={SECTION_CATEGORY_LABELS} />
 
         {items.length === 0 ? (
           <p className="rounded-xl bg-muted p-8 text-center text-muted-foreground">

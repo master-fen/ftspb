@@ -41,7 +41,7 @@ const ALL_SECTIONS: NavSection[] = [
   { label: "Сборные команды", href: "/teams", hidden: true },
   { label: "Турниры", href: "/tournaments", hidden: true },
   { label: "Корты", href: "/courts", hidden: true },
-  { label: "Документы", href: "/documents", hidden: true },
+  { label: "Документы", href: "/documents" },
   { label: "Контакты", href: "/contacts", hidden: true },
 ];
 
