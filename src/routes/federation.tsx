@@ -26,11 +26,11 @@ function FederationLayout() {
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 pt-6 pb-12 md:px-6 md:pt-8 md:pb-16 lg:px-10">
         <Breadcrumbs items={crumbs} />
 
-        <div className="flex flex-col gap-10 lg:flex-row lg:items-start lg:gap-12">
-          <div className="min-w-0 flex-1 lg:order-1">
+        <div className="flex flex-col gap-10 lg:grid lg:grid-cols-3 lg:items-start lg:gap-6">
+          <div className="min-w-0 lg:order-1 lg:col-span-2">
             <Outlet />
           </div>
-          <aside className="w-full shrink-0 lg:order-2 lg:w-[340px] xl:w-[413px]">
+          <aside className="w-full lg:order-2 lg:col-span-1">
             <FederationSidebar />
           </aside>
         </div>
