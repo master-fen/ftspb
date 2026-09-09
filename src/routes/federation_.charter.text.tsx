@@ -30,6 +30,9 @@ const CRUMBS: Crumb[] = [
  */
 export const Route = createFileRoute("/federation_/charter/text")({
   loader: () => getPublishedDocumentBySlug({ data: CHARTER_DOCUMENT_SLUG }),
+  // Переход по оглавлению — навигация роутера на тот же путь с другим hash;
+  // запись о файле PDF за время чтения не меняется, RPC на каждый клик не нужен.
+  staleTime: 5 * 60 * 1000,
   head: () => ({
     meta: [
       { title: TITLE },
