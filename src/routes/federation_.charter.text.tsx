@@ -63,7 +63,7 @@ function CharterTextPage() {
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 pt-6 pb-12 md:px-6 md:pt-8 md:pb-16 lg:px-10">
         <Breadcrumbs items={CRUMBS} />
 
-        <div className="flex flex-col gap-10 lg:flex-row lg:items-start lg:gap-12">
+        <div className="flex flex-col gap-10 lg:grid lg:grid-cols-3 lg:items-start lg:gap-6">
           {/* На узких экранах оглавление сворачивается над текстом. */}
           <details className="rounded-md bg-muted px-4 py-3 lg:hidden">
             <summary className="cursor-pointer font-sans text-lg font-medium text-foreground">
@@ -75,7 +75,7 @@ function CharterTextPage() {
 
           {/* Юридический текст: 16px, межстрочный интервал не меньше 1.55,
               text-foreground без прозрачности — ради контраста. */}
-          <article className="min-w-0 flex-1 font-ui text-base leading-[1.6] text-foreground lg:order-1">
+          <article className="min-w-0 font-ui text-base leading-[1.6] text-foreground lg:order-1 lg:col-span-2">
             <h1 className="font-sans text-3xl font-medium tracking-tight text-foreground md:text-4xl lg:text-5xl">
               Устав
             </h1>
@@ -93,7 +93,7 @@ function CharterTextPage() {
 
           {/* Правая колонка как в federation.tsx: навигация раздела, под ней
               карточка оглавления (на широких экранах; на узких — <details> выше). */}
-          <aside className="w-full shrink-0 lg:order-2 lg:w-[340px] xl:w-[413px]">
+          <aside className="w-full lg:order-2 lg:col-span-1">
             <FederationSidebar activeHref="/federation/charter" />
             <section
               className="mt-5 hidden rounded-[30px] border border-brand-blue/10 bg-background px-0 py-6 md:py-8 lg:block"
