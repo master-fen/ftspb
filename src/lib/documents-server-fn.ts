@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { DOCUMENT_SLUG_PATTERN } from "@/lib/document-slug";
+import { SECTION_CATEGORIES } from "@/lib/section-category";
 import {
   attachDocumentToNews as attachDocumentToNewsImpl,
   createDocument as createDocumentImpl,
@@ -9,6 +10,7 @@ import {
   getNewsDocuments as getNewsDocumentsImpl,
   getPublishedDocumentBySlug as getPublishedDocumentBySlugImpl,
   listAdminDocuments as listAdminDocumentsImpl,
+  listPublishedLibraryDocuments as listPublishedLibraryDocumentsImpl,
   reorderNewsDocuments as reorderNewsDocumentsImpl,
   softDeleteDocument as softDeleteDocumentImpl,
   updateDocument as updateDocumentImpl,
@@ -124,4 +126,22 @@ export const getPublishedDocumentBySlug = createServerFn({ method: "GET" })
       documentDate: row.documentDate,
       url: buildImageUrl(row.s3Key),
     };
+  });
+
+/** Публичная библиотека документов (/documents, /federation/documents) по
+ * разделу. `s3Key` наружу не уходит — только готовый `url`. */
+export const listPublishedLibraryDocuments = createServerFn({ method: "GET" })
+  .validator(z.enum(SECTION_CATEGORIES))
+  .handler(async ({ data }) => {
+    const rows = await listPublishedLibraryDocumentsImpl(data);
+    return rows.map((row) => ({
+      id: row.id,
+      title: row.title,
+      fileName: row.fileName,
+      sizeBytes: row.sizeBytes,
+      mimeType: row.mimeType,
+      documentDate: row.documentDate,
+      section: row.section,
+      url: buildImageUrl(row.s3Key),
+    }));
   });

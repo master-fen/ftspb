@@ -2,6 +2,7 @@ import { and, asc, desc, eq, isNull, ne, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { document, newsDocument } from "@/db/schema";
 import { normalizeDocumentSlug } from "@/lib/document-slug";
+import type { SectionCategory } from "@/lib/section-category";
 import { requireSession } from "@/server/auth";
 import { resetNewsCache } from "@/server/news-cache";
 import { buildImageUrl } from "@/server/storage";
@@ -347,4 +348,57 @@ export async function getPublishedDocumentBySlug(
     .limit(1);
 
   return row ?? null;
+}
+
+export type PublishedLibraryDocument = {
+  id: string;
+  title: string;
+  fileName: string;
+  sizeBytes: number;
+  mimeType: string;
+  documentDate: string;
+  section: Section | null;
+  s3Key: string;
+};
+
+/** Библиотека документов для /documents и /federation/documents: только
+ * опубликованные, не удалённые и отмеченные `in_library`. `category`:
+ * `all` — без условия по разделу, `general` — документы без раздела
+ * (`section is null`), иначе — точное совпадение раздела. Публичная функция:
+ * `db === null` (превью без БД) — пустой список, не бросает. Колонки
+ * перечислены явно (см. getPublishedDocumentBySlug): новая колонка не
+ * должна автоматически утекать в SSR-ответ; `s3Key` наружу отдаёт только
+ * обёртка в documents-server-fn.ts, уже как готовый URL. */
+export async function listPublishedLibraryDocuments(
+  category: SectionCategory,
+): Promise<PublishedLibraryDocument[]> {
+  if (db === null) {
+    return [];
+  }
+
+  const conditions = [
+    eq(document.status, "published"),
+    isNull(document.deletedAt),
+    eq(document.inLibrary, true),
+  ];
+  if (category === "general") {
+    conditions.push(isNull(document.section));
+  } else if (category !== "all") {
+    conditions.push(eq(document.section, category));
+  }
+
+  return db
+    .select({
+      id: document.id,
+      title: document.title,
+      fileName: document.fileName,
+      sizeBytes: document.sizeBytes,
+      mimeType: document.mimeType,
+      documentDate: document.documentDate,
+      section: document.section,
+      s3Key: document.s3Key,
+    })
+    .from(document)
+    .where(and(...conditions))
+    .orderBy(desc(document.documentDate), desc(document.createdAt));
 }
