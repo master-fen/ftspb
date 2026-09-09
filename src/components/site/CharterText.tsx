@@ -1,4 +1,5 @@
 import { Fragment } from "react";
+import { clauseAnchorId } from "@/lib/charter/anchors";
 import { CHARTER_SECTION_TITLES } from "@/lib/charter/meta";
 import type { CharterContent } from "@/lib/charter/types";
 
@@ -33,9 +34,7 @@ export function CharterText({ content }: { content: CharterContent }) {
               block.kind === "paragraph" ? (
                 <p
                   key={blockIndex}
-                  id={
-                    block.clause !== undefined ? `p-${block.clause.replace(".", "-")}` : undefined
-                  }
+                  id={block.clause !== undefined ? clauseAnchorId(block.clause) : undefined}
                 >
                   {block.text}
                 </p>
