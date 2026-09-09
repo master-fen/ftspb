@@ -3,7 +3,8 @@ import { Download, Eye, FileText } from "lucide-react";
 import { formatFileSize } from "@/lib/format-file-size";
 
 type DocumentFileRowProps = {
-  badge: "PDF" | "HTML";
+  /** Бейдж формата: `PDF`, `HTML`, `DOCX`, … — см. src/lib/document-badge.ts. */
+  badge: string;
   /** Действие: «Открыть PDF», «Читать на сайте». */
   action: string;
   /** Подстрочник: «Устав · 17.03.2016». */
@@ -31,11 +32,11 @@ export function DocumentFileRow({
   external = false,
   sizeBytes,
 }: DocumentFileRowProps) {
-  const ActionIcon = badge === "PDF" ? Download : Eye;
+  const ActionIcon = badge === "HTML" ? Eye : Download;
 
   const content = (
     <>
-      <span className="flex shrink-0 items-center gap-1.5">
+      <span className="flex w-20 shrink-0 items-center gap-1.5">
         <FileText className="size-5 text-brand-blue" aria-hidden="true" />
         <span className="rounded bg-brand-blue/10 px-1.5 py-0.5 font-ui text-[11px] font-semibold tracking-wide text-brand-blue">
           {badge}
