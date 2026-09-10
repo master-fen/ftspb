@@ -96,8 +96,10 @@ export const listPublishedEventsByYear = createServerFn({ method: "GET" })
   .validator(z.number().int().min(1).max(9999))
   .handler(({ data }) => listPublishedEventsByYearImpl(data));
 
+// Без верхней границы длины: slug приходит из адреса страницы, и слишком
+// длинный должен дать 404 (null из запроса), а не ошибку валидации — 500.
 export const getPublishedEventBySlug = createServerFn({ method: "GET" })
-  .validator(z.string().min(1).max(200))
+  .validator(z.string().min(1))
   .handler(({ data }) => getPublishedEventBySlugImpl(data));
 
 export const getPublishedDocumentsForEvent = createServerFn({ method: "GET" })
