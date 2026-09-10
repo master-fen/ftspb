@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, isNull, ne, sql } from "drizzle-orm";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { db } from "@/db/client";
-import { document, newsDocument } from "@/db/schema";
+import { document, eventDocument, newsDocument } from "@/db/schema";
 import { normalizeDocumentSlug } from "@/lib/document-slug";
 import type { SectionCategory } from "@/lib/section-category";
 import { requireSession } from "@/server/auth";
@@ -180,8 +181,54 @@ export async function softDeleteDocument(id: string): Promise<void> {
   resetNewsCache();
 }
 
-export async function attachDocumentToNews(
-  newsId: string,
+/**
+ * Связи «документ — родитель» устроены одинаково у новости (news_document) и
+ * у события (event_document): та же тройка колонок, тот же составной PK, тот
+ * же каскад. Поэтому attach/detach/reorder/list написаны один раз и
+ * параметризованы связью; наружу идут тонкие обёртки под каждого родителя.
+ *
+ * `link` — таблица связи, `parentColumn` — её колонка родителя,
+ * `parentLabel` — родительный падеж для текста ошибки («этой новости»,
+ * «этого события»).
+ */
+type DocumentLink = {
+  table: typeof newsDocument | typeof eventDocument;
+  // AnyPgColumn, а не конкретные колонки: иначе тип пригвоздил бы связь к
+  // news_document и event_document перестал бы подходить.
+  parentColumn: AnyPgColumn;
+  documentColumn: AnyPgColumn;
+  positionColumn: AnyPgColumn;
+  /**
+   * Ключ родителя в объекте `.values()` — это имя свойства из определения
+   * таблицы (`newsId`), а НЕ имя колонки в базе (`news_id`, которое лежит в
+   * `parentColumn.name`). Перепутать их = вставка без родителя и падение на
+   * NOT NULL.
+   */
+  parentKey: "newsId" | "eventId";
+  parentLabel: string;
+};
+
+const NEWS_LINK: DocumentLink = {
+  table: newsDocument,
+  parentColumn: newsDocument.newsId,
+  documentColumn: newsDocument.documentId,
+  positionColumn: newsDocument.position,
+  parentKey: "newsId",
+  parentLabel: "этой новости",
+};
+
+const EVENT_LINK: DocumentLink = {
+  table: eventDocument,
+  parentColumn: eventDocument.eventId,
+  documentColumn: eventDocument.documentId,
+  positionColumn: eventDocument.position,
+  parentKey: "eventId",
+  parentLabel: "этого события",
+};
+
+async function attachDocument(
+  link: DocumentLink,
+  parentId: string,
   documentId: string,
   position?: number,
 ): Promise<void> {
@@ -191,27 +238,34 @@ export async function attachDocumentToNews(
   let pos = position;
   if (pos === undefined) {
     const [row] = await database
-      .select({ maxPosition: sql<number | null>`max(${newsDocument.position})` })
-      .from(newsDocument)
-      .where(eq(newsDocument.newsId, newsId));
+      .select({ maxPosition: sql<number | null>`max(${link.positionColumn})` })
+      .from(link.table)
+      .where(eq(link.parentColumn, parentId));
     pos = (row?.maxPosition ?? -1) + 1;
   }
 
-  await database.insert(newsDocument).values({ newsId, documentId, position: pos });
+  await database
+    .insert(link.table)
+    .values({ [link.parentKey]: parentId, documentId, position: pos } as never);
   resetNewsCache();
 }
 
-export async function detachDocumentFromNews(newsId: string, documentId: string): Promise<void> {
+async function detachDocument(
+  link: DocumentLink,
+  parentId: string,
+  documentId: string,
+): Promise<void> {
   await requireSession();
   const database = requireDb();
   await database
-    .delete(newsDocument)
-    .where(and(eq(newsDocument.newsId, newsId), eq(newsDocument.documentId, documentId)));
+    .delete(link.table)
+    .where(and(eq(link.parentColumn, parentId), eq(link.documentColumn, documentId)));
   resetNewsCache();
 }
 
-export async function reorderNewsDocuments(
-  newsId: string,
+async function reorderDocuments(
+  link: DocumentLink,
+  parentId: string,
   orderedDocumentIds: string[],
 ): Promise<void> {
   await requireSession();
@@ -219,9 +273,11 @@ export async function reorderNewsDocuments(
 
   await database.transaction(async (tx) => {
     const existing = await tx
-      .select({ documentId: newsDocument.documentId })
-      .from(newsDocument)
-      .where(eq(newsDocument.newsId, newsId));
+      // Тип колонки в DocumentLink обобщён до AnyPgColumn, поэтому результат
+      // размечается явно — иначе documentId пришёл бы как unknown.
+      .select({ documentId: sql<string>`${link.documentColumn}` })
+      .from(link.table)
+      .where(eq(link.parentColumn, parentId));
     const existingIds = new Set(existing.map((row) => row.documentId));
     const orderedIdSet = new Set(orderedDocumentIds);
 
@@ -230,23 +286,77 @@ export async function reorderNewsDocuments(
       existingIds.size !== orderedIdSet.size ||
       orderedDocumentIds.some((id) => !existingIds.has(id))
     ) {
-      throw new Error("Список документов не совпадает с документами этой новости");
+      throw new Error(`Список документов не совпадает с документами ${link.parentLabel}`);
     }
 
     for (let index = 0; index < orderedDocumentIds.length; index++) {
       await tx
-        .update(newsDocument)
+        .update(link.table)
         .set({ position: index })
         .where(
-          and(
-            eq(newsDocument.newsId, newsId),
-            eq(newsDocument.documentId, orderedDocumentIds[index]),
-          ),
+          and(eq(link.parentColumn, parentId), eq(link.documentColumn, orderedDocumentIds[index])),
         );
     }
   });
 
   resetNewsCache();
+}
+
+/** Документы родителя с готовым URL; мягко удалённые отфильтрованы. */
+async function listLinkedDocuments(
+  link: DocumentLink,
+  parentId: string,
+): Promise<(DocumentRow & { url: string })[]> {
+  await requireSession();
+  const database = requireDb();
+
+  const rows = await database
+    .select({ document })
+    .from(link.table)
+    .innerJoin(document, eq(link.documentColumn, document.id))
+    .where(and(eq(link.parentColumn, parentId), isNull(document.deletedAt)))
+    .orderBy(asc(link.positionColumn));
+
+  return rows.map((row) => ({ ...row.document, url: buildImageUrl(row.document.s3Key) }));
+}
+
+export function attachDocumentToNews(
+  newsId: string,
+  documentId: string,
+  position?: number,
+): Promise<void> {
+  return attachDocument(NEWS_LINK, newsId, documentId, position);
+}
+
+export function detachDocumentFromNews(newsId: string, documentId: string): Promise<void> {
+  return detachDocument(NEWS_LINK, newsId, documentId);
+}
+
+export function reorderNewsDocuments(newsId: string, orderedDocumentIds: string[]): Promise<void> {
+  return reorderDocuments(NEWS_LINK, newsId, orderedDocumentIds);
+}
+
+export function attachDocumentToEvent(
+  eventId: string,
+  documentId: string,
+  position?: number,
+): Promise<void> {
+  return attachDocument(EVENT_LINK, eventId, documentId, position);
+}
+
+export function detachDocumentFromEvent(eventId: string, documentId: string): Promise<void> {
+  return detachDocument(EVENT_LINK, eventId, documentId);
+}
+
+export function reorderEventDocuments(
+  eventId: string,
+  orderedDocumentIds: string[],
+): Promise<void> {
+  return reorderDocuments(EVENT_LINK, eventId, orderedDocumentIds);
+}
+
+export function getEventDocuments(eventId: string): Promise<(DocumentRow & { url: string })[]> {
+  return listLinkedDocuments(EVENT_LINK, eventId);
 }
 
 /** Документы этой новости с готовым URL — для формы редактирования новости
@@ -255,18 +365,8 @@ export async function reorderNewsDocuments(
  * сразу, включая уже прикреплённые новости — иначе форма редактирования
  * новости продолжала бы показывать документ, которого уже нет ни в
  * менеджере, ни на сайте. */
-export async function getNewsDocuments(newsId: string): Promise<(DocumentRow & { url: string })[]> {
-  await requireSession();
-  const database = requireDb();
-
-  const rows = await database
-    .select({ document })
-    .from(newsDocument)
-    .innerJoin(document, eq(newsDocument.documentId, document.id))
-    .where(and(eq(newsDocument.newsId, newsId), isNull(document.deletedAt)))
-    .orderBy(asc(newsDocument.position));
-
-  return rows.map((row) => ({ ...row.document, url: buildImageUrl(row.document.s3Key) }));
+export function getNewsDocuments(newsId: string): Promise<(DocumentRow & { url: string })[]> {
+  return listLinkedDocuments(NEWS_LINK, newsId);
 }
 
 export type PublicNewsDocument = {

@@ -8,8 +8,8 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { attachDocumentToNews } from "@/lib/documents-server-fn";
 import { DocumentForm } from "./DocumentForm";
+import { documentsQueryKey, type DocumentParent } from "./document-parent";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -25,7 +25,8 @@ import {
 type DocumentUploadDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  newsId: string;
+  /** Родитель — новость или событие; см. document-parent.ts. */
+  parent: DocumentParent;
   onBusyChange?: (busy: boolean) => void;
   onDirtyChange?: (dirty: boolean) => void;
   initialValues: {
@@ -38,7 +39,7 @@ type DocumentUploadDialogProps = {
 export function DocumentUploadDialog({
   open,
   onOpenChange,
-  newsId,
+  parent,
   initialValues,
   onBusyChange,
   onDirtyChange,
@@ -60,9 +61,9 @@ export function DocumentUploadDialog({
 
   const attachMutation = useMutation({
     mutationFn: (doc: { id: string; status: "draft" | "published" }) =>
-      attachDocumentToNews({ data: { newsId, documentId: doc.id } }).then(() => doc),
+      parent.attach(doc.id).then(() => doc),
     onSuccess: (doc) => {
-      queryClient.invalidateQueries({ queryKey: ["news-documents", newsId] });
+      queryClient.invalidateQueries({ queryKey: documentsQueryKey(parent) });
       if (doc.status !== "published") {
         toast(
           "Документ прикреплён, но не появится на сайте, пока не будет опубликован (статус «Черновик»)",
@@ -71,7 +72,8 @@ export function DocumentUploadDialog({
       toast.success("Документ прикреплён");
       close();
     },
-    onError: () => toast.error("Документ создан, но не удалось прикрепить его к новости"),
+    onError: () =>
+      toast.error(`Документ создан, но не удалось прикрепить его к ${parent.labelDative}`),
   });
   useEffect(() => {
     onBusyChange?.(open && (busy || attachMutation.isPending));
@@ -126,7 +128,7 @@ export function DocumentUploadDialog({
                 status: "published",
                 inLibrary: false,
               }}
-              submitLabel="Прикрепить к новости"
+              submitLabel={`Прикрепить к ${parent.labelDative}`}
               onDirtyChange={setDirty}
               onBusyChange={setBusy}
               onCreated={(doc) => {
@@ -144,7 +146,7 @@ export function DocumentUploadDialog({
           <AlertDialogHeader>
             <AlertDialogTitle>Закрыть без сохранения?</AlertDialogTitle>
             <AlertDialogDescription>
-              Введённые данные документа не сохранены. Он ещё не прикреплён к новости.
+              {`Введённые данные документа не сохранены. Он ещё не прикреплён к ${parent.labelDative}.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

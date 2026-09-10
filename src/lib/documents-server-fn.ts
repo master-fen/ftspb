@@ -3,14 +3,18 @@ import { z } from "zod";
 import { DOCUMENT_SLUG_PATTERN } from "@/lib/document-slug";
 import { SECTION_CATEGORIES } from "@/lib/section-category";
 import {
+  attachDocumentToEvent as attachDocumentToEventImpl,
   attachDocumentToNews as attachDocumentToNewsImpl,
   createDocument as createDocumentImpl,
+  detachDocumentFromEvent as detachDocumentFromEventImpl,
   detachDocumentFromNews as detachDocumentFromNewsImpl,
   getAdminDocument as getAdminDocumentImpl,
+  getEventDocuments as getEventDocumentsImpl,
   getNewsDocuments as getNewsDocumentsImpl,
   getPublishedDocumentBySlug as getPublishedDocumentBySlugImpl,
   listAdminDocuments as listAdminDocumentsImpl,
   listPublishedLibraryDocuments as listPublishedLibraryDocumentsImpl,
+  reorderEventDocuments as reorderEventDocumentsImpl,
   reorderNewsDocuments as reorderNewsDocumentsImpl,
   softDeleteDocument as softDeleteDocumentImpl,
   updateDocument as updateDocumentImpl,
@@ -108,6 +112,28 @@ export const reorderNewsDocuments = createServerFn({ method: "POST" })
     z.object({ newsId: z.string().min(1), orderedDocumentIds: z.array(z.string().min(1)) }),
   )
   .handler(({ data }) => reorderNewsDocumentsImpl(data.newsId, data.orderedDocumentIds));
+
+/**
+ * Те же четыре операции для событий. Реализация в src/server/documents.ts
+ * общая — здесь только отдельные RPC-точки под своего родителя.
+ */
+export const getEventDocuments = createServerFn({ method: "GET" })
+  .validator((eventId: string) => eventId)
+  .handler(({ data }) => getEventDocumentsImpl(data));
+
+export const attachDocumentToEvent = createServerFn({ method: "POST" })
+  .validator(z.object({ eventId: z.string().min(1), documentId: z.string().min(1) }))
+  .handler(({ data }) => attachDocumentToEventImpl(data.eventId, data.documentId));
+
+export const detachDocumentFromEvent = createServerFn({ method: "POST" })
+  .validator(z.object({ eventId: z.string().min(1), documentId: z.string().min(1) }))
+  .handler(({ data }) => detachDocumentFromEventImpl(data.eventId, data.documentId));
+
+export const reorderEventDocuments = createServerFn({ method: "POST" })
+  .validator(
+    z.object({ eventId: z.string().min(1), orderedDocumentIds: z.array(z.string().min(1)) }),
+  )
+  .handler(({ data }) => reorderEventDocumentsImpl(data.eventId, data.orderedDocumentIds));
 
 /** Публичная выдача опубликованного документа по адресу постоянной страницы.
  * `s3Key` наружу не уходит — как photoUrl у персон: наружу только готовый URL. */

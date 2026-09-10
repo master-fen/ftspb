@@ -50,6 +50,13 @@
       "when": 1788884512895,
       "tag": "0006_silly_marvel_zombies",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1789038124055,
+      "tag": "0007_clever_wiccan",
+      "breakpoints": true
     }
   ]
 }

@@ -18,9 +18,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { attachDocumentToNews, listAdminDocuments } from "@/lib/documents-server-fn";
+import { listAdminDocuments } from "@/lib/documents-server-fn";
 import { formatFileSize } from "@/lib/format-file-size";
 import { getFileExtension } from "@/lib/image-validation";
+import { documentsQueryKey, type DocumentParent } from "./document-parent";
 
 type SectionFilter = "all" | "none" | "federation" | "referees";
 
@@ -32,14 +33,15 @@ const SECTION_LABEL: Record<"federation" | "referees", string> = {
 type DocumentAttachDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  newsId: string;
+  /** Родитель — новость или событие; см. document-parent.ts. */
+  parent: DocumentParent;
   excludeDocumentIds: string[];
 };
 
 export function DocumentAttachDialog({
   open,
   onOpenChange,
-  newsId,
+  parent,
   excludeDocumentIds,
 }: DocumentAttachDialogProps) {
   const queryClient = useQueryClient();
@@ -54,9 +56,9 @@ export function DocumentAttachDialog({
 
   const attachMutation = useMutation({
     mutationFn: (row: { id: string; status: "draft" | "published" }) =>
-      attachDocumentToNews({ data: { newsId, documentId: row.id } }).then(() => row),
+      parent.attach(row.id).then(() => row),
     onSuccess: (row) => {
-      queryClient.invalidateQueries({ queryKey: ["news-documents", newsId] });
+      queryClient.invalidateQueries({ queryKey: documentsQueryKey(parent) });
       if (row.status !== "published") {
         toast(
           "Документ прикреплён, но не появится на сайте, пока не будет опубликован (статус «Черновик»)",

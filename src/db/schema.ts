@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   bigint,
   boolean,
+  check,
   date,
   index,
   integer,
@@ -9,6 +10,7 @@ import {
   pgTable,
   primaryKey,
   text,
+  time,
   timestamp,
   uniqueIndex,
   uuid,
@@ -26,6 +28,19 @@ import {
  */
 export const sectionEnum = pgEnum("section_enum", ["federation", "referees"]);
 export const statusEnum = pgEnum("status_enum", ["draft", "published"]);
+export const eventTypeEnum = pgEnum("event_type_enum", [
+  "general_meeting",
+  "board",
+  "audit",
+  "other",
+]);
+export const datePrecisionEnum = pgEnum("date_precision_enum", [
+  "day",
+  "month",
+  "quarter",
+  "half_year",
+  "year",
+]);
 
 export const news = pgTable(
   "news",
@@ -50,6 +65,11 @@ export const news = pgTable(
     coverPhotoId: uuid("cover_photo_id").references((): AnyPgColumn => newsPhoto.id, {
       onDelete: "set null",
     }),
+    /**
+     * Событие Федерации, к которому относится новость (отчёт о заседании,
+     * анонс). `set null`: удаление события не должно уносить новость.
+     */
+    eventId: uuid("event_id").references((): AnyPgColumn => event.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
@@ -57,6 +77,7 @@ export const news = pgTable(
   (table) => [
     index("news_status_published_at_idx").on(table.status, table.publishedAt.desc()),
     index("news_section_idx").on(table.section),
+    index("news_event_id_idx").on(table.eventId),
   ],
 );
 
@@ -116,6 +137,65 @@ export const newsDocument = pgTable(
     position: integer("position").notNull(),
   },
   (table) => [primaryKey({ columns: [table.newsId, table.documentId] })],
+);
+
+/**
+ * Событие Федерации: заседание Правления, Общее собрание, проверка КРО.
+ *
+ * Дата хранится якорем `starts_on` + точностью `date_precision`. Якорь — всегда
+ * первый день периода (month — 1-е число, quarter — 01.01/01.04/01.07/01.10,
+ * half_year — 01.01/01.07, year — 01.01); при точности `day` — сама дата.
+ * Нормализует сервер при каждой записи (см. src/lib/event-date.ts), форме
+ * не доверяем. Так «III квартал 2026» сортируется и сравнивается с обычной
+ * датой без отдельных колонок и без разбора строк в SQL.
+ *
+ * `starts_time` осмысленно только при точности `day` — это закреплено
+ * check-констрейнтом, а не только серверной проверкой: колонку правит и
+ * скрипт, и psql.
+ */
+export const event = pgTable(
+  "event",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    slug: text("slug").notNull(),
+    title: text("title").notNull(),
+    type: eventTypeEnum("type").notNull(),
+    /** Якорь периода, см. заголовок таблицы. */
+    startsOn: date("starts_on").notNull(),
+    /** Время начала; NULL при любой точности, кроме `day`. */
+    startsTime: time("starts_time"),
+    datePrecision: datePrecisionEnum("date_precision").notNull().default("day"),
+    location: text("location"),
+    /** Повестка: обычный текст без HTML. */
+    description: text("description"),
+    status: statusEnum("status").notNull().default("draft"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [
+    // Уникальность адреса только среди живых записей — как document_slug_active_idx.
+    uniqueIndex("event_slug_active_idx")
+      .on(table.slug)
+      .where(sql`deleted_at is null`),
+    index("event_status_starts_on_idx").on(table.status, table.startsOn),
+    check("event_starts_time_precision_check", sql`date_precision = 'day' or starts_time is null`),
+  ],
+);
+
+/** Документы события. Точная копия news_document: тот же PK и тот же каскад. */
+export const eventDocument = pgTable(
+  "event_document",
+  {
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => event.id, { onDelete: "cascade" }),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => document.id, { onDelete: "cascade" }),
+    position: integer("position").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.eventId, table.documentId] })],
 );
 
 /**
