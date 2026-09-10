@@ -331,44 +331,64 @@ export function getNewsDocuments(newsId: string): Promise<(DocumentRow & { url: 
   return listLinkedDocuments(NEWS_LINK, newsId);
 }
 
-export type PublicNewsDocument = {
+/** Публичная проекция документа, прикреплённого к новости или событию. */
+export type PublicLinkedDocument = {
+  id: string;
   title: string;
   fileName: string;
   mimeType: string;
   sizeBytes: number;
+  documentDate: string;
   url: string;
 };
 
-/** Только опубликованные и не удалённые — для публичной страницы новости.
- * `db === null` (превью без БД) возвращает пустой список, а не бросает: это
- * не админская функция, фикстуры в mock.ts под неё нет (см. план этапа 6).
- * Не вызывается из src/server/news.ts в этом PR — тот файл в этом PR не
- * трогаем, подключение к рендеру «Прикреплённые файлы» — в следующем PR. */
-export async function getPublishedDocumentsForNews(newsId: string): Promise<PublicNewsDocument[]> {
+export type PublicNewsDocument = PublicLinkedDocument;
+
+/** Только опубликованные и не удалённые документы родителя, порядок
+ * position. Публичная функция: `db === null` (превью без БД) возвращает
+ * пустой список, а не бросает — фикстур под неё в mock.ts нет. Колонки
+ * перечислены явно (см. getPublishedDocumentBySlug); `s3Key` участвует
+ * только в вычислении URL. */
+async function listPublishedLinkedDocuments(
+  link: DocumentLink,
+  parentId: string,
+): Promise<PublicLinkedDocument[]> {
   if (db === null) {
     return [];
   }
 
   const rows = await db
-    .select({ document })
-    .from(newsDocument)
-    .innerJoin(document, eq(newsDocument.documentId, document.id))
+    .select({
+      id: document.id,
+      title: document.title,
+      fileName: document.fileName,
+      mimeType: document.mimeType,
+      sizeBytes: document.sizeBytes,
+      documentDate: document.documentDate,
+      s3Key: document.s3Key,
+    })
+    .from(link.table)
+    .innerJoin(document, eq(link.documentColumn, document.id))
     .where(
       and(
-        eq(newsDocument.newsId, newsId),
+        eq(link.parentColumn, parentId),
         eq(document.status, "published"),
         isNull(document.deletedAt),
       ),
     )
-    .orderBy(asc(newsDocument.position));
+    .orderBy(asc(link.positionColumn));
 
-  return rows.map((row) => ({
-    title: row.document.title,
-    fileName: row.document.fileName,
-    mimeType: row.document.mimeType,
-    sizeBytes: row.document.sizeBytes,
-    url: buildImageUrl(row.document.s3Key),
-  }));
+  return rows.map(({ s3Key, ...rest }) => ({ ...rest, url: buildImageUrl(s3Key) }));
+}
+
+/** Для публичной страницы новости (src/server/news.ts, «Прикреплённые файлы»). */
+export function getPublishedDocumentsForNews(newsId: string): Promise<PublicNewsDocument[]> {
+  return listPublishedLinkedDocuments(NEWS_LINK, newsId);
+}
+
+/** Для публичной страницы события (/federation/events/$slug). */
+export function getPublishedDocumentsForEvent(eventId: string): Promise<PublicLinkedDocument[]> {
+  return listPublishedLinkedDocuments(EVENT_LINK, eventId);
 }
 
 export type PublishedDocumentBySlug = {
