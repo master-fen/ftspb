@@ -31,7 +31,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { eventYear, formatEventDateShort } from "@/lib/event-date";
-import { eventTypeLabel } from "@/lib/event-type";
 import { listAdminEvents, restoreEvent, softDeleteEvent } from "@/lib/events-server-fn";
 import { AdminBackLink } from "./-components/AdminBackLink";
 
@@ -127,7 +126,6 @@ function AdminEventsList() {
                 <TableRow>
                   <TableHead>Дата</TableHead>
                   <TableHead>Название</TableHead>
-                  <TableHead>Тип</TableHead>
                   <TableHead>Статус</TableHead>
                   <TableHead className="text-right">Действия</TableHead>
                 </TableRow>
@@ -143,7 +141,6 @@ function AdminEventsList() {
                         : `${formatEventDateShort(row.startsOn, row.datePrecision)} ${eventYear(row.startsOn)}`}
                     </TableCell>
                     <TableCell className="max-w-80 truncate font-medium">{row.title}</TableCell>
-                    <TableCell>{eventTypeLabel(row.type)}</TableCell>
                     <TableCell>
                       {row.deletedAt ? (
                         <Badge variant="outline">Удалено</Badge>

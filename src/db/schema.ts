@@ -28,12 +28,6 @@ import {
  */
 export const sectionEnum = pgEnum("section_enum", ["federation", "referees"]);
 export const statusEnum = pgEnum("status_enum", ["draft", "published"]);
-export const eventTypeEnum = pgEnum("event_type_enum", [
-  "general_meeting",
-  "board",
-  "audit",
-  "other",
-]);
 export const datePrecisionEnum = pgEnum("date_precision_enum", [
   "day",
   "month",
@@ -141,6 +135,8 @@ export const newsDocument = pgTable(
 
 /**
  * Событие Федерации: заседание Правления, Общее собрание, проверка КРО.
+ * Тип события не хранится — он читается из названия (колонка `type` удалена
+ * миграцией 0008; понадобятся фильтры — поле заведут заново по данным).
  *
  * Дата хранится якорем `starts_on` + точностью `date_precision`. Якорь — всегда
  * первый день периода (month — 1-е число, quarter — 01.01/01.04/01.07/01.10,
@@ -159,7 +155,6 @@ export const event = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     slug: text("slug").notNull(),
     title: text("title").notNull(),
-    type: eventTypeEnum("type").notNull(),
     /** Якорь периода, см. заголовок таблицы. */
     startsOn: date("starts_on").notNull(),
     /** Время начала; NULL при любой точности, кроме `day`. */

@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { DATE_PRECISION_VALUES, EVENT_TYPE_VALUES } from "@/lib/event-type";
+import { DATE_PRECISION_VALUES } from "@/lib/event-date";
 import {
   checkSlugAvailable as checkSlugAvailableImpl,
   createEvent as createEventImpl,
@@ -19,19 +19,17 @@ import {
  * обход: тело `.handler()` компилируется только в серверный чанк.
  *
  * Zod здесь задаёт только форму payload; смысловые правила (нормализация
- * якоря, обнуление времени, требование места для Общего собрания) — в
+ * якоря, обнуление времени, формат времени) — в
  * src/lib/event-input.ts, которую вызывает серверный модуль. Дублировать их
  * тут не нужно.
  */
 
 const statusSchema = z.enum(["draft", "published"]);
-const typeSchema = z.enum(EVENT_TYPE_VALUES);
 const precisionSchema = z.enum(DATE_PRECISION_VALUES);
 
 const eventFieldsSchema = z.object({
   slug: z.string(),
   title: z.string(),
-  type: typeSchema,
   startsOn: z.string(),
   startsTime: z.string().nullable().optional(),
   datePrecision: precisionSchema.optional(),

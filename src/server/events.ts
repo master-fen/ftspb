@@ -129,7 +129,6 @@ function toState(row: EventRow): EventState {
   return {
     slug: row.slug,
     title: row.title,
-    type: row.type,
     startsOn: row.startsOn,
     startsTime: row.startsTime,
     datePrecision: row.datePrecision,
@@ -165,9 +164,9 @@ export async function createEvent(input: EventInput): Promise<{ id: string; slug
 
 /**
  * Правила проверяются по ПОЛНОМУ состоянию, а не по патчу: сначала читаем
- * текущую строку, сливаем с патчем, валидируем результат. Иначе публикация
- * Общего собрания патчем `{ status: "published" }` прошла бы мимо требования
- * места (Устав, п. 6.1).
+ * текущую строку, сливаем с патчем, валидируем результат. Иначе патч
+ * `{ datePrecision: "quarter" }` не перенёс бы якорь и не обнулил время —
+ * `startsOn` и `startsTime` в нём нет.
  */
 export async function updateEvent(id: string, patch: EventPatch): Promise<void> {
   await requireSession();

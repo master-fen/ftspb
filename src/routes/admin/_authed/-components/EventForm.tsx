@@ -26,12 +26,11 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  DATE_PRECISIONS,
   formatEventDateLong,
   normalizeAnchor,
-  subtractDays,
   type DatePrecision,
 } from "@/lib/event-date";
-import { DATE_PRECISIONS, EVENT_TYPES, type EventType } from "@/lib/event-type";
 import { checkSlugAvailable, createEvent, suggestSlug, updateEvent } from "@/lib/events-server-fn";
 import { useUnsavedChangesBlocker } from "../-hooks/use-unsaved-changes-blocker";
 import { UnsavedChangesDialog } from "./UnsavedChangesDialog";
@@ -40,7 +39,6 @@ export type AdminEvent = {
   id: string;
   slug: string;
   title: string;
-  type: EventType;
   startsOn: string;
   startsTime: string | null;
   datePrecision: DatePrecision;
@@ -50,9 +48,6 @@ export type AdminEvent = {
 };
 
 type EventFormProps = { mode: "create" } | { mode: "edit"; event: AdminEvent };
-
-/** За сколько дней до Общего собрания положено опубликовать анонс. */
-const GENERAL_MEETING_NOTICE_DAYS = 14;
 
 const MONTHS = [
   "Январь",
@@ -71,9 +66,9 @@ const MONTHS = [
 
 /**
  * Схема формы — только для подсказок в UI. Серверная валидация
- * (src/lib/event-input.ts) применяется независимо от неё, включая правило
- * Устава про место Общего собрания: форма его не дублирует, а показывает
- * текст ошибки, который вернул сервер.
+ * (src/lib/event-input.ts) применяется независимо от неё; её ошибки форма
+ * показывает текстом, который вернул сервер. Про Устав форма не знает: за
+ * его соблюдение отвечает секретарь.
  *
  * Дата в форме разложена на части (год/месяц/квартал/полугодие/день), потому
  * что при разной точности от пользователя нужны разные поля. На сервер всегда
@@ -82,7 +77,6 @@ const MONTHS = [
 const formSchema = z.object({
   title: z.string().trim().min(1, "Введите название"),
   slug: z.string().trim().min(1, "Введите адрес"),
-  type: z.enum(["general_meeting", "board", "audit", "other"]),
   datePrecision: z.enum(["day", "month", "quarter", "half_year", "year"]),
   day: z.string(),
   time: z.string(),
@@ -122,7 +116,6 @@ function toPayload(values: FormValues) {
   return {
     slug: values.slug,
     title: values.title,
-    type: values.type,
     startsOn: valuesToStartsOn(values),
     startsTime: values.datePrecision === "day" && values.time.trim() ? values.time : null,
     datePrecision: values.datePrecision,
@@ -138,7 +131,6 @@ function defaultsFromEvent(row: AdminEvent): FormValues {
   return {
     title: row.title,
     slug: row.slug,
-    type: row.type,
     datePrecision: row.datePrecision,
     day: row.startsOn,
     time: row.startsTime ? row.startsTime.slice(0, 5) : "",
@@ -160,7 +152,6 @@ function createDefaults(): FormValues {
   return {
     title: "",
     slug: "",
-    type: "board",
     datePrecision: "day",
     day,
     time: "",
@@ -207,7 +198,6 @@ export function EventForm(props: EventFormProps) {
   const excludeId = props.mode === "edit" ? props.event.id : undefined;
   const watchedSlug = form.watch("slug");
   const precision = form.watch("datePrecision");
-  const type = form.watch("type");
 
   useEffect(() => {
     if (watchedSlug === persistedSlug || watchedSlug.trim().length === 0) {
@@ -273,13 +263,7 @@ export function EventForm(props: EventFormProps) {
     }
   };
 
-  // Подсказка «опубликовать не позднее» — только для Общего собрания с точной
-  // датой. Ничего не блокирует: срок публикации админка не сторожит.
   const values = form.watch();
-  const noticeDeadline =
-    type === "general_meeting" && precision === "day" && /^\d{4}-\d{2}-\d{2}$/.test(values.day)
-      ? subtractDays(values.day, GENERAL_MEETING_NOTICE_DAYS)
-      : null;
 
   const previewStartsOn = (() => {
     try {
@@ -349,60 +333,33 @@ export function EventForm(props: EventFormProps) {
                 )}
               />
 
-              <div className="grid gap-6 sm:grid-cols-2">
-                <FormField
-                  control={form.control}
-                  name="type"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Тип</FormLabel>
-                      <Select value={field.value} onValueChange={field.onChange}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {EVENT_TYPES.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="datePrecision"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Точность даты</FormLabel>
-                      <Select value={field.value} onValueChange={field.onChange}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {DATE_PRECISIONS.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormDescription>
-                        Если день ещё не назначен, укажите месяц, квартал, полугодие или год.
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+              <FormField
+                control={form.control}
+                name="datePrecision"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Точность даты</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {DATE_PRECISIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      Если день ещё не назначен, укажите месяц, квартал, полугодие или год.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               {/* Набор полей под выбранную точность. Год и месяц переносятся
                   между режимами: значения формы не сбрасываются. */}
@@ -542,12 +499,6 @@ export function EventForm(props: EventFormProps) {
                 </p>
               ) : null}
 
-              {noticeDeadline ? (
-                <p className="rounded-md bg-muted px-3 py-2 text-sm text-foreground">
-                  Опубликовать не позднее {formatEventDateLong(noticeDeadline, "day")}
-                </p>
-              ) : null}
-
               <FormField
                 control={form.control}
                 name="location"
@@ -557,10 +508,6 @@ export function EventForm(props: EventFormProps) {
                     <FormControl>
                       <Input {...field} />
                     </FormControl>
-                    <FormDescription>
-                      Для Общего собрания с точной датой место обязательно при публикации (Устав, п.
-                      6.1).
-                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

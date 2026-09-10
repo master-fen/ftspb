@@ -142,7 +142,6 @@ NULL (решение Антона, 01.08.2026).
 | id                                 | uuid PK                      |
 | slug                               | text NOT NULL                |
 | title                              | text NOT NULL                |
-| type                               | event_type_enum NOT NULL     |
 | starts_on                          | date NOT NULL                |
 | starts_time                        | time NULL                    |
 | date_precision                     | date_precision_enum NOT NULL |
@@ -151,8 +150,11 @@ NULL (решение Антона, 01.08.2026).
 | status                             | status_enum NOT NULL         |
 | created_at, updated_at, deleted_at | timestamptz                  |
 
-`event_type_enum`: `general_meeting`, `board`, `audit`, `other`.
 `date_precision_enum`: `day`, `month`, `quarter`, `half_year`, `year`.
+
+Тип события не хранится: он и так читается из названия («Заседание
+Правления»). Колонка `type` и enum `event_type_enum` удалены миграцией 0008;
+если понадобятся фильтры по типу, поле заведут заново по данным.
 
 Дата хранится **якорем** `starts_on` плюс точностью `date_precision`. Якорь —
 всегда первый день периода: `month` — 1-е число, `quarter` —
