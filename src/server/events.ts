@@ -129,7 +129,6 @@ function toState(row: EventRow): EventState {
   return {
     slug: row.slug,
     title: row.title,
-    type: row.type,
     startsOn: row.startsOn,
     startsTime: row.startsTime,
     datePrecision: row.datePrecision,

@@ -1,6 +1,5 @@
 import { DOCUMENT_SLUG_PATTERN } from "@/lib/document-slug";
 import { normalizeAnchor, type DatePrecision } from "@/lib/event-date";
-import type { EventType } from "@/lib/event-type";
 
 /**
  * Серверная валидация и нормализация события (таблица `event`).
@@ -27,7 +26,6 @@ export type EventStatus = "draft" | "published";
 export type EventState = {
   slug: string;
   title: string;
-  type: EventType;
   startsOn: string;
   startsTime: string | null;
   datePrecision: DatePrecision;
@@ -39,7 +37,6 @@ export type EventState = {
 export type EventInput = {
   slug: string;
   title: string;
-  type: EventType;
   startsOn: string;
   startsTime?: string | null;
   datePrecision?: DatePrecision;
@@ -109,7 +106,6 @@ export function validateEvent(state: EventState): EventState {
   return {
     slug,
     title,
-    type: state.type,
     startsOn,
     startsTime,
     datePrecision,
@@ -124,7 +120,6 @@ export function validateCreateEvent(input: EventInput): EventState {
   return validateEvent({
     slug: input.slug,
     title: input.title,
-    type: input.type,
     startsOn: input.startsOn,
     startsTime: input.startsTime ?? null,
     datePrecision: input.datePrecision ?? "day",
@@ -150,7 +145,6 @@ export function mergeEventPatch(current: EventState, patch: EventPatch): EventSt
   return {
     slug: pick("slug"),
     title: pick("title"),
-    type: pick("type"),
     startsOn: pick("startsOn"),
     startsTime: pick("startsTime"),
     datePrecision: pick("datePrecision"),

@@ -11,7 +11,6 @@ import {
 const base: EventState = {
   slug: "zasedanie-pravleniya-2026",
   title: "Заседание Правления",
-  type: "board",
   startsOn: "2026-03-19",
   startsTime: null,
   datePrecision: "day",
@@ -106,13 +105,11 @@ describe("validateCreateEvent: значения по умолчанию", () => 
     const result = validateCreateEvent({
       slug: "x-2026",
       title: "Событие",
-      type: "other",
       startsOn: "2026-03-19",
     });
     expect(result).toEqual({
       slug: "x-2026",
       title: "Событие",
-      type: "other",
       startsOn: "2026-03-19",
       startsTime: null,
       datePrecision: "day",

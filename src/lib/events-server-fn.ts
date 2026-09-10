@@ -1,7 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { DATE_PRECISION_VALUES } from "@/lib/event-date";
-import { EVENT_TYPE_VALUES } from "@/lib/event-type";
 import {
   checkSlugAvailable as checkSlugAvailableImpl,
   createEvent as createEventImpl,
@@ -26,13 +25,11 @@ import {
  */
 
 const statusSchema = z.enum(["draft", "published"]);
-const typeSchema = z.enum(EVENT_TYPE_VALUES);
 const precisionSchema = z.enum(DATE_PRECISION_VALUES);
 
 const eventFieldsSchema = z.object({
   slug: z.string(),
   title: z.string(),
-  type: typeSchema,
   startsOn: z.string(),
   startsTime: z.string().nullable().optional(),
   datePrecision: precisionSchema.optional(),

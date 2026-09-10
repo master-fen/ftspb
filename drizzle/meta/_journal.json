@@ -57,6 +57,13 @@
       "when": 1789038124055,
       "tag": "0007_clever_wiccan",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1789052569428,
+      "tag": "0008_grey_gertrude_yorkes",
+      "breakpoints": true
     }
   ]
 }

@@ -31,7 +31,6 @@ import {
   normalizeAnchor,
   type DatePrecision,
 } from "@/lib/event-date";
-import { EVENT_TYPES, type EventType } from "@/lib/event-type";
 import { checkSlugAvailable, createEvent, suggestSlug, updateEvent } from "@/lib/events-server-fn";
 import { useUnsavedChangesBlocker } from "../-hooks/use-unsaved-changes-blocker";
 import { UnsavedChangesDialog } from "./UnsavedChangesDialog";
@@ -40,7 +39,6 @@ export type AdminEvent = {
   id: string;
   slug: string;
   title: string;
-  type: EventType;
   startsOn: string;
   startsTime: string | null;
   datePrecision: DatePrecision;
@@ -79,7 +77,6 @@ const MONTHS = [
 const formSchema = z.object({
   title: z.string().trim().min(1, "Введите название"),
   slug: z.string().trim().min(1, "Введите адрес"),
-  type: z.enum(["general_meeting", "board", "audit", "other"]),
   datePrecision: z.enum(["day", "month", "quarter", "half_year", "year"]),
   day: z.string(),
   time: z.string(),
@@ -119,7 +116,6 @@ function toPayload(values: FormValues) {
   return {
     slug: values.slug,
     title: values.title,
-    type: values.type,
     startsOn: valuesToStartsOn(values),
     startsTime: values.datePrecision === "day" && values.time.trim() ? values.time : null,
     datePrecision: values.datePrecision,
@@ -135,7 +131,6 @@ function defaultsFromEvent(row: AdminEvent): FormValues {
   return {
     title: row.title,
     slug: row.slug,
-    type: row.type,
     datePrecision: row.datePrecision,
     day: row.startsOn,
     time: row.startsTime ? row.startsTime.slice(0, 5) : "",
@@ -157,7 +152,6 @@ function createDefaults(): FormValues {
   return {
     title: "",
     slug: "",
-    type: "board",
     datePrecision: "day",
     day,
     time: "",
@@ -339,60 +333,33 @@ export function EventForm(props: EventFormProps) {
                 )}
               />
 
-              <div className="grid gap-6 sm:grid-cols-2">
-                <FormField
-                  control={form.control}
-                  name="type"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Тип</FormLabel>
-                      <Select value={field.value} onValueChange={field.onChange}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {EVENT_TYPES.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="datePrecision"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Точность даты</FormLabel>
-                      <Select value={field.value} onValueChange={field.onChange}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {DATE_PRECISIONS.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormDescription>
-                        Если день ещё не назначен, укажите месяц, квартал, полугодие или год.
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+              <FormField
+                control={form.control}
+                name="datePrecision"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Точность даты</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {DATE_PRECISIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      Если день ещё не назначен, укажите месяц, квартал, полугодие или год.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               {/* Набор полей под выбранную точность. Год и месяц переносятся
                   между режимами: значения формы не сбрасываются. */}
