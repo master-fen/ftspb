@@ -34,7 +34,8 @@ import {
   updateNews,
 } from "@/lib/news-admin-server-fn";
 import { normalizeVideoUrl } from "@/lib/news-video-url";
-import { NewsDocumentGallery } from "./-components/NewsDocumentGallery";
+import { DocumentGallery } from "./-components/DocumentGallery";
+import { newsDocumentParent } from "./-components/document-parent";
 import { NewsPhotoGallery } from "./-components/NewsPhotoGallery";
 import { AdminBackLink } from "./-components/AdminBackLink";
 import { UnsavedChangesDialog } from "./-components/UnsavedChangesDialog";
@@ -546,11 +547,13 @@ function NewsEditForm({
             <Paperclip className="h-5 w-5" />
             Документы новости
           </h2>
-          <NewsDocumentGallery
-            newsId={id}
-            newsTitle={news.title}
-            newsPublishedAt={news.publishedAt}
-            newsSection={news.section}
+          <DocumentGallery
+            parent={newsDocumentParent(id)}
+            uploadDefaults={{
+              title: news.title,
+              documentDate: news.publishedAt,
+              section: news.section,
+            }}
             onBusyChange={setDocumentBusy}
             onDirtyChange={setDocumentDirty}
           />

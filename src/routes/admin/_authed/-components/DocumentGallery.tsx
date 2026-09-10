@@ -4,21 +4,24 @@ import { ArrowDown, ArrowUp, Paperclip, UploadCloud, X } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  detachDocumentFromNews,
-  getNewsDocuments,
-  reorderNewsDocuments,
-} from "@/lib/documents-server-fn";
 import { formatFileSize } from "@/lib/format-file-size";
 import { getFileExtension } from "@/lib/image-validation";
 import { DocumentAttachDialog } from "./DocumentAttachDialog";
 import { DocumentUploadDialog } from "./DocumentUploadDialog";
+import { documentsQueryKey, type DocumentParent } from "./document-parent";
 
-type NewsDocumentGalleryProps = {
-  newsId: string;
-  newsTitle: string;
-  newsPublishedAt: string;
-  newsSection: "federation" | "referees" | null;
+/**
+ * Галерея прикреплённых документов. Родитель (новость или событие) приходит
+ * адаптером: сам компонент не знает, к чему крепит, и не дублируется.
+ */
+type DocumentGalleryProps = {
+  parent: DocumentParent;
+  /** Предзаполнение формы нового документа. */
+  uploadDefaults: {
+    title: string;
+    documentDate: string;
+    section: "federation" | "referees" | null;
+  };
   onBusyChange?: (busy: boolean) => void;
   onDirtyChange?: (dirty: boolean) => void;
 };
@@ -32,30 +35,27 @@ function moveDocument<T extends { id: string }>(items: T[], id: string, directio
   return next;
 }
 
-export function NewsDocumentGallery({
-  newsId,
-  newsTitle,
-  newsPublishedAt,
-  newsSection,
+export function DocumentGallery({
+  parent,
+  uploadDefaults,
   onBusyChange,
   onDirtyChange,
-}: NewsDocumentGalleryProps) {
+}: DocumentGalleryProps) {
   const queryClient = useQueryClient();
   const [attachOpen, setAttachOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
 
-  const documentsQueryKey = ["news-documents", newsId] as const;
+  const queryKey = documentsQueryKey(parent);
 
   const documentsQuery = useQuery({
-    queryKey: documentsQueryKey,
-    queryFn: () => getNewsDocuments({ data: newsId }),
+    queryKey,
+    queryFn: () => parent.list(),
   });
 
-  const invalidateDocuments = () => queryClient.invalidateQueries({ queryKey: documentsQueryKey });
+  const invalidateDocuments = () => queryClient.invalidateQueries({ queryKey });
 
   const reorderMutation = useMutation({
-    mutationFn: (orderedDocumentIds: string[]) =>
-      reorderNewsDocuments({ data: { newsId, orderedDocumentIds } }),
+    mutationFn: (orderedDocumentIds: string[]) => parent.reorder(orderedDocumentIds),
     onSuccess: invalidateDocuments,
     onError: () => {
       toast.error("Не удалось сохранить порядок");
@@ -65,7 +65,7 @@ export function NewsDocumentGallery({
   });
 
   const detachMutation = useMutation({
-    mutationFn: (documentId: string) => detachDocumentFromNews({ data: { newsId, documentId } }),
+    mutationFn: (documentId: string) => parent.detach(documentId),
     onSuccess: () => {
       invalidateDocuments();
       toast.success("Документ откреплён и остался в разделе «Документы»");
@@ -77,7 +77,7 @@ export function NewsDocumentGallery({
     const current = documentsQuery.data ?? [];
     const next = moveDocument(current, id, direction);
     if (next === current) return;
-    queryClient.setQueryData(documentsQueryKey, next);
+    queryClient.setQueryData(queryKey, next);
     reorderMutation.mutate(next.map((doc) => doc.id));
   };
 
@@ -176,24 +176,24 @@ export function NewsDocumentGallery({
       )}
 
       <p className="text-[0.8rem] text-muted-foreground">
-        «Открепить» снимает документ с этой новости, но оставляет его в разделе «Документы».
+        {`«Открепить» снимает документ с этой записи, но оставляет его в разделе «Документы».`}
       </p>
 
       <DocumentAttachDialog
         open={attachOpen}
         onOpenChange={setAttachOpen}
-        newsId={newsId}
+        parent={parent}
         excludeDocumentIds={attachedIds}
       />
 
       <DocumentUploadDialog
         open={uploadOpen}
         onOpenChange={setUploadOpen}
-        newsId={newsId}
+        parent={parent}
         initialValues={{
-          title: newsTitle,
-          documentDate: newsPublishedAt,
-          section: newsSection ?? "none",
+          title: uploadDefaults.title,
+          documentDate: uploadDefaults.documentDate,
+          section: uploadDefaults.section ?? "none",
         }}
         onBusyChange={onBusyChange}
         onDirtyChange={onDirtyChange}
