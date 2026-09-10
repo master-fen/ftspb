@@ -76,20 +76,57 @@ export function FeaturedNewsSection({ items = featuredNews }: FeaturedNewsSectio
         </div>
       </div>
 
-      {/* Desktop/tablet: 2/3 hero + stacked pair */}
-      <div className="mt-6 hidden gap-5 md:grid md:grid-cols-3 md:grid-rows-2 md:[grid-auto-rows:1fr]">
+      {/* Desktop/tablet: 2/3 hero + stacked pair
+
+          Высоту строк задают только малые карточки: у них пропорция 4:3, а
+          герой растягивается на две строки плюс зазор. Раньше источников
+          высоты было два — свои 4:3 у героя и натуральная пропорция обложки
+          правой верхней карточки. У карточки высота не задана, а внутри
+          NewsCard всё построено на `height: 100%`; при контейнере
+          неопределённой высоты проценты сводятся к `auto`, и картинка
+          подставляет свой натуральный размер. Побеждал больший вклад, герой
+          оставался выше низа правой колонки: при обложке 421×331 строки
+          выходили 383.33/1.272 = 301.4, сетка 622.8, герой 590 — щель 33 px.
+
+          `md:contain-size` у героя обязателен. Снять пропорцию мало: тогда
+          натуральный размер уже его собственной обложки начинает задавать
+          строки тем же путём (замер: строки 299.2 вместо 287.5, щель −11.75).
+          `contain: size` объявляет, что размер элемента не зависит от
+          содержимого, — вклад героя в высоту строк становится нулевым, и
+          источник остаётся ровно один. `min-height: 0` и `height: 100%` тут
+          бесполезны: первый влияет на минимальный вклад, а не на
+          max-content, второй при неопределённой строке трактуется как `auto`
+          (оба проверены замером, оба ничего не изменили).
+
+          Цена: герой получает не ровно 4:3. При колонке 383.33 и зазоре 20
+          строка равна 287.5, сетка 2×287.5 + 20 = 595, ширина героя
+          2×383.33 + 20 = 786.67, пропорция 1.32213 вместо 1.33333 —
+          отклонение 0.84 %. Обложка режется `object-cover`.
+
+          Пропорция у героя остаётся условно: при items.length < 2 в сетке нет
+          ни одной малой карточки, задающей высоту строк, и герой схлопнулся
+          бы в ноль (у NewsCard нет собственной высоты — всё `h-full` и
+          `absolute`). Два литеральных className в тернарнике, не склейка
+          фрагментов: сканер Tailwind читает исходник как текст. */}
+      <div className="mt-6 hidden gap-5 md:grid md:grid-cols-3 md:grid-rows-2">
         {hero && (
-          <div className="md:col-span-2 md:row-span-2 md:aspect-[4/3]">
+          <div
+            className={
+              items.length < 2
+                ? "md:col-span-2 md:row-span-2 md:contain-size md:aspect-[4/3]"
+                : "md:col-span-2 md:row-span-2 md:contain-size"
+            }
+          >
             <NewsCard item={hero} size="hero" priority />
           </div>
         )}
         {second && (
-          <div className="md:col-span-1 md:row-span-1 md:min-h-0">
+          <div className="md:col-span-1 md:row-span-1 md:aspect-[4/3]">
             <NewsCard item={second} />
           </div>
         )}
         {third && (
-          <div className="md:col-span-1 md:row-span-1 md:min-h-0">
+          <div className="md:col-span-1 md:row-span-1 md:aspect-[4/3]">
             <NewsCard item={third} />
           </div>
         )}
