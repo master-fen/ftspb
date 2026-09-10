@@ -25,8 +25,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { formatEventDateLong, normalizeAnchor, type DatePrecision } from "@/lib/event-date";
-import { DATE_PRECISIONS, EVENT_TYPES, type EventType } from "@/lib/event-type";
+import {
+  DATE_PRECISIONS,
+  formatEventDateLong,
+  normalizeAnchor,
+  type DatePrecision,
+} from "@/lib/event-date";
+import { EVENT_TYPES, type EventType } from "@/lib/event-type";
 import { checkSlugAvailable, createEvent, suggestSlug, updateEvent } from "@/lib/events-server-fn";
 import { useUnsavedChangesBlocker } from "../-hooks/use-unsaved-changes-blocker";
 import { UnsavedChangesDialog } from "./UnsavedChangesDialog";

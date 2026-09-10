@@ -10,7 +10,27 @@
  * якорь — всегда первый день периода. См. docs/schema.md, раздел event.
  */
 
-export type DatePrecision = "day" | "month" | "quarter" | "half_year" | "year";
+/**
+ * Точности даты. Один массив — источник и типа `DatePrecision`, и значений
+ * для `z.enum`, и подписей в форме: разъехаться им негде. С
+ * `date_precision_enum` в src/db/schema.ts массив сверяет typecheck — строка
+ * базы присваивается `DatePrecision` и обратно.
+ */
+export const DATE_PRECISIONS = [
+  { value: "day", label: "Дата" },
+  { value: "month", label: "Месяц" },
+  { value: "quarter", label: "Квартал" },
+  { value: "half_year", label: "Полугодие" },
+  { value: "year", label: "Год" },
+] as const satisfies readonly { value: string; label: string }[];
+
+export type DatePrecision = (typeof DATE_PRECISIONS)[number]["value"];
+
+/** Значения для `z.enum` — кортеж, как того требует zod. */
+export const DATE_PRECISION_VALUES = DATE_PRECISIONS.map((p) => p.value) as unknown as [
+  DatePrecision,
+  ...DatePrecision[],
+];
 
 type Parts = { year: number; month: number; day: number };
 

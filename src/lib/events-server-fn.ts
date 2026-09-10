@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { DATE_PRECISION_VALUES, EVENT_TYPE_VALUES } from "@/lib/event-type";
+import { DATE_PRECISION_VALUES } from "@/lib/event-date";
+import { EVENT_TYPE_VALUES } from "@/lib/event-type";
 import {
   checkSlugAvailable as checkSlugAvailableImpl,
   createEvent as createEventImpl,
