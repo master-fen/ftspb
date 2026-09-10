@@ -144,6 +144,8 @@ export type CreateNewsInput = {
   source?: string | null;
   videoUrl?: string | null;
   hideCoverOnPage?: boolean;
+  /** Событие Федерации, к которому относится новость; null — «Нет». */
+  eventId?: string | null;
 };
 
 export async function createNews(input: CreateNewsInput): Promise<{ id: string; slug: string }> {
@@ -168,6 +170,7 @@ export async function createNews(input: CreateNewsInput): Promise<{ id: string; 
     source: input.source ?? null,
     videoUrl: videoUrlForStorage(input.videoUrl),
     hideCoverOnPage: input.hideCoverOnPage ?? false,
+    eventId: input.eventId ?? null,
   };
 
   try {
@@ -198,6 +201,7 @@ export type UpdateNewsInput = Partial<{
   source: string | null;
   videoUrl: string | null;
   hideCoverOnPage: boolean;
+  eventId: string | null;
 }>;
 
 export async function updateNews(id: string, input: UpdateNewsInput): Promise<void> {

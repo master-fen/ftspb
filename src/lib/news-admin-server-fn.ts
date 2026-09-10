@@ -58,6 +58,7 @@ export const createNews = createServerFn({ method: "POST" })
       // применяет src/server/news-admin.ts.
       videoUrl: z.string().nullable().optional(),
       hideCoverOnPage: z.boolean().optional(),
+      eventId: z.string().nullable().optional(),
     }),
   )
   .handler(({ data }) => createNewsImpl(data));
@@ -78,6 +79,7 @@ export const updateNews = createServerFn({ method: "POST" })
         featuredOrder: z.number().int().min(0).nullable().optional(),
         videoUrl: z.string().nullable().optional(),
         hideCoverOnPage: z.boolean().optional(),
+        eventId: z.string().nullable().optional(),
       }),
     }),
   )
