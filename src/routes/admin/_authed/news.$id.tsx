@@ -35,6 +35,8 @@ import {
 } from "@/lib/news-admin-server-fn";
 import { normalizeVideoUrl } from "@/lib/news-video-url";
 import { DocumentGallery } from "./-components/DocumentGallery";
+import { EventSelect } from "./-components/EventSelect";
+import { eventIdToFormValue, formValueToEventId } from "./-components/event-select-value";
 import { newsDocumentParent } from "./-components/document-parent";
 import { NewsPhotoGallery } from "./-components/NewsPhotoGallery";
 import { AdminBackLink } from "./-components/AdminBackLink";
@@ -64,6 +66,8 @@ const formSchema = z.object({
     }
   }),
   hideCoverOnPage: z.boolean(),
+  /** Идентификатор события или NO_EVENT — см. EventSelect. */
+  eventId: z.string(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -125,6 +129,7 @@ function NewsEditForm({
     featuredOrder: number | null;
     videoUrl: string | null;
     hideCoverOnPage: boolean;
+    eventId: string | null;
   };
 }) {
   const queryClient = useQueryClient();
@@ -150,6 +155,7 @@ function NewsEditForm({
       status: news.status,
       videoUrl: news.videoUrl ?? "",
       hideCoverOnPage: news.hideCoverOnPage,
+      eventId: eventIdToFormValue(news.eventId),
     },
   });
 
@@ -196,6 +202,7 @@ function NewsEditForm({
             status: values.status,
             videoUrl: videoUrlToPayload(values.videoUrl),
             hideCoverOnPage: values.hideCoverOnPage,
+            eventId: formValueToEventId(values.eventId),
           },
         },
       }),
@@ -448,6 +455,23 @@ function NewsEditForm({
                       <SelectItem value="published">Опубликовано</SelectItem>
                     </SelectContent>
                   </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="eventId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Событие</FormLabel>
+                  <FormControl>
+                    <EventSelect value={field.value} onChange={field.onChange} />
+                  </FormControl>
+                  <p className="text-[0.8rem] text-muted-foreground">
+                    Заседание или собрание, к которому относится новость.
+                  </p>
                   <FormMessage />
                 </FormItem>
               )}

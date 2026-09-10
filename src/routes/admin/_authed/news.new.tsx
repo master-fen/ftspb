@@ -17,6 +17,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { createNews, suggestSlug } from "@/lib/news-admin-server-fn";
 import { AdminBackLink } from "./-components/AdminBackLink";
+import { EventSelect } from "./-components/EventSelect";
+import { NO_EVENT, formValueToEventId } from "./-components/event-select-value";
 import { UnsavedChangesDialog } from "./-components/UnsavedChangesDialog";
 import { useUnsavedChangesBlocker } from "./-hooks/use-unsaved-changes-blocker";
 
@@ -31,6 +33,7 @@ function todayIso(): string {
 const formSchema = z.object({
   title: z.string().min(1, "Введите заголовок"),
   publishedAt: z.string().min(1, "Укажите дату"),
+  eventId: z.string(),
 });
 
 function AdminNewsNew() {
@@ -38,7 +41,7 @@ function AdminNewsNew() {
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: { title: "", publishedAt: todayIso() },
+    defaultValues: { title: "", publishedAt: todayIso(), eventId: NO_EVENT },
   });
   const {
     formState: { isDirty },
@@ -47,9 +50,17 @@ function AdminNewsNew() {
 
   const mutation = useMutation({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
-      const slug = await suggestSlug({ data: values });
+      const slug = await suggestSlug({
+        data: { title: values.title, publishedAt: values.publishedAt },
+      });
       return createNews({
-        data: { slug, title: values.title, publishedAt: values.publishedAt, status: "draft" },
+        data: {
+          slug,
+          title: values.title,
+          publishedAt: values.publishedAt,
+          status: "draft",
+          eventId: formValueToEventId(values.eventId),
+        },
       });
     },
     onSuccess: ({ id }, values) => {
@@ -94,6 +105,19 @@ function AdminNewsNew() {
                       <FormLabel>Дата</FormLabel>
                       <FormControl>
                         <Input type="date" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="eventId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Событие</FormLabel>
+                      <FormControl>
+                        <EventSelect value={field.value} onChange={field.onChange} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
