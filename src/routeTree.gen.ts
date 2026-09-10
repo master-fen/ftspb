@@ -39,11 +39,14 @@ import { Route as ApiAdminUploadRouteImport } from './routes/api/admin/upload'
 import { Route as ApiAdminPhotoSourceRouteImport } from './routes/api/admin/photo-source'
 import { Route as AdminAuthedPersonsIndexRouteImport } from './routes/admin/_authed/persons.index'
 import { Route as AdminAuthedNewsIndexRouteImport } from './routes/admin/_authed/news.index'
+import { Route as AdminAuthedEventsIndexRouteImport } from './routes/admin/_authed/events.index'
 import { Route as AdminAuthedDocumentsIndexRouteImport } from './routes/admin/_authed/documents.index'
 import { Route as AdminAuthedPersonsNewRouteImport } from './routes/admin/_authed/persons.new'
 import { Route as AdminAuthedPersonsIdRouteImport } from './routes/admin/_authed/persons.$id'
 import { Route as AdminAuthedNewsNewRouteImport } from './routes/admin/_authed/news.new'
 import { Route as AdminAuthedNewsIdRouteImport } from './routes/admin/_authed/news.$id'
+import { Route as AdminAuthedEventsNewRouteImport } from './routes/admin/_authed/events.new'
+import { Route as AdminAuthedEventsIdRouteImport } from './routes/admin/_authed/events.$id'
 import { Route as AdminAuthedDocumentsNewRouteImport } from './routes/admin/_authed/documents.new'
 import { Route as AdminAuthedDocumentsIdRouteImport } from './routes/admin/_authed/documents.$id'
 
@@ -196,6 +199,11 @@ const AdminAuthedNewsIndexRoute = AdminAuthedNewsIndexRouteImport.update({
   path: '/news/',
   getParentRoute: () => AdminAuthedRouteRoute,
 } as any)
+const AdminAuthedEventsIndexRoute = AdminAuthedEventsIndexRouteImport.update({
+  id: '/events/',
+  path: '/events/',
+  getParentRoute: () => AdminAuthedRouteRoute,
+} as any)
 const AdminAuthedDocumentsIndexRoute =
   AdminAuthedDocumentsIndexRouteImport.update({
     id: '/documents/',
@@ -220,6 +228,16 @@ const AdminAuthedNewsNewRoute = AdminAuthedNewsNewRouteImport.update({
 const AdminAuthedNewsIdRoute = AdminAuthedNewsIdRouteImport.update({
   id: '/news/$id',
   path: '/news/$id',
+  getParentRoute: () => AdminAuthedRouteRoute,
+} as any)
+const AdminAuthedEventsNewRoute = AdminAuthedEventsNewRouteImport.update({
+  id: '/events/new',
+  path: '/events/new',
+  getParentRoute: () => AdminAuthedRouteRoute,
+} as any)
+const AdminAuthedEventsIdRoute = AdminAuthedEventsIdRouteImport.update({
+  id: '/events/$id',
+  path: '/events/$id',
   getParentRoute: () => AdminAuthedRouteRoute,
 } as any)
 const AdminAuthedDocumentsNewRoute = AdminAuthedDocumentsNewRouteImport.update({
@@ -263,11 +281,14 @@ export interface FileRoutesByFullPath {
   '/admin/': typeof AdminAuthedIndexRoute
   '/admin/documents/$id': typeof AdminAuthedDocumentsIdRoute
   '/admin/documents/new': typeof AdminAuthedDocumentsNewRoute
+  '/admin/events/$id': typeof AdminAuthedEventsIdRoute
+  '/admin/events/new': typeof AdminAuthedEventsNewRoute
   '/admin/news/$id': typeof AdminAuthedNewsIdRoute
   '/admin/news/new': typeof AdminAuthedNewsNewRoute
   '/admin/persons/$id': typeof AdminAuthedPersonsIdRoute
   '/admin/persons/new': typeof AdminAuthedPersonsNewRoute
   '/admin/documents/': typeof AdminAuthedDocumentsIndexRoute
+  '/admin/events/': typeof AdminAuthedEventsIndexRoute
   '/admin/news/': typeof AdminAuthedNewsIndexRoute
   '/admin/persons/': typeof AdminAuthedPersonsIndexRoute
 }
@@ -299,11 +320,14 @@ export interface FileRoutesByTo {
   '/federation/charter/text': typeof FederationCharterTextRoute
   '/admin/documents/$id': typeof AdminAuthedDocumentsIdRoute
   '/admin/documents/new': typeof AdminAuthedDocumentsNewRoute
+  '/admin/events/$id': typeof AdminAuthedEventsIdRoute
+  '/admin/events/new': typeof AdminAuthedEventsNewRoute
   '/admin/news/$id': typeof AdminAuthedNewsIdRoute
   '/admin/news/new': typeof AdminAuthedNewsNewRoute
   '/admin/persons/$id': typeof AdminAuthedPersonsIdRoute
   '/admin/persons/new': typeof AdminAuthedPersonsNewRoute
   '/admin/documents': typeof AdminAuthedDocumentsIndexRoute
+  '/admin/events': typeof AdminAuthedEventsIndexRoute
   '/admin/news': typeof AdminAuthedNewsIndexRoute
   '/admin/persons': typeof AdminAuthedPersonsIndexRoute
 }
@@ -339,11 +363,14 @@ export interface FileRoutesById {
   '/admin/_authed/': typeof AdminAuthedIndexRoute
   '/admin/_authed/documents/$id': typeof AdminAuthedDocumentsIdRoute
   '/admin/_authed/documents/new': typeof AdminAuthedDocumentsNewRoute
+  '/admin/_authed/events/$id': typeof AdminAuthedEventsIdRoute
+  '/admin/_authed/events/new': typeof AdminAuthedEventsNewRoute
   '/admin/_authed/news/$id': typeof AdminAuthedNewsIdRoute
   '/admin/_authed/news/new': typeof AdminAuthedNewsNewRoute
   '/admin/_authed/persons/$id': typeof AdminAuthedPersonsIdRoute
   '/admin/_authed/persons/new': typeof AdminAuthedPersonsNewRoute
   '/admin/_authed/documents/': typeof AdminAuthedDocumentsIndexRoute
+  '/admin/_authed/events/': typeof AdminAuthedEventsIndexRoute
   '/admin/_authed/news/': typeof AdminAuthedNewsIndexRoute
   '/admin/_authed/persons/': typeof AdminAuthedPersonsIndexRoute
 }
@@ -379,11 +406,14 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/admin/documents/$id'
     | '/admin/documents/new'
+    | '/admin/events/$id'
+    | '/admin/events/new'
     | '/admin/news/$id'
     | '/admin/news/new'
     | '/admin/persons/$id'
     | '/admin/persons/new'
     | '/admin/documents/'
+    | '/admin/events/'
     | '/admin/news/'
     | '/admin/persons/'
   fileRoutesByTo: FileRoutesByTo
@@ -415,11 +445,14 @@ export interface FileRouteTypes {
     | '/federation/charter/text'
     | '/admin/documents/$id'
     | '/admin/documents/new'
+    | '/admin/events/$id'
+    | '/admin/events/new'
     | '/admin/news/$id'
     | '/admin/news/new'
     | '/admin/persons/$id'
     | '/admin/persons/new'
     | '/admin/documents'
+    | '/admin/events'
     | '/admin/news'
     | '/admin/persons'
   id:
@@ -454,11 +487,14 @@ export interface FileRouteTypes {
     | '/admin/_authed/'
     | '/admin/_authed/documents/$id'
     | '/admin/_authed/documents/new'
+    | '/admin/_authed/events/$id'
+    | '/admin/_authed/events/new'
     | '/admin/_authed/news/$id'
     | '/admin/_authed/news/new'
     | '/admin/_authed/persons/$id'
     | '/admin/_authed/persons/new'
     | '/admin/_authed/documents/'
+    | '/admin/_authed/events/'
     | '/admin/_authed/news/'
     | '/admin/_authed/persons/'
   fileRoutesById: FileRoutesById
@@ -695,6 +731,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAuthedNewsIndexRouteImport
       parentRoute: typeof AdminAuthedRouteRoute
     }
+    '/admin/_authed/events/': {
+      id: '/admin/_authed/events/'
+      path: '/events'
+      fullPath: '/admin/events/'
+      preLoaderRoute: typeof AdminAuthedEventsIndexRouteImport
+      parentRoute: typeof AdminAuthedRouteRoute
+    }
     '/admin/_authed/documents/': {
       id: '/admin/_authed/documents/'
       path: '/documents'
@@ -730,6 +773,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAuthedNewsIdRouteImport
       parentRoute: typeof AdminAuthedRouteRoute
     }
+    '/admin/_authed/events/new': {
+      id: '/admin/_authed/events/new'
+      path: '/events/new'
+      fullPath: '/admin/events/new'
+      preLoaderRoute: typeof AdminAuthedEventsNewRouteImport
+      parentRoute: typeof AdminAuthedRouteRoute
+    }
+    '/admin/_authed/events/$id': {
+      id: '/admin/_authed/events/$id'
+      path: '/events/$id'
+      fullPath: '/admin/events/$id'
+      preLoaderRoute: typeof AdminAuthedEventsIdRouteImport
+      parentRoute: typeof AdminAuthedRouteRoute
+    }
     '/admin/_authed/documents/new': {
       id: '/admin/_authed/documents/new'
       path: '/documents/new'
@@ -751,11 +808,14 @@ interface AdminAuthedRouteRouteChildren {
   AdminAuthedIndexRoute: typeof AdminAuthedIndexRoute
   AdminAuthedDocumentsIdRoute: typeof AdminAuthedDocumentsIdRoute
   AdminAuthedDocumentsNewRoute: typeof AdminAuthedDocumentsNewRoute
+  AdminAuthedEventsIdRoute: typeof AdminAuthedEventsIdRoute
+  AdminAuthedEventsNewRoute: typeof AdminAuthedEventsNewRoute
   AdminAuthedNewsIdRoute: typeof AdminAuthedNewsIdRoute
   AdminAuthedNewsNewRoute: typeof AdminAuthedNewsNewRoute
   AdminAuthedPersonsIdRoute: typeof AdminAuthedPersonsIdRoute
   AdminAuthedPersonsNewRoute: typeof AdminAuthedPersonsNewRoute
   AdminAuthedDocumentsIndexRoute: typeof AdminAuthedDocumentsIndexRoute
+  AdminAuthedEventsIndexRoute: typeof AdminAuthedEventsIndexRoute
   AdminAuthedNewsIndexRoute: typeof AdminAuthedNewsIndexRoute
   AdminAuthedPersonsIndexRoute: typeof AdminAuthedPersonsIndexRoute
 }
@@ -764,11 +824,14 @@ const AdminAuthedRouteRouteChildren: AdminAuthedRouteRouteChildren = {
   AdminAuthedIndexRoute: AdminAuthedIndexRoute,
   AdminAuthedDocumentsIdRoute: AdminAuthedDocumentsIdRoute,
   AdminAuthedDocumentsNewRoute: AdminAuthedDocumentsNewRoute,
+  AdminAuthedEventsIdRoute: AdminAuthedEventsIdRoute,
+  AdminAuthedEventsNewRoute: AdminAuthedEventsNewRoute,
   AdminAuthedNewsIdRoute: AdminAuthedNewsIdRoute,
   AdminAuthedNewsNewRoute: AdminAuthedNewsNewRoute,
   AdminAuthedPersonsIdRoute: AdminAuthedPersonsIdRoute,
   AdminAuthedPersonsNewRoute: AdminAuthedPersonsNewRoute,
   AdminAuthedDocumentsIndexRoute: AdminAuthedDocumentsIndexRoute,
+  AdminAuthedEventsIndexRoute: AdminAuthedEventsIndexRoute,
   AdminAuthedNewsIndexRoute: AdminAuthedNewsIndexRoute,
   AdminAuthedPersonsIndexRoute: AdminAuthedPersonsIndexRoute,
 }

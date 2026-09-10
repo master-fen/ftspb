@@ -50,6 +50,16 @@ function AdminDashboard() {
         </section>
 
         <section className="rounded-xl border bg-card p-6 text-card-foreground">
+          <h2 className="mb-2 text-lg font-semibold">События</h2>
+          <p className="mb-4 text-sm text-muted-foreground">
+            Заседания Правления, Общие собрания, проверки контрольного органа.
+          </p>
+          <Button asChild>
+            <Link to="/admin/events">Перейти к событиям</Link>
+          </Button>
+        </section>
+
+        <section className="rounded-xl border bg-card p-6 text-card-foreground">
           <h2 className="mb-2 text-lg font-semibold">Руководство</h2>
           <p className="mb-4 text-sm text-muted-foreground">
             Состав руководства Федерации на странице «Руководство».
