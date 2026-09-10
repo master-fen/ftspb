@@ -1,10 +1,10 @@
 import { and, asc, desc, eq, isNull, ne, sql } from "drizzle-orm";
-import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { db } from "@/db/client";
-import { document, eventDocument, newsDocument } from "@/db/schema";
+import { document, newsDocument } from "@/db/schema";
 import { normalizeDocumentSlug } from "@/lib/document-slug";
 import type { SectionCategory } from "@/lib/section-category";
 import { requireSession } from "@/server/auth";
+import { EVENT_LINK, NEWS_LINK, type DocumentLink } from "@/server/document-links";
 import { resetNewsCache } from "@/server/news-cache";
 import { buildImageUrl } from "@/server/storage";
 
@@ -182,50 +182,10 @@ export async function softDeleteDocument(id: string): Promise<void> {
 }
 
 /**
- * Связи «документ — родитель» устроены одинаково у новости (news_document) и
- * у события (event_document): та же тройка колонок, тот же составной PK, тот
- * же каскад. Поэтому attach/detach/reorder/list написаны один раз и
- * параметризованы связью; наружу идут тонкие обёртки под каждого родителя.
- *
- * `link` — таблица связи, `parentColumn` — её колонка родителя,
- * `parentLabel` — родительный падеж для текста ошибки («этой новости»,
- * «этого события»).
+ * attach/detach/reorder/list написаны один раз и параметризованы связью
+ * (src/server/document-links.ts); наружу идут тонкие обёртки под каждого
+ * родителя.
  */
-type DocumentLink = {
-  table: typeof newsDocument | typeof eventDocument;
-  // AnyPgColumn, а не конкретные колонки: иначе тип пригвоздил бы связь к
-  // news_document и event_document перестал бы подходить.
-  parentColumn: AnyPgColumn;
-  documentColumn: AnyPgColumn;
-  positionColumn: AnyPgColumn;
-  /**
-   * Ключ родителя в объекте `.values()` — это имя свойства из определения
-   * таблицы (`newsId`), а НЕ имя колонки в базе (`news_id`, которое лежит в
-   * `parentColumn.name`). Перепутать их = вставка без родителя и падение на
-   * NOT NULL.
-   */
-  parentKey: "newsId" | "eventId";
-  parentLabel: string;
-};
-
-const NEWS_LINK: DocumentLink = {
-  table: newsDocument,
-  parentColumn: newsDocument.newsId,
-  documentColumn: newsDocument.documentId,
-  positionColumn: newsDocument.position,
-  parentKey: "newsId",
-  parentLabel: "этой новости",
-};
-
-const EVENT_LINK: DocumentLink = {
-  table: eventDocument,
-  parentColumn: eventDocument.eventId,
-  documentColumn: eventDocument.documentId,
-  positionColumn: eventDocument.position,
-  parentKey: "eventId",
-  parentLabel: "этого события",
-};
-
 async function attachDocument(
   link: DocumentLink,
   parentId: string,
@@ -244,6 +204,8 @@ async function attachDocument(
     pos = (row?.maxPosition ?? -1) + 1;
   }
 
+  // `as never` отключает типы у всех трёх ключей: что это свойства таблицы
+  // связи и указывают на её колонки, проверяет tests/document-link.test.ts.
   await database
     .insert(link.table)
     .values({ [link.parentKey]: parentId, documentId, position: pos } as never);
