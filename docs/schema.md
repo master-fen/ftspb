@@ -133,6 +133,56 @@ NULL (решение Антона, 01.08.2026).
 `(news_id, document_id)`. При удалении `news` или `document` строки связи
 удаляются каскадно.
 
+### event
+
+Событие Федерации: заседание Правления, Общее собрание, проверка КРО.
+
+| Поле                               | Тип                          |
+| ---------------------------------- | ---------------------------- |
+| id                                 | uuid PK                      |
+| slug                               | text NOT NULL                |
+| title                              | text NOT NULL                |
+| type                               | event_type_enum NOT NULL     |
+| starts_on                          | date NOT NULL                |
+| starts_time                        | time NULL                    |
+| date_precision                     | date_precision_enum NOT NULL |
+| location                           | text NULL                    |
+| description                        | text NULL                    |
+| status                             | status_enum NOT NULL         |
+| created_at, updated_at, deleted_at | timestamptz                  |
+
+`event_type_enum`: `general_meeting`, `board`, `audit`, `other`.
+`date_precision_enum`: `day`, `month`, `quarter`, `half_year`, `year`.
+
+Дата хранится **якорем** `starts_on` плюс точностью `date_precision`. Якорь —
+всегда первый день периода: `month` — 1-е число, `quarter` —
+01.01/01.04/01.07/01.10, `half_year` — 01.01/01.07, `year` — 01.01; при
+точности `day` — сама дата. Нормализует сервер при каждой записи
+(`src/lib/event-date.ts`), форме не доверяем. Так «III квартал 2026»
+сортируется и сравнивается с обычной датой одной колонкой, без разбора строк
+в SQL.
+
+`starts_time` осмысленно только при точности `day`. Это закреплено
+check-констрейнтом `event_starts_time_precision_check`
+(`date_precision = 'day' or starts_time is null`), а не только серверной
+проверкой: колонку правит и скрипт, и psql.
+
+Индексы: `event_slug_active_idx` — частичный UNIQUE по `slug`
+`WHERE deleted_at is null` (мягко удалённое событие освобождает адрес, как у
+`document`); `event_status_starts_on_idx` — `(status, starts_on)`.
+
+### event_document
+
+Связь M2M: `event_id`, `document_id`, `position`. Составной PK
+`(event_id, document_id)`. Каскад при удалении `event` или `document`.
+Точная копия `news_document`; серверные функции attach/detach/reorder/list у
+обеих связей общие (`src/server/documents.ts`).
+
+### news.event_id
+
+`event_id` uuid NULL → `event.id` `ON DELETE SET NULL`: удаление события не
+уносит новость, а только развязывает её. Индекс `news_event_id_idx`.
+
 ### admin_user
 
 `id`, `login` UNIQUE, `password_hash`, `display_name`, `is_active`,
@@ -148,7 +198,7 @@ FK → admin_user (ON DELETE CASCADE), `expires_at`, `created_at`,
 
 ### Вне этого этапа
 
-Event, Tournament, NationalTeam, Player, Club, Заявка, ContactPage,
+Tournament, NationalTeam, Player, Club, Заявка, ContactPage,
 SiteSettings — модель в разделе 5 базы знаний, таблицы создаются в
 следующих итерациях. `section_enum` у них тот же.
 
