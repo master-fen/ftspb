@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
-  GENERAL_MEETING_LOCATION_ERROR,
+  EVENT_TIME_FORMAT_ERROR,
   mergeEventPatch,
   validateCreateEvent,
   validateEvent,
@@ -74,42 +74,31 @@ describe("validateEvent: якорь и время", () => {
   });
 });
 
-describe("validateEvent: правило Устава для Общего собрания", () => {
-  const meeting: EventState = { ...base, type: "general_meeting" };
-
-  test("published + day + без места — ошибка с точным текстом", () => {
-    expect(() => validateEvent({ ...meeting, status: "published" })).toThrow(
-      GENERAL_MEETING_LOCATION_ERROR,
-    );
+describe("validateEvent: формат времени", () => {
+  test.each(["18:00", "09:30:15", "00:00", "23:59:59"])("%s проходит", (startsTime) => {
+    expect(validateEvent({ ...base, startsTime }).startsTime).toBe(startsTime);
   });
 
-  test("published + day + место — проходит", () => {
-    expect(
-      validateEvent({ ...meeting, status: "published", location: "Челиева, 13" }).location,
-    ).toBe("Челиева, 13");
-  });
-
-  test("черновик без места — проходит", () => {
-    expect(validateEvent({ ...meeting, status: "draft" }).status).toBe("draft");
-  });
-
-  test("published + quarter без места — проходит (правило только для точной даты)", () => {
-    const result = validateEvent({
-      ...meeting,
-      status: "published",
-      datePrecision: "quarter",
-      startsOn: "2026-08-17",
-    });
-    expect(result.location).toBeNull();
-    expect(result.startsOn).toBe("2026-07-01");
-  });
-
-  test.each(["board", "audit", "other"] as const)(
-    "тип %s: published без места — проходит",
-    (type) => {
-      expect(validateEvent({ ...base, type, status: "published" }).location).toBeNull();
+  test.each(["полдень", "25:00", "18:60", "8:00", "1800", "18:00:60", "18-00"])(
+    "%s — ошибка с точным текстом",
+    (startsTime) => {
+      expect(() => validateEvent({ ...base, startsTime })).toThrow(EVENT_TIME_FORMAT_ERROR);
     },
   );
+
+  test("точность month — мусор не проверяется, а обнуляется", () => {
+    expect(
+      validateEvent({ ...base, datePrecision: "month", startsTime: "полдень" }).startsTime,
+    ).toBeNull();
+  });
+});
+
+describe("validateEvent: место не требуется", () => {
+  test("published + day без места — проходит", () => {
+    const result = validateEvent({ ...base, status: "published" });
+    expect(result.status).toBe("published");
+    expect(result.location).toBeNull();
+  });
 });
 
 describe("validateCreateEvent: значения по умолчанию", () => {
@@ -148,36 +137,7 @@ describe("mergeEventPatch", () => {
   });
 });
 
-describe("validateUpdateEvent: правило проверяется по слитому состоянию", () => {
-  const meetingDraft: EventState = {
-    ...base,
-    type: "general_meeting",
-    status: "draft",
-    location: null,
-  };
-
-  test("патч только со status — правило срабатывает", () => {
-    expect(() => validateUpdateEvent(meetingDraft, { status: "published" })).toThrow(
-      GENERAL_MEETING_LOCATION_ERROR,
-    );
-  });
-
-  test("патч только со status при уже заданном месте — проходит", () => {
-    const withLocation: EventState = { ...meetingDraft, location: "Челиева, 13" };
-    expect(validateUpdateEvent(withLocation, { status: "published" }).status).toBe("published");
-  });
-
-  test("патч, снимающий место у опубликованного собрания, — ошибка", () => {
-    const published: EventState = {
-      ...meetingDraft,
-      status: "published",
-      location: "Челиева, 13",
-    };
-    expect(() => validateUpdateEvent(published, { location: null })).toThrow(
-      GENERAL_MEETING_LOCATION_ERROR,
-    );
-  });
-
+describe("validateUpdateEvent: правила проверяются по слитому состоянию", () => {
   test("патч только с точностью обнуляет время и переносит якорь", () => {
     const timed: EventState = { ...base, startsOn: "2026-08-17", startsTime: "18:00" };
     const result = validateUpdateEvent(timed, { datePrecision: "half_year" });
@@ -185,12 +145,14 @@ describe("validateUpdateEvent: правило проверяется по сли
     expect(result.startsOn).toBe("2026-07-01");
   });
 
-  test("патч только со status у Общего собрания с точностью quarter — проходит", () => {
-    const quarterMeeting: EventState = {
-      ...meetingDraft,
-      datePrecision: "quarter",
-      startsOn: "2026-07-01",
-    };
-    expect(validateUpdateEvent(quarterMeeting, { status: "published" }).status).toBe("published");
+  test("время из базы в формате ЧЧ:ММ:СС проходит при патче без времени", () => {
+    const fromDb: EventState = { ...base, startsTime: "18:00:00" };
+    expect(validateUpdateEvent(fromDb, { title: "Новое" }).startsTime).toBe("18:00:00");
+  });
+
+  test("патч только с мусорным временем — ошибка", () => {
+    expect(() => validateUpdateEvent(base, { startsTime: "полдень" })).toThrow(
+      EVENT_TIME_FORMAT_ERROR,
+    );
   });
 });

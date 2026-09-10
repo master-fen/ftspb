@@ -12,9 +12,13 @@ import type { EventType } from "@/lib/event-type";
  *
  * Ключевое: валидируется **полное** состояние записи, а не патч. При
  * обновлении сервер сначала читает текущую строку, сливает с патчем и
- * прогоняет `validateEvent` по результату — иначе правило «Общее собрание при
- * публикации требует места» не сработало бы на патче, где есть только
- * `status`.
+ * прогоняет `validateEvent` по результату — нормализация якоря и обнуление
+ * времени зависят от пары `startsOn` + `datePrecision`, а патч может нести
+ * только одно из них.
+ *
+ * Правил Устава здесь нет намеренно: система не запрещает законные ситуации
+ * (экстренное собрание, место уточняется позже), за соблюдение Устава
+ * отвечает секретарь.
  */
 
 export type EventStatus = "draft" | "published";
@@ -46,9 +50,16 @@ export type EventInput = {
 
 export type EventPatch = Partial<EventInput>;
 
-/** Текст правила Устава — проверяется тестом дословно. */
-export const GENERAL_MEETING_LOCATION_ERROR =
-  "Для Общего собрания при публикации нужно указать место (Устав, п. 6.1)";
+/** Текст ошибки формата времени — проверяется тестом дословно. */
+export const EVENT_TIME_FORMAT_ERROR =
+  "Время указывается в формате ЧЧ:ММ или ЧЧ:ММ:СС, например 18:00";
+
+/**
+ * `HH:MM` из формы (`<input type="time">`) или `HH:MM:SS`, как колонку `time`
+ * отдаёт база при чтении текущей строки в update. Без этой проверки прямой
+ * вызов RPC со строкой «полдень» дошёл бы до Postgres голой ошибкой 22007.
+ */
+const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/;
 
 function requiredText(value: unknown, label: string): string {
   if (typeof value !== "string" || value.trim() === "") {
@@ -86,18 +97,14 @@ export function validateEvent(state: EventState): EventState {
   const title = requiredText(state.title, "Название");
   const datePrecision = state.datePrecision;
   const startsOn = normalizeAnchor(requiredText(state.startsOn, "Дата"), datePrecision);
+  // При точности не `day` время обнуляется, не глядя на значение: проверять
+  // формат того, что всё равно не сохранится, незачем.
   const startsTime = datePrecision === "day" ? optionalText(state.startsTime, "Время") : null;
+  if (startsTime !== null && !TIME_PATTERN.test(startsTime)) {
+    throw new Error(EVENT_TIME_FORMAT_ERROR);
+  }
   const location = optionalText(state.location, "Место");
   const description = optionalText(state.description, "Описание");
-
-  if (
-    state.status === "published" &&
-    state.type === "general_meeting" &&
-    datePrecision === "day" &&
-    location === null
-  ) {
-    throw new Error(GENERAL_MEETING_LOCATION_ERROR);
-  }
 
   return {
     slug,
