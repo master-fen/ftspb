@@ -6,6 +6,7 @@ import {
   isPast,
   normalizeAnchor,
   periodEnd,
+  pickDefaultEventYear,
   type DatePrecision,
 } from "@/lib/event-date";
 
@@ -168,5 +169,28 @@ describe("formatEventDateShort", () => {
 describe("eventYear", () => {
   test("год якоря", () => {
     expect(eventYear("2026-03-19")).toBe(2026);
+  });
+});
+
+describe("pickDefaultEventYear", () => {
+  test("нет событий — null", () => {
+    expect(pickDefaultEventYear([], 2026)).toBeNull();
+  });
+
+  test("в текущем году события есть — текущий", () => {
+    expect(pickDefaultEventYear([2025, 2026, 2027], 2026)).toBe(2026);
+  });
+
+  test("текущий пуст — ближайший будущий, а не последний прошедший", () => {
+    expect(pickDefaultEventYear([2024, 2025, 2028, 2030], 2026)).toBe(2028);
+  });
+
+  test("будущих нет — последний прошедший", () => {
+    expect(pickDefaultEventYear([2022, 2024], 2026)).toBe(2024);
+  });
+
+  test("порядок входа не важен", () => {
+    expect(pickDefaultEventYear([2030, 2028, 2024], 2026)).toBe(2028);
+    expect(pickDefaultEventYear([2024, 2022], 2026)).toBe(2024);
   });
 });

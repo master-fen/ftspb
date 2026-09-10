@@ -225,3 +225,19 @@ export function formatEventDateShort(startsOn: string, precision: DatePrecision)
 export function eventYear(startsOn: string): number {
   return parse(startsOn).year;
 }
+
+/**
+ * Год, который список событий показывает без `?year=`: текущий, если в нём
+ * есть события; иначе ближайший будущий; иначе последний прошедший.
+ * `years` — годы, где события есть (порядок не важен); пустой список — null.
+ */
+export function pickDefaultEventYear(years: readonly number[], currentYear: number): number | null {
+  if (years.length === 0) {
+    return null;
+  }
+  if (years.includes(currentYear)) {
+    return currentYear;
+  }
+  const future = years.filter((y) => y > currentYear);
+  return future.length > 0 ? Math.min(...future) : Math.max(...years);
+}
