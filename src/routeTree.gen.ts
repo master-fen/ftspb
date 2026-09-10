@@ -34,6 +34,7 @@ import { Route as FederationAboutRouteImport } from './routes/federation.about'
 import { Route as AdminLoginRouteImport } from './routes/admin/login'
 import { Route as AdminAuthedRouteRouteImport } from './routes/admin/_authed/route'
 import { Route as AdminAuthedIndexRouteImport } from './routes/admin/_authed/index'
+import { Route as FederationEventsSlugRouteImport } from './routes/federation_.events.$slug'
 import { Route as FederationCharterTextRouteImport } from './routes/federation_.charter.text'
 import { Route as ApiAdminUploadRouteImport } from './routes/api/admin/upload'
 import { Route as ApiAdminPhotoSourceRouteImport } from './routes/api/admin/photo-source'
@@ -174,6 +175,11 @@ const AdminAuthedIndexRoute = AdminAuthedIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AdminAuthedRouteRoute,
 } as any)
+const FederationEventsSlugRoute = FederationEventsSlugRouteImport.update({
+  id: '/federation_/events/$slug',
+  path: '/federation/events/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FederationCharterTextRoute = FederationCharterTextRouteImport.update({
   id: '/federation_/charter/text',
   path: '/federation/charter/text',
@@ -278,6 +284,7 @@ export interface FileRoutesByFullPath {
   '/api/admin/photo-source': typeof ApiAdminPhotoSourceRoute
   '/api/admin/upload': typeof ApiAdminUploadRoute
   '/federation/charter/text': typeof FederationCharterTextRoute
+  '/federation/events/$slug': typeof FederationEventsSlugRoute
   '/admin/': typeof AdminAuthedIndexRoute
   '/admin/documents/$id': typeof AdminAuthedDocumentsIdRoute
   '/admin/documents/new': typeof AdminAuthedDocumentsNewRoute
@@ -318,6 +325,7 @@ export interface FileRoutesByTo {
   '/api/admin/photo-source': typeof ApiAdminPhotoSourceRoute
   '/api/admin/upload': typeof ApiAdminUploadRoute
   '/federation/charter/text': typeof FederationCharterTextRoute
+  '/federation/events/$slug': typeof FederationEventsSlugRoute
   '/admin/documents/$id': typeof AdminAuthedDocumentsIdRoute
   '/admin/documents/new': typeof AdminAuthedDocumentsNewRoute
   '/admin/events/$id': typeof AdminAuthedEventsIdRoute
@@ -360,6 +368,7 @@ export interface FileRoutesById {
   '/api/admin/photo-source': typeof ApiAdminPhotoSourceRoute
   '/api/admin/upload': typeof ApiAdminUploadRoute
   '/federation_/charter/text': typeof FederationCharterTextRoute
+  '/federation_/events/$slug': typeof FederationEventsSlugRoute
   '/admin/_authed/': typeof AdminAuthedIndexRoute
   '/admin/_authed/documents/$id': typeof AdminAuthedDocumentsIdRoute
   '/admin/_authed/documents/new': typeof AdminAuthedDocumentsNewRoute
@@ -403,6 +412,7 @@ export interface FileRouteTypes {
     | '/api/admin/photo-source'
     | '/api/admin/upload'
     | '/federation/charter/text'
+    | '/federation/events/$slug'
     | '/admin/'
     | '/admin/documents/$id'
     | '/admin/documents/new'
@@ -443,6 +453,7 @@ export interface FileRouteTypes {
     | '/api/admin/photo-source'
     | '/api/admin/upload'
     | '/federation/charter/text'
+    | '/federation/events/$slug'
     | '/admin/documents/$id'
     | '/admin/documents/new'
     | '/admin/events/$id'
@@ -484,6 +495,7 @@ export interface FileRouteTypes {
     | '/api/admin/photo-source'
     | '/api/admin/upload'
     | '/federation_/charter/text'
+    | '/federation_/events/$slug'
     | '/admin/_authed/'
     | '/admin/_authed/documents/$id'
     | '/admin/_authed/documents/new'
@@ -517,6 +529,7 @@ export interface RootRouteChildren {
   ApiAdminPhotoSourceRoute: typeof ApiAdminPhotoSourceRoute
   ApiAdminUploadRoute: typeof ApiAdminUploadRoute
   FederationCharterTextRoute: typeof FederationCharterTextRoute
+  FederationEventsSlugRoute: typeof FederationEventsSlugRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -695,6 +708,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/'
       preLoaderRoute: typeof AdminAuthedIndexRouteImport
       parentRoute: typeof AdminAuthedRouteRoute
+    }
+    '/federation_/events/$slug': {
+      id: '/federation_/events/$slug'
+      path: '/federation/events/$slug'
+      fullPath: '/federation/events/$slug'
+      preLoaderRoute: typeof FederationEventsSlugRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/federation_/charter/text': {
       id: '/federation_/charter/text'
@@ -897,6 +917,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAdminPhotoSourceRoute: ApiAdminPhotoSourceRoute,
   ApiAdminUploadRoute: ApiAdminUploadRoute,
   FederationCharterTextRoute: FederationCharterTextRoute,
+  FederationEventsSlugRoute: FederationEventsSlugRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

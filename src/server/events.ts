@@ -1,7 +1,7 @@
-import { and, asc, desc, eq, isNull, ne } from "drizzle-orm";
+import { and, asc, desc, eq, gte, isNull, lt, ne, sql } from "drizzle-orm";
 import { db } from "@/db/client";
-import { event } from "@/db/schema";
-import { eventYear } from "@/lib/event-date";
+import { event, news } from "@/db/schema";
+import { eventYear, type DatePrecision } from "@/lib/event-date";
 import {
   validateCreateEvent,
   validateUpdateEvent,
@@ -13,10 +13,10 @@ import { requireSession } from "@/server/auth";
 import { slugify } from "@/server/slug";
 
 /**
- * События Федерации (таблица `event`) — админка. Публичных функций здесь нет:
- * публичные страницы событий — отдельный PR.
+ * События Федерации (таблица `event`): админка и публичные функции для
+ * /federation/events и /federation/events/$slug (блок в конце файла).
  *
- * Каждая функция начинается с requireSession: guard в
+ * Каждая админская функция начинается с requireSession: guard в
  * src/routes/admin/_authed/route.tsx навигационный, а не граница безопасности
  * (CLAUDE.md) — эндпоинты createServerFn вызываются по HTTP напрямую.
  *
@@ -241,4 +241,120 @@ export async function suggestSlug(title: string, startsOn: string): Promise<stri
     n += 1;
   }
   return `${withYear}-${n}`;
+}
+
+/*
+ * Публичные функции. Сессии нет — вызвать может кто угодно, поэтому:
+ * только `status = 'published'` и живые (`deleted_at is null`), колонки
+ * перечислены явно (как в listPublishedPersons): новая колонка — status,
+ * служебные даты — не должна автоматически утечь в SSR-ответ и loaderData.
+ *
+ * `db === null` — превью Lovable без DATABASE_URL (штатный режим, не авария):
+ * фикстур для событий нет, отдаём пусто. Ошибку живой БД не глотаем.
+ */
+
+const PUBLISHED_ALIVE = and(eq(event.status, "published"), isNull(event.deletedAt));
+
+/** Годы якорей опубликованных событий, по возрастанию, без повторов. */
+export async function listPublishedEventYears(): Promise<number[]> {
+  if (db === null) {
+    return [];
+  }
+  const year = sql<number>`extract(year from ${event.startsOn})::int`;
+  const rows = await db.selectDistinct({ year }).from(event).where(PUBLISHED_ALIVE).orderBy(year);
+  return rows.map((row) => row.year);
+}
+
+/** Строка списка /federation/events: место и описание список не рисует. */
+export type PublicEventListItem = {
+  id: string;
+  slug: string;
+  title: string;
+  startsOn: string;
+  startsTime: string | null;
+  datePrecision: DatePrecision;
+};
+
+/**
+ * События года по возрастанию якоря. Условие — диапазон дат, а не
+ * `extract(year …)`: так работает индекс event_status_starts_on_idx. Вторичная
+ * сортировка по title зависит от collation (локальная база и прод
+ * различаются), поэтому последним ключом идёт slug — он уникален среди живых
+ * записей и порядок детерминирован в любой среде.
+ */
+export async function listPublishedEventsByYear(year: number): Promise<PublicEventListItem[]> {
+  if (db === null) {
+    return [];
+  }
+  return db
+    .select({
+      id: event.id,
+      slug: event.slug,
+      title: event.title,
+      startsOn: event.startsOn,
+      startsTime: event.startsTime,
+      datePrecision: event.datePrecision,
+    })
+    .from(event)
+    .where(
+      and(
+        PUBLISHED_ALIVE,
+        gte(event.startsOn, `${year}-01-01`),
+        lt(event.startsOn, `${year + 1}-01-01`),
+      ),
+    )
+    .orderBy(asc(event.startsOn), asc(event.title), asc(event.slug));
+}
+
+export type PublicEvent = PublicEventListItem & {
+  location: string | null;
+  description: string | null;
+};
+
+export async function getPublishedEventBySlug(slug: string): Promise<PublicEvent | null> {
+  if (db === null) {
+    return null;
+  }
+  const [row] = await db
+    .select({
+      id: event.id,
+      slug: event.slug,
+      title: event.title,
+      startsOn: event.startsOn,
+      startsTime: event.startsTime,
+      datePrecision: event.datePrecision,
+      location: event.location,
+      description: event.description,
+    })
+    .from(event)
+    .where(and(PUBLISHED_ALIVE, eq(event.slug, slug)))
+    .limit(1);
+  return row ?? null;
+}
+
+export type PublicEventNews = { slug: string; title: string; publishedAt: string };
+
+/** Опубликованные живые новости, ссылающиеся на событие (news.event_id), свежие сверху. */
+export async function listPublishedNewsForEvent(eventId: string): Promise<PublicEventNews[]> {
+  if (db === null) {
+    return [];
+  }
+  return db
+    .select({ slug: news.slug, title: news.title, publishedAt: news.publishedAt })
+    .from(news)
+    .where(and(eq(news.eventId, eventId), eq(news.status, "published"), isNull(news.deletedAt)))
+    .orderBy(desc(news.publishedAt), asc(news.slug));
+}
+
+/** Адреса всех опубликованных событий — для src/routes/sitemap[.]xml.ts. */
+export async function listPublishedEventSlugs(): Promise<string[]> {
+  if (db === null) {
+    return [];
+  }
+  const rows = await db
+    .select({ slug: event.slug })
+    .from(event)
+    .where(PUBLISHED_ALIVE)
+    .orderBy(asc(event.startsOn), asc(event.slug));
+  return rows.map((row) => row.slug);
 }
