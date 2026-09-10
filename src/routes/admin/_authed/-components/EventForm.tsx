@@ -25,12 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  formatEventDateLong,
-  normalizeAnchor,
-  subtractDays,
-  type DatePrecision,
-} from "@/lib/event-date";
+import { formatEventDateLong, normalizeAnchor, type DatePrecision } from "@/lib/event-date";
 import { DATE_PRECISIONS, EVENT_TYPES, type EventType } from "@/lib/event-type";
 import { checkSlugAvailable, createEvent, suggestSlug, updateEvent } from "@/lib/events-server-fn";
 import { useUnsavedChangesBlocker } from "../-hooks/use-unsaved-changes-blocker";
@@ -51,9 +46,6 @@ export type AdminEvent = {
 
 type EventFormProps = { mode: "create" } | { mode: "edit"; event: AdminEvent };
 
-/** За сколько дней до Общего собрания положено опубликовать анонс. */
-const GENERAL_MEETING_NOTICE_DAYS = 14;
-
 const MONTHS = [
   "Январь",
   "Февраль",
@@ -71,9 +63,9 @@ const MONTHS = [
 
 /**
  * Схема формы — только для подсказок в UI. Серверная валидация
- * (src/lib/event-input.ts) применяется независимо от неё, включая правило
- * Устава про место Общего собрания: форма его не дублирует, а показывает
- * текст ошибки, который вернул сервер.
+ * (src/lib/event-input.ts) применяется независимо от неё; её ошибки форма
+ * показывает текстом, который вернул сервер. Про Устав форма не знает: за
+ * его соблюдение отвечает секретарь.
  *
  * Дата в форме разложена на части (год/месяц/квартал/полугодие/день), потому
  * что при разной точности от пользователя нужны разные поля. На сервер всегда
@@ -207,7 +199,6 @@ export function EventForm(props: EventFormProps) {
   const excludeId = props.mode === "edit" ? props.event.id : undefined;
   const watchedSlug = form.watch("slug");
   const precision = form.watch("datePrecision");
-  const type = form.watch("type");
 
   useEffect(() => {
     if (watchedSlug === persistedSlug || watchedSlug.trim().length === 0) {
@@ -273,13 +264,7 @@ export function EventForm(props: EventFormProps) {
     }
   };
 
-  // Подсказка «опубликовать не позднее» — только для Общего собрания с точной
-  // датой. Ничего не блокирует: срок публикации админка не сторожит.
   const values = form.watch();
-  const noticeDeadline =
-    type === "general_meeting" && precision === "day" && /^\d{4}-\d{2}-\d{2}$/.test(values.day)
-      ? subtractDays(values.day, GENERAL_MEETING_NOTICE_DAYS)
-      : null;
 
   const previewStartsOn = (() => {
     try {
@@ -542,12 +527,6 @@ export function EventForm(props: EventFormProps) {
                 </p>
               ) : null}
 
-              {noticeDeadline ? (
-                <p className="rounded-md bg-muted px-3 py-2 text-sm text-foreground">
-                  Опубликовать не позднее {formatEventDateLong(noticeDeadline, "day")}
-                </p>
-              ) : null}
-
               <FormField
                 control={form.control}
                 name="location"
@@ -557,10 +536,6 @@ export function EventForm(props: EventFormProps) {
                     <FormControl>
                       <Input {...field} />
                     </FormControl>
-                    <FormDescription>
-                      Для Общего собрания с точной датой место обязательно при публикации (Устав, п.
-                      6.1).
-                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

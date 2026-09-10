@@ -205,28 +205,3 @@ export function formatEventDateShort(startsOn: string, precision: DatePrecision)
 export function eventYear(startsOn: string): number {
   return parse(startsOn).year;
 }
-
-/**
- * Дата «опубликовать не позднее» — за `days` дней до даты события.
- * Считается вычитанием дней из календарной даты без объектов `Date`.
- */
-export function subtractDays(isoDate: string, days: number): string {
-  const parts = parse(isoDate);
-  let { year, month, day } = parts;
-  let rest = days;
-  while (rest > 0) {
-    if (day > rest) {
-      day -= rest;
-      rest = 0;
-    } else {
-      rest -= day;
-      month -= 1;
-      if (month === 0) {
-        month = 12;
-        year -= 1;
-      }
-      day = lastDayOfMonth(year, month);
-    }
-  }
-  return format({ year, month, day });
-}

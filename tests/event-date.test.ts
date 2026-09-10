@@ -6,7 +6,6 @@ import {
   isPast,
   normalizeAnchor,
   periodEnd,
-  subtractDays,
   type DatePrecision,
 } from "@/lib/event-date";
 
@@ -169,27 +168,5 @@ describe("formatEventDateShort", () => {
 describe("eventYear", () => {
   test("год якоря", () => {
     expect(eventYear("2026-03-19")).toBe(2026);
-  });
-});
-
-describe("subtractDays", () => {
-  test("внутри месяца", () => {
-    expect(subtractDays("2026-03-19", 14)).toBe("2026-03-05");
-  });
-
-  test("через границу месяца", () => {
-    expect(subtractDays("2026-03-05", 14)).toBe("2026-02-19");
-  });
-
-  test("через границу года", () => {
-    expect(subtractDays("2026-01-05", 14)).toBe("2025-12-22");
-  });
-
-  test("через февраль високосного года", () => {
-    expect(subtractDays("2028-03-01", 1)).toBe("2028-02-29");
-  });
-
-  test("ноль дней — та же дата", () => {
-    expect(subtractDays("2026-03-19", 0)).toBe("2026-03-19");
   });
 });
