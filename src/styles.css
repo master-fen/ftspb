@@ -3,6 +3,11 @@
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
+/* Порог выведен замером на /federation/charter/text (lg): максимальная высота
+   колонки 100vh−3rem, навигация раздела 458px, зазор 20px, рама карточки
+   оглавления без списка 110px, шаг пункта 36px. 820 − 48 − 458 − 20 − 110 =
+   184px — ровно пять пунктов списка. Ниже порога колонка не липнет. */
+@custom-variant tall (@media (min-height: 820px));
 
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);

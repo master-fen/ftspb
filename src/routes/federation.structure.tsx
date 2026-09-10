@@ -6,7 +6,7 @@ import { CHARTER_BODIES, STRUCTURE_INTRO } from "@/lib/federation-structure";
 
 const TITLE = "Структура — Федерация тенниса Санкт-Петербурга";
 const DESCRIPTION =
-  "Структура Федерации тенниса Санкт-Петербурга: органы управления, комитеты и комиссии.";
+  "Структура Федерации тенниса Санкт-Петербурга: органы управления, состав Правления и распределение направлений.";
 
 export const Route = createFileRoute("/federation/structure")({
   head: () => ({
@@ -33,7 +33,7 @@ function StructurePage() {
       <h1 className="text-3xl font-medium tracking-tight text-foreground md:text-4xl lg:text-5xl">
         Структура
       </h1>
-      <p className="mt-3 max-w-2xl font-ui text-[16px] leading-[24px] text-muted-foreground">
+      <p className="mt-5 max-w-2xl font-ui text-[16px] leading-[24px] text-muted-foreground">
         {STRUCTURE_INTRO}
       </p>
 
