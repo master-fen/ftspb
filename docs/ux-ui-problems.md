@@ -8,7 +8,7 @@
   (`hover:text-brand-orange`). Единого правила нет, цвет выбирается в каждом файле заново.
 - **Крошки — две независимые реализации.** Общий компонент
   `src/components/site/Breadcrumbs.tsx`: точки-разделители, зазор `gap-3`, наведение
-  `hover:text-foreground`. Страница новости (`src/routes/news.$newsId.tsx`) компонент
+  `hover:text-foreground`. Страница новости (`src/routes/_site.news.$newsId.tsx`) компонент
   не использует — своя разметка с иконкой `ChevronRight`, зазор `gap-1.5`, наведение
   `hover:text-brand-orange`.
 - **Размер заголовка h1.** Страница события — `text-3xl md:text-4xl lg:text-5xl
@@ -16,3 +16,6 @@ font-medium`; страница новости — `text-[28px] md:text-[36px] fo
   насыщенность и способ задания.
 - **Синие даты в списке событий** (`text-brand-navy`) выглядят чужеродно — нигде больше
   дата цветом не выделяется.
+- **Страница 404 без рамы.** Несуществующий адрес рисует корневой `NotFoundComponent`
+  (`src/routes/__root.tsx`): ни шапки, ни подвала, текст на английском («Page not found»,
+  «Go home»).

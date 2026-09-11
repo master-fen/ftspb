@@ -5,7 +5,7 @@ const TITLE = "Пользовательское соглашение — Фед�
 const DESCRIPTION =
   "Пользовательское соглашение сайта Федерации тенниса Санкт-Петербурга. Раздел в разработке.";
 
-export const Route = createFileRoute("/terms")({
+export const Route = createFileRoute("/_site/terms")({
   head: () => ({
     meta: [
       { title: TITLE },

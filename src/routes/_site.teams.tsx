@@ -4,7 +4,7 @@ import { ComingSoon } from "@/components/site/ComingSoon";
 const TITLE = "Сборные команды — Федерация тенниса Санкт-Петербурга";
 const DESCRIPTION = "Сборные команды Санкт-Петербурга по теннису. Раздел в разработке.";
 
-export const Route = createFileRoute("/teams")({
+export const Route = createFileRoute("/_site/teams")({
   head: () => ({
     meta: [
       { title: TITLE },
