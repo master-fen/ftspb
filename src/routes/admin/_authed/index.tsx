@@ -3,6 +3,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { logoutFn } from "@/lib/auth-server-fn";
 import { getMigrationStatus } from "@/lib/migration-status-server-fn";
+import { MigrationBanner } from "./-components/MigrationBanner";
 
 export const Route = createFileRoute("/admin/_authed/")({
   // Состояние журнала миграций — для баннера. Кешем (60 с) управляет сама
@@ -15,6 +16,7 @@ export const Route = createFileRoute("/admin/_authed/")({
 
 function AdminDashboard() {
   const { session } = Route.useRouteContext();
+  const migrationStatus = Route.useLoaderData();
   const navigate = useNavigate();
 
   const logout = useMutation({
@@ -34,6 +36,8 @@ function AdminDashboard() {
             {logout.isPending ? "Выходим…" : "Выйти"}
           </Button>
         </header>
+
+        <MigrationBanner status={migrationStatus} />
 
         <section className="rounded-xl border bg-card p-6 text-card-foreground">
           <h2 className="mb-2 text-lg font-semibold">Новости</h2>
