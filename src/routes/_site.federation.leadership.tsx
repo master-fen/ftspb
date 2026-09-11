@@ -6,7 +6,7 @@ const TITLE = "Руководство — Федерация тенниса Са
 const DESCRIPTION =
   "Президент, вице-президенты и Правление Федерации тенниса Санкт-Петербурга: должности и зоны ответственности.";
 
-export const Route = createFileRoute("/federation/leadership")({
+export const Route = createFileRoute("/_site/federation/leadership")({
   loader: () => listPublishedPersons(),
   head: () => ({
     meta: [

@@ -23,12 +23,12 @@ const CRUMBS: Crumb[] = [
 
 /**
  * Имя файла с хвостовым `federation_` — маршрут не вкладывается в раскладку
- * раздела (src/routes/federation.tsx): у страницы свои крошки в четыре уровня.
+ * раздела (src/routes/_site.federation.tsx): у страницы свои крошки в четыре уровня.
  * Рама та же — SectionFrame: статья слева, справа навигация раздела
  * (`activeHref="/federation/charter"`, страница вложена под пункт «Устав»
  * по адресу) и карточка оглавления.
  */
-export const Route = createFileRoute("/federation_/charter/text")({
+export const Route = createFileRoute("/_site/federation_/charter/text")({
   loader: () => getPublishedDocumentBySlug({ data: CHARTER_DOCUMENT_SLUG }),
   // Переход по оглавлению — навигация роутера на тот же путь с другим hash;
   // запись о файле PDF за время чтения не меняется, RPC на каждый клик не нужен.

@@ -7,7 +7,7 @@
  */
 export const CHARTER_DOCUMENT_SLUG = "charter";
 
-/** Адрес страницы полного текста Устава (src/routes/federation_.charter.text.tsx). */
+/** Адрес страницы полного текста Устава (src/routes/_site.federation_.charter.text.tsx). */
 export const CHARTER_TEXT_PATH = "/federation/charter/text";
 
 export const CHARTER_META = {

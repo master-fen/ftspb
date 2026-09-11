@@ -3,7 +3,7 @@ import type { Crumb } from "@/components/site/Breadcrumbs";
 import { FederationSidebar, findFederationItem } from "@/components/site/FederationSidebar";
 import { SectionFrame } from "@/components/site/SectionFrame";
 
-export const Route = createFileRoute("/federation")({
+export const Route = createFileRoute("/_site/federation")({
   component: FederationLayout,
 });
 
