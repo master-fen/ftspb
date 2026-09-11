@@ -45,7 +45,7 @@ export function SectionFrame({
   children,
 }: SectionFrameProps) {
   return (
-    <main className="mx-auto w-full max-w-7xl flex-1 px-4 pt-6 pb-12 md:px-6 md:pt-8 md:pb-16 lg:px-10">
+    <main className="mx-auto w-full max-w-7xl px-4 pt-6 pb-12 md:px-6 md:pt-8 md:pb-16 lg:px-10">
       <Breadcrumbs items={crumbs} />
 
       <div className="flex flex-col gap-10 lg:grid lg:grid-cols-3 lg:items-start lg:gap-6">

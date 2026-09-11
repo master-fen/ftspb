@@ -2,21 +2,13 @@ import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { logoutFn } from "@/lib/auth-server-fn";
-import { getMigrationStatus } from "@/lib/migration-status-server-fn";
-import { MigrationBanner } from "./-components/MigrationBanner";
 
 export const Route = createFileRoute("/admin/_authed/")({
-  // Состояние журнала миграций — для баннера. Кешем (60 с) управляет сама
-  // getMigrationStatus; staleTime: 0 — чтобы defaultStaleTime роутера (60 с,
-  // src/router.tsx) не сложился с ним и баннер не гас до двух минут.
-  loader: () => getMigrationStatus(),
-  staleTime: 0,
   component: AdminDashboard,
 });
 
 function AdminDashboard() {
   const { session } = Route.useRouteContext();
-  const migrationStatus = Route.useLoaderData();
   const navigate = useNavigate();
 
   const logout = useMutation({
@@ -36,8 +28,6 @@ function AdminDashboard() {
             {logout.isPending ? "Выходим…" : "Выйти"}
           </Button>
         </header>
-
-        <MigrationBanner status={migrationStatus} />
 
         <section className="rounded-xl border bg-card p-6 text-card-foreground">
           <h2 className="mb-2 text-lg font-semibold">Новости</h2>
