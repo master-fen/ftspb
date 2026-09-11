@@ -2,14 +2,8 @@ import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { logoutFn } from "@/lib/auth-server-fn";
-import { getMigrationStatus } from "@/lib/migration-status-server-fn";
 
 export const Route = createFileRoute("/admin/_authed/")({
-  // Состояние журнала миграций — для баннера. Кешем (60 с) управляет сама
-  // getMigrationStatus; staleTime: 0 — чтобы defaultStaleTime роутера (60 с,
-  // src/router.tsx) не сложился с ним и баннер не гас до двух минут.
-  loader: () => getMigrationStatus(),
-  staleTime: 0,
   component: AdminDashboard,
 });
 
