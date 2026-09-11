@@ -36,15 +36,7 @@ const QUERY_TIMEOUT_MS = 5_000;
 const CACHE_TTL_MS = 60_000;
 const appliedRowsCache = createTtlCache<AppliedMigrationRow[]>(CACHE_TTL_MS);
 
-let journalReads = 0;
-
-/** Сколько раз журнал базы читался на самом деле — для проверочного скрипта. */
-export function migrationJournalReads(): number {
-  return journalReads;
-}
-
 async function readAppliedRows(database: NonNullable<typeof db>): Promise<AppliedMigrationRow[]> {
-  journalReads += 1;
   // async-обёртка превращает QueryPromise drizzle в обычный Promise: withTimeout
   // подписывается на него дважды (race и catch), а каждый then у QueryPromise
   // запускает запрос заново.

@@ -1,5 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { FederationStructure } from "@/components/federation/FederationStructure";
+import { CHARTER_TEXT_PATH } from "@/lib/charter/meta";
 import { CHARTER_BODIES, STRUCTURE_INTRO } from "@/lib/federation-structure";
 
 const TITLE = "Структура — Федерация тенниса Санкт-Петербурга";
@@ -50,6 +51,14 @@ function StructurePage() {
             </div>
           ))}
         </div>
+        <p className="mt-6">
+          <Link
+            to={CHARTER_TEXT_PATH}
+            className="font-bold text-brand-blue transition-colors hover:text-brand-orange"
+          >
+            Полный текст Устава
+          </Link>
+        </p>
       </section>
     </article>
   );

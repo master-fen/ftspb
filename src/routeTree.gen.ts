@@ -16,12 +16,11 @@ import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as RefereesRouteImport } from './routes/referees'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as FederationRouteImport } from './routes/federation'
-import { Route as DocumentsRouteImport } from './routes/documents'
 import { Route as CourtsRouteImport } from './routes/courts'
 import { Route as ContactsRouteImport } from './routes/contacts'
+import { Route as SiteRouteImport } from './routes/_site'
 import { Route as AdminRouteRouteImport } from './routes/admin/route'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as NewsIndexRouteImport } from './routes/news.index'
 import { Route as FederationIndexRouteImport } from './routes/federation.index'
 import { Route as NewsNewsIdRouteImport } from './routes/news.$newsId'
 import { Route as FederationStructureRouteImport } from './routes/federation.structure'
@@ -32,8 +31,10 @@ import { Route as FederationDocumentsRouteImport } from './routes/federation.doc
 import { Route as FederationCharterRouteImport } from './routes/federation.charter'
 import { Route as FederationAboutRouteImport } from './routes/federation.about'
 import { Route as AdminLoginRouteImport } from './routes/admin/login'
+import { Route as SiteDocumentsRouteImport } from './routes/_site.documents'
 import { Route as AdminAuthedRouteRouteImport } from './routes/admin/_authed/route'
 import { Route as AdminAuthedIndexRouteImport } from './routes/admin/_authed/index'
+import { Route as SiteNewsIndexRouteImport } from './routes/_site.news.index'
 import { Route as FederationEventsSlugRouteImport } from './routes/federation_.events.$slug'
 import { Route as FederationCharterTextRouteImport } from './routes/federation_.charter.text'
 import { Route as ApiAdminUploadRouteImport } from './routes/api/admin/upload'
@@ -86,11 +87,6 @@ const FederationRoute = FederationRouteImport.update({
   path: '/federation',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DocumentsRoute = DocumentsRouteImport.update({
-  id: '/documents',
-  path: '/documents',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const CourtsRoute = CourtsRouteImport.update({
   id: '/courts',
   path: '/courts',
@@ -101,6 +97,10 @@ const ContactsRoute = ContactsRouteImport.update({
   path: '/contacts',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SiteRoute = SiteRouteImport.update({
+  id: '/_site',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminRouteRoute = AdminRouteRouteImport.update({
   id: '/admin',
   path: '/admin',
@@ -109,11 +109,6 @@ const AdminRouteRoute = AdminRouteRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const NewsIndexRoute = NewsIndexRouteImport.update({
-  id: '/news/',
-  path: '/news/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FederationIndexRoute = FederationIndexRouteImport.update({
@@ -166,6 +161,11 @@ const AdminLoginRoute = AdminLoginRouteImport.update({
   path: '/login',
   getParentRoute: () => AdminRouteRoute,
 } as any)
+const SiteDocumentsRoute = SiteDocumentsRouteImport.update({
+  id: '/documents',
+  path: '/documents',
+  getParentRoute: () => SiteRoute,
+} as any)
 const AdminAuthedRouteRoute = AdminAuthedRouteRouteImport.update({
   id: '/_authed',
   getParentRoute: () => AdminRouteRoute,
@@ -174,6 +174,11 @@ const AdminAuthedIndexRoute = AdminAuthedIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AdminAuthedRouteRoute,
+} as any)
+const SiteNewsIndexRoute = SiteNewsIndexRouteImport.update({
+  id: '/news/',
+  path: '/news/',
+  getParentRoute: () => SiteRoute,
 } as any)
 const FederationEventsSlugRoute = FederationEventsSlugRouteImport.update({
   id: '/federation_/events/$slug',
@@ -262,7 +267,6 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRouteRouteWithChildren
   '/contacts': typeof ContactsRoute
   '/courts': typeof CourtsRoute
-  '/documents': typeof DocumentsRoute
   '/federation': typeof FederationRouteWithChildren
   '/privacy': typeof PrivacyRoute
   '/referees': typeof RefereesRoute
@@ -270,6 +274,7 @@ export interface FileRoutesByFullPath {
   '/teams': typeof TeamsRoute
   '/terms': typeof TermsRoute
   '/tournaments': typeof TournamentsRoute
+  '/documents': typeof SiteDocumentsRoute
   '/admin/login': typeof AdminLoginRoute
   '/federation/about': typeof FederationAboutRoute
   '/federation/charter': typeof FederationCharterRoute
@@ -280,11 +285,11 @@ export interface FileRoutesByFullPath {
   '/federation/structure': typeof FederationStructureRoute
   '/news/$newsId': typeof NewsNewsIdRoute
   '/federation/': typeof FederationIndexRoute
-  '/news/': typeof NewsIndexRoute
   '/api/admin/photo-source': typeof ApiAdminPhotoSourceRoute
   '/api/admin/upload': typeof ApiAdminUploadRoute
   '/federation/charter/text': typeof FederationCharterTextRoute
   '/federation/events/$slug': typeof FederationEventsSlugRoute
+  '/news/': typeof SiteNewsIndexRoute
   '/admin/': typeof AdminAuthedIndexRoute
   '/admin/documents/$id': typeof AdminAuthedDocumentsIdRoute
   '/admin/documents/new': typeof AdminAuthedDocumentsNewRoute
@@ -304,13 +309,13 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminAuthedIndexRoute
   '/contacts': typeof ContactsRoute
   '/courts': typeof CourtsRoute
-  '/documents': typeof DocumentsRoute
   '/privacy': typeof PrivacyRoute
   '/referees': typeof RefereesRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/teams': typeof TeamsRoute
   '/terms': typeof TermsRoute
   '/tournaments': typeof TournamentsRoute
+  '/documents': typeof SiteDocumentsRoute
   '/admin/login': typeof AdminLoginRoute
   '/federation/about': typeof FederationAboutRoute
   '/federation/charter': typeof FederationCharterRoute
@@ -321,11 +326,11 @@ export interface FileRoutesByTo {
   '/federation/structure': typeof FederationStructureRoute
   '/news/$newsId': typeof NewsNewsIdRoute
   '/federation': typeof FederationIndexRoute
-  '/news': typeof NewsIndexRoute
   '/api/admin/photo-source': typeof ApiAdminPhotoSourceRoute
   '/api/admin/upload': typeof ApiAdminUploadRoute
   '/federation/charter/text': typeof FederationCharterTextRoute
   '/federation/events/$slug': typeof FederationEventsSlugRoute
+  '/news': typeof SiteNewsIndexRoute
   '/admin/documents/$id': typeof AdminAuthedDocumentsIdRoute
   '/admin/documents/new': typeof AdminAuthedDocumentsNewRoute
   '/admin/events/$id': typeof AdminAuthedEventsIdRoute
@@ -343,9 +348,9 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteRouteWithChildren
+  '/_site': typeof SiteRouteWithChildren
   '/contacts': typeof ContactsRoute
   '/courts': typeof CourtsRoute
-  '/documents': typeof DocumentsRoute
   '/federation': typeof FederationRouteWithChildren
   '/privacy': typeof PrivacyRoute
   '/referees': typeof RefereesRoute
@@ -354,6 +359,7 @@ export interface FileRoutesById {
   '/terms': typeof TermsRoute
   '/tournaments': typeof TournamentsRoute
   '/admin/_authed': typeof AdminAuthedRouteRouteWithChildren
+  '/_site/documents': typeof SiteDocumentsRoute
   '/admin/login': typeof AdminLoginRoute
   '/federation/about': typeof FederationAboutRoute
   '/federation/charter': typeof FederationCharterRoute
@@ -364,11 +370,11 @@ export interface FileRoutesById {
   '/federation/structure': typeof FederationStructureRoute
   '/news/$newsId': typeof NewsNewsIdRoute
   '/federation/': typeof FederationIndexRoute
-  '/news/': typeof NewsIndexRoute
   '/api/admin/photo-source': typeof ApiAdminPhotoSourceRoute
   '/api/admin/upload': typeof ApiAdminUploadRoute
   '/federation_/charter/text': typeof FederationCharterTextRoute
   '/federation_/events/$slug': typeof FederationEventsSlugRoute
+  '/_site/news/': typeof SiteNewsIndexRoute
   '/admin/_authed/': typeof AdminAuthedIndexRoute
   '/admin/_authed/documents/$id': typeof AdminAuthedDocumentsIdRoute
   '/admin/_authed/documents/new': typeof AdminAuthedDocumentsNewRoute
@@ -390,7 +396,6 @@ export interface FileRouteTypes {
     | '/admin'
     | '/contacts'
     | '/courts'
-    | '/documents'
     | '/federation'
     | '/privacy'
     | '/referees'
@@ -398,6 +403,7 @@ export interface FileRouteTypes {
     | '/teams'
     | '/terms'
     | '/tournaments'
+    | '/documents'
     | '/admin/login'
     | '/federation/about'
     | '/federation/charter'
@@ -408,11 +414,11 @@ export interface FileRouteTypes {
     | '/federation/structure'
     | '/news/$newsId'
     | '/federation/'
-    | '/news/'
     | '/api/admin/photo-source'
     | '/api/admin/upload'
     | '/federation/charter/text'
     | '/federation/events/$slug'
+    | '/news/'
     | '/admin/'
     | '/admin/documents/$id'
     | '/admin/documents/new'
@@ -432,13 +438,13 @@ export interface FileRouteTypes {
     | '/admin'
     | '/contacts'
     | '/courts'
-    | '/documents'
     | '/privacy'
     | '/referees'
     | '/sitemap.xml'
     | '/teams'
     | '/terms'
     | '/tournaments'
+    | '/documents'
     | '/admin/login'
     | '/federation/about'
     | '/federation/charter'
@@ -449,11 +455,11 @@ export interface FileRouteTypes {
     | '/federation/structure'
     | '/news/$newsId'
     | '/federation'
-    | '/news'
     | '/api/admin/photo-source'
     | '/api/admin/upload'
     | '/federation/charter/text'
     | '/federation/events/$slug'
+    | '/news'
     | '/admin/documents/$id'
     | '/admin/documents/new'
     | '/admin/events/$id'
@@ -470,9 +476,9 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/admin'
+    | '/_site'
     | '/contacts'
     | '/courts'
-    | '/documents'
     | '/federation'
     | '/privacy'
     | '/referees'
@@ -481,6 +487,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/tournaments'
     | '/admin/_authed'
+    | '/_site/documents'
     | '/admin/login'
     | '/federation/about'
     | '/federation/charter'
@@ -491,11 +498,11 @@ export interface FileRouteTypes {
     | '/federation/structure'
     | '/news/$newsId'
     | '/federation/'
-    | '/news/'
     | '/api/admin/photo-source'
     | '/api/admin/upload'
     | '/federation_/charter/text'
     | '/federation_/events/$slug'
+    | '/_site/news/'
     | '/admin/_authed/'
     | '/admin/_authed/documents/$id'
     | '/admin/_authed/documents/new'
@@ -514,9 +521,9 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRouteRoute: typeof AdminRouteRouteWithChildren
+  SiteRoute: typeof SiteRouteWithChildren
   ContactsRoute: typeof ContactsRoute
   CourtsRoute: typeof CourtsRoute
-  DocumentsRoute: typeof DocumentsRoute
   FederationRoute: typeof FederationRouteWithChildren
   PrivacyRoute: typeof PrivacyRoute
   RefereesRoute: typeof RefereesRoute
@@ -525,7 +532,6 @@ export interface RootRouteChildren {
   TermsRoute: typeof TermsRoute
   TournamentsRoute: typeof TournamentsRoute
   NewsNewsIdRoute: typeof NewsNewsIdRoute
-  NewsIndexRoute: typeof NewsIndexRoute
   ApiAdminPhotoSourceRoute: typeof ApiAdminPhotoSourceRoute
   ApiAdminUploadRoute: typeof ApiAdminUploadRoute
   FederationCharterTextRoute: typeof FederationCharterTextRoute
@@ -583,13 +589,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FederationRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/documents': {
-      id: '/documents'
-      path: '/documents'
-      fullPath: '/documents'
-      preLoaderRoute: typeof DocumentsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/courts': {
       id: '/courts'
       path: '/courts'
@@ -604,6 +603,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ContactsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_site': {
+      id: '/_site'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof SiteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin': {
       id: '/admin'
       path: '/admin'
@@ -616,13 +622,6 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/news/': {
-      id: '/news/'
-      path: '/news'
-      fullPath: '/news/'
-      preLoaderRoute: typeof NewsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/federation/': {
@@ -695,6 +694,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminLoginRouteImport
       parentRoute: typeof AdminRouteRoute
     }
+    '/_site/documents': {
+      id: '/_site/documents'
+      path: '/documents'
+      fullPath: '/documents'
+      preLoaderRoute: typeof SiteDocumentsRouteImport
+      parentRoute: typeof SiteRoute
+    }
     '/admin/_authed': {
       id: '/admin/_authed'
       path: ''
@@ -708,6 +714,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/'
       preLoaderRoute: typeof AdminAuthedIndexRouteImport
       parentRoute: typeof AdminAuthedRouteRoute
+    }
+    '/_site/news/': {
+      id: '/_site/news/'
+      path: '/news'
+      fullPath: '/news/'
+      preLoaderRoute: typeof SiteNewsIndexRouteImport
+      parentRoute: typeof SiteRoute
     }
     '/federation_/events/$slug': {
       id: '/federation_/events/$slug'
@@ -873,6 +886,18 @@ const AdminRouteRouteWithChildren = AdminRouteRoute._addFileChildren(
   AdminRouteRouteChildren,
 )
 
+interface SiteRouteChildren {
+  SiteDocumentsRoute: typeof SiteDocumentsRoute
+  SiteNewsIndexRoute: typeof SiteNewsIndexRoute
+}
+
+const SiteRouteChildren: SiteRouteChildren = {
+  SiteDocumentsRoute: SiteDocumentsRoute,
+  SiteNewsIndexRoute: SiteNewsIndexRoute,
+}
+
+const SiteRouteWithChildren = SiteRoute._addFileChildren(SiteRouteChildren)
+
 interface FederationRouteChildren {
   FederationAboutRoute: typeof FederationAboutRoute
   FederationCharterRoute: typeof FederationCharterRoute
@@ -902,9 +927,9 @@ const FederationRouteWithChildren = FederationRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRouteRoute: AdminRouteRouteWithChildren,
+  SiteRoute: SiteRouteWithChildren,
   ContactsRoute: ContactsRoute,
   CourtsRoute: CourtsRoute,
-  DocumentsRoute: DocumentsRoute,
   FederationRoute: FederationRouteWithChildren,
   PrivacyRoute: PrivacyRoute,
   RefereesRoute: RefereesRoute,
@@ -913,7 +938,6 @@ const rootRouteChildren: RootRouteChildren = {
   TermsRoute: TermsRoute,
   TournamentsRoute: TournamentsRoute,
   NewsNewsIdRoute: NewsNewsIdRoute,
-  NewsIndexRoute: NewsIndexRoute,
   ApiAdminPhotoSourceRoute: ApiAdminPhotoSourceRoute,
   ApiAdminUploadRoute: ApiAdminUploadRoute,
   FederationCharterTextRoute: FederationCharterTextRoute,
