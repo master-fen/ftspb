@@ -1,7 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { FederationStructure } from "@/components/federation/FederationStructure";
-import { clauseAnchorId } from "@/lib/charter/anchors";
-import { CHARTER_TEXT_PATH } from "@/lib/charter/meta";
 import { CHARTER_BODIES, STRUCTURE_INTRO } from "@/lib/federation-structure";
 
 const TITLE = "Структура — Федерация тенниса Санкт-Петербурга";
@@ -24,8 +22,6 @@ export const Route = createFileRoute("/federation/structure")({
 /**
  * Рама, крошки «Главная / Федерация / Структура» и навигация раздела — из
  * раскладки src/routes/federation.tsx (как у /federation/leadership).
- * Ссылки «Устав, п. N» ведут на пункт полного текста: роутер прокручивает к
- * hash при переходе сам (defaultHashScrollIntoView не задан → true).
  */
 function StructurePage() {
   return (
@@ -51,13 +47,6 @@ function StructurePage() {
             <div key={body.id}>
               <h3 className="font-sans text-xl font-medium text-foreground">{body.title}</h3>
               <p className="mt-2 text-foreground/80">{body.line}</p>
-              <Link
-                to={CHARTER_TEXT_PATH}
-                hash={clauseAnchorId(body.clause)}
-                className="mt-2 inline-block font-medium text-brand-blue hover:underline"
-              >
-                Устав, п. {body.clause}
-              </Link>
             </div>
           ))}
         </div>
