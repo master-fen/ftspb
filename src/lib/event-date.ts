@@ -27,9 +27,9 @@ export const DATE_PRECISIONS = [
 export type DatePrecision = (typeof DATE_PRECISIONS)[number]["value"];
 
 /** Значения для `z.enum` — кортеж, как того требует zod. */
-export const DATE_PRECISION_VALUES = DATE_PRECISIONS.map((p) => p.value) as unknown as [
-  DatePrecision,
-  ...DatePrecision[],
+export const DATE_PRECISION_VALUES: [DatePrecision, ...DatePrecision[]] = [
+  DATE_PRECISIONS[0].value,
+  ...DATE_PRECISIONS.slice(1).map((p) => p.value),
 ];
 
 type Parts = { year: number; month: number; day: number };
