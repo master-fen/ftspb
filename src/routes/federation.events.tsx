@@ -22,7 +22,7 @@ const DESCRIPTION =
  * - чип года по умолчанию сам ведёт на адрес без параметра (EventYearChips).
  */
 const searchSchema = z.object({
-  year: fallback(z.number().int().optional(), undefined).optional(),
+  year: fallback(z.number().int().optional(), undefined),
 });
 
 export const Route = createFileRoute("/federation/events")({
