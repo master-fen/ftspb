@@ -2,9 +2,6 @@ import { describe, expect, test } from "bun:test";
 import { clauseAnchorId, listCharterClauses } from "@/lib/charter/anchors";
 import { charterContent } from "@/lib/charter/content";
 
-/** Пункты раздела 6, на которые ссылается страница «Структура». */
-const REQUIRED_CLAUSES = ["6.1", "6.4", "6.9", "6.13", "6.14"];
-
 const clauses = listCharterClauses(charterContent);
 
 describe("listCharterClauses", () => {
@@ -17,10 +14,6 @@ describe("listCharterClauses", () => {
     for (const clause of clauses) {
       expect(clause).toMatch(/^\d{1,2}\.\d{1,2}$/);
     }
-  });
-
-  test.each(REQUIRED_CLAUSES)("пункт %s есть в тексте", (clause) => {
-    expect(clauses).toContain(clause);
   });
 });
 

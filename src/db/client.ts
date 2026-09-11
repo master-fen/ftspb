@@ -9,7 +9,8 @@ import * as schema from "./schema";
  * а не ошибка конфигурации. В этом случае клиент не создаётся.
  */
 const connectionString = process.env.DATABASE_URL;
-const schemaName = process.env.DB_SCHEMA || "public";
+/** Экспорт — для журнала миграций `drizzle_<schemaName>` (src/server/migration-status.ts). */
+export const schemaName = process.env.DB_SCHEMA || "public";
 
 /**
  * TLS выбирается по хосту (`src/db/ssl.ts`): локальная база разработчика —

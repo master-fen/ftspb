@@ -1,10 +1,9 @@
 import type { CharterContent } from "./types";
 
 /**
- * Якоря пунктов Устава на странице полного текста (/federation/charter/text).
- * Формат id один для рендера (CharterText) и для ссылок на пункт с других
- * страниц: пункт «6.4.» → `p-6-4`. Якоря разделов (`razdel-N`) — отдельно,
- * в CharterText/CharterToc.
+ * Якоря пунктов Устава на странице полного текста (/federation/charter/text),
+ * формат id для рендера (CharterText): пункт «6.4.» → `p-6-4`. Якоря разделов
+ * (`razdel-N`) — отдельно, в CharterText/CharterToc.
  */
 export function clauseAnchorId(clause: string): string {
   return `p-${clause.replace(".", "-")}`;
