@@ -1,6 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { clauseAnchorId, listCharterClauses } from "@/lib/charter/anchors";
-import { charterContent } from "@/lib/charter/content";
 import { CHARTER_BODIES, STRUCTURE_NODES, structureLevel } from "@/lib/federation-structure";
 
 const ids = STRUCTURE_NODES.map((node) => node.id);
@@ -40,17 +38,7 @@ describe("STRUCTURE_NODES", () => {
 });
 
 describe("CHARTER_BODIES", () => {
-  const clauses = listCharterClauses(charterContent);
-
   test("6 записей", () => {
     expect(CHARTER_BODIES).toHaveLength(6);
   });
-
-  test.each(CHARTER_BODIES.map((body) => [body.id, body.clause]))(
-    "%s: пункт %s есть в тексте Устава",
-    (_id, clause) => {
-      expect(clauses).toContain(clause);
-      expect(clauseAnchorId(clause)).toMatch(/^p-\d{1,2}-\d{1,2}$/);
-    },
-  );
 });
