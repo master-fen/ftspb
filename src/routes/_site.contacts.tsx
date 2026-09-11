@@ -4,7 +4,7 @@ import { ComingSoon } from "@/components/site/ComingSoon";
 const TITLE = "Контакты — Федерация тенниса Санкт-Петербурга";
 const DESCRIPTION = "Контакты Федерации тенниса Санкт-Петербурга. Раздел в разработке.";
 
-export const Route = createFileRoute("/contacts")({
+export const Route = createFileRoute("/_site/contacts")({
   head: () => ({
     meta: [
       { title: TITLE },

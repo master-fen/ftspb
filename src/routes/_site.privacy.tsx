@@ -5,7 +5,7 @@ const TITLE = "Политика конфиденциальности — Фед�
 const DESCRIPTION =
   "Политика конфиденциальности Федерации тенниса Санкт-Петербурга. Раздел в разработке.";
 
-export const Route = createFileRoute("/privacy")({
+export const Route = createFileRoute("/_site/privacy")({
   head: () => ({
     meta: [
       { title: TITLE },

@@ -4,7 +4,7 @@ import { ComingSoon } from "@/components/site/ComingSoon";
 const TITLE = "Коллегия судей — Федерация тенниса Санкт-Петербурга";
 const DESCRIPTION = "Коллегия судей Федерации тенниса Санкт-Петербурга. Раздел в разработке.";
 
-export const Route = createFileRoute("/referees")({
+export const Route = createFileRoute("/_site/referees")({
   head: () => ({
     meta: [
       { title: TITLE },
