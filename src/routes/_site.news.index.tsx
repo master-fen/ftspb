@@ -3,8 +3,6 @@ import { createFileRoute, Link, useNavigate, stripSearchParams } from "@tanstack
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
 import { CategoryFilterChips } from "@/components/site/CategoryFilterChips";
-import { SiteHeader } from "@/components/site/SiteHeader";
-import { SiteFooter } from "@/components/site/SiteFooter";
 import { listNews } from "@/lib/news-server-fn";
 import { NewsListCard } from "@/components/site/NewsListCard";
 import { sortNewsByDateDesc } from "@/lib/news-date";
@@ -22,7 +20,7 @@ const searchSchema = z.object({
   category: fallback(z.enum(SECTION_CATEGORIES), DEFAULT_FILTER).default(DEFAULT_FILTER),
 });
 
-export const Route = createFileRoute("/news/")({
+export const Route = createFileRoute("/_site/news/")({
   validateSearch: zodValidator(searchSchema),
   search: {
     middlewares: [stripSearchParams({ category: DEFAULT_FILTER })],
@@ -69,43 +67,37 @@ function NewsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <SiteHeader />
+    <main className="mx-auto max-w-7xl px-4 pt-6 pb-12 md:px-6 md:pt-8 md:pb-16 lg:px-10">
+      <nav
+        aria-label="Хлебные крошки"
+        className="mb-4 flex h-8 items-center gap-3 text-sm leading-8 font-medium text-foreground/40 md:mb-5"
+      >
+        <Link to="/" className="transition-colors hover:text-foreground">
+          Главная
+        </Link>
+        <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-foreground/15" aria-hidden="true" />
+        <span aria-current="page">Новости</span>
+      </nav>
 
-      <main className="mx-auto max-w-7xl px-4 pt-6 pb-12 md:px-6 md:pt-8 md:pb-16 lg:px-10">
-        <nav
-          aria-label="Хлебные крошки"
-          className="mb-4 flex h-8 items-center gap-3 text-sm leading-8 font-medium text-foreground/40 md:mb-5"
-        >
-          <Link to="/" className="transition-colors hover:text-foreground">
-            Главная
-          </Link>
-          <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-foreground/15" aria-hidden="true" />
-          <span aria-current="page">Новости</span>
-        </nav>
+      <header className="mb-6 md:mb-8">
+        <h1 className="text-4xl font-black tracking-tight text-foreground md:text-5xl lg:text-6xl">
+          Новости
+        </h1>
+      </header>
 
-        <header className="mb-6 md:mb-8">
-          <h1 className="text-4xl font-black tracking-tight text-foreground md:text-5xl lg:text-6xl">
-            Новости
-          </h1>
-        </header>
+      <CategoryFilterChips active={active} onSelect={select} labels={SECTION_CATEGORY_LABELS} />
 
-        <CategoryFilterChips active={active} onSelect={select} labels={SECTION_CATEGORY_LABELS} />
-
-        {items.length === 0 ? (
-          <p className="rounded-xl bg-muted p-8 text-center text-muted-foreground">
-            В этом разделе пока нет новостей.
-          </p>
-        ) : (
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
-            {items.map((item) => (
-              <NewsListCard key={item.id} item={item} />
-            ))}
-          </div>
-        )}
-      </main>
-
-      <SiteFooter />
-    </div>
+      {items.length === 0 ? (
+        <p className="rounded-xl bg-muted p-8 text-center text-muted-foreground">
+          В этом разделе пока нет новостей.
+        </p>
+      ) : (
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
+          {items.map((item) => (
+            <NewsListCard key={item.id} item={item} />
+          ))}
+        </div>
+      )}
+    </main>
   );
 }
