@@ -8,7 +8,7 @@ const TITLE = "Новости Федерации — Федерация тенн
 const DESCRIPTION =
   "Официальные новости Федерации тенниса Санкт-Петербурга: решения Правления, собрания, события и объявления.";
 
-export const Route = createFileRoute("/federation/news")({
+export const Route = createFileRoute("/_site/federation/news")({
   loader: () => listNews(),
   head: () => ({
     meta: [
@@ -23,7 +23,7 @@ export const Route = createFileRoute("/federation/news")({
 
 /**
  * SiteHeader, SiteFooter, хлебные крошки и боковое меню рисует макет раздела
- * (src/routes/federation.tsx) — здесь только содержимое колонки.
+ * (src/routes/_site.federation.tsx) — здесь только содержимое колонки.
  */
 function FederationNewsPage() {
   const news = Route.useLoaderData();

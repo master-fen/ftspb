@@ -7,7 +7,7 @@ const TITLE = "Структура — Федерация тенниса Санк
 const DESCRIPTION =
   "Структура Федерации тенниса Санкт-Петербурга: органы управления, состав Правления и распределение направлений.";
 
-export const Route = createFileRoute("/federation/structure")({
+export const Route = createFileRoute("/_site/federation/structure")({
   head: () => ({
     meta: [
       { title: TITLE },
@@ -22,7 +22,7 @@ export const Route = createFileRoute("/federation/structure")({
 
 /**
  * Рама, крошки «Главная / Федерация / Структура» и навигация раздела — из
- * раскладки src/routes/federation.tsx (как у /federation/leadership).
+ * раскладки src/routes/_site.federation.tsx (как у /federation/leadership).
  */
 function StructurePage() {
   return (

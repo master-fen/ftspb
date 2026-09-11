@@ -26,11 +26,11 @@ const ASIDE = <FederationSidebar activeHref="/federation/events" />;
 
 /**
  * Имя файла с хвостовым `federation_` — маршрут не вкладывается ни в
- * раскладку раздела (src/routes/federation.tsx), ни в список
- * (federation.events.tsx): у страницы свои крошки в четыре уровня. Рама та
+ * раскладку раздела (src/routes/_site.federation.tsx), ни в список
+ * (_site.federation.events.tsx): у страницы свои крошки в четыре уровня. Рама та
  * же — SectionFrame, справа навигация раздела с подсвеченным пунктом «События».
  */
-export const Route = createFileRoute("/federation_/events/$slug")({
+export const Route = createFileRoute("/_site/federation_/events/$slug")({
   loader: async ({ params }) => {
     const event = await getPublishedEventBySlug({ data: params.slug });
     if (!event) throw notFound();

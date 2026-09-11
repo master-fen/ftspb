@@ -9,7 +9,7 @@ const TITLE = "Устав — Федерация тенниса Санкт-Пе�
 const DESCRIPTION =
   "Устав Санкт-Петербургской Региональной общественной организации «Спортивная Федерация тенниса»: редакция от 17 марта 2016 года, полный текст и файл PDF.";
 
-export const Route = createFileRoute("/federation/charter")({
+export const Route = createFileRoute("/_site/federation/charter")({
   loader: () => getPublishedDocumentBySlug({ data: CHARTER_DOCUMENT_SLUG }),
   head: () => ({
     meta: [

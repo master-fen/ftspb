@@ -9,7 +9,7 @@ const TITLE = "Документы Федерации — Федерация те
 const DESCRIPTION =
   "Официальные документы Федерации тенниса Санкт-Петербурга: положения, регламенты, правила и формы.";
 
-export const Route = createFileRoute("/federation/documents")({
+export const Route = createFileRoute("/_site/federation/documents")({
   loader: () => listPublishedLibraryDocuments({ data: "federation" }),
   head: () => ({
     meta: [
@@ -24,7 +24,7 @@ export const Route = createFileRoute("/federation/documents")({
 
 /**
  * Раму (шапка, крошки, боковое меню, подвал) рисует макет раздела
- * (src/routes/federation.tsx) — здесь только содержимое колонки.
+ * (src/routes/_site.federation.tsx) — здесь только содержимое колонки.
  */
 function FederationDocumentsPage() {
   const documents = Route.useLoaderData();

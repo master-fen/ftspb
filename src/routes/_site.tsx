@@ -1,4 +1,5 @@
 import { createFileRoute, Outlet, useMatches } from "@tanstack/react-router";
+import { PageTransition } from "@/components/site/PageTransition";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
 
@@ -26,9 +27,11 @@ const FRAME_SURFACE = "flex min-h-screen flex-col bg-surface";
  * странице `flex-1` прижимает подвал к низу экрана, на длинной подвал идёт
  * сразу после контента. Крошки, контейнеры и отступы остаются в страницах.
  *
- * Пока корневой PageTransition (src/routes/__root.tsx) ключует поддерево по
- * pathname, рама всё равно перемонтируется при смене адреса — перенос ключа
- * в эту раму будет, когда под ней окажутся все публичные маршруты.
+ * Ключ PageTransition (смена pathname) стоит здесь, вокруг <Outlet/>, а не в
+ * корне: при переходе между публичными страницами перемонтируется и въезжает
+ * только содержимое под шапкой, шапка и подвал остаются теми же узлами.
+ * Маршруты вне рамы (/admin, корневые 404 и страница ошибки) анимации
+ * появления не имеют.
  */
 export const Route = createFileRoute("/_site")({
   component: SiteLayout,
@@ -43,7 +46,9 @@ function SiteLayout() {
     <div className={surface ? FRAME_SURFACE : FRAME_BACKGROUND}>
       <SiteHeader />
       <div className="flex-1">
-        <Outlet />
+        <PageTransition>
+          <Outlet />
+        </PageTransition>
       </div>
       <SiteFooter />
     </div>

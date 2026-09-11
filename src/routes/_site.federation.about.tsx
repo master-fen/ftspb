@@ -6,7 +6,7 @@ const TITLE = "Общая информация — Федерация тенни
 const DESCRIPTION =
   "Общая информация о Федерации тенниса Санкт-Петербурга: история, миссия и направления работы.";
 
-export const Route = createFileRoute("/federation/about")({
+export const Route = createFileRoute("/_site/federation/about")({
   head: () => ({
     meta: [
       { title: TITLE },

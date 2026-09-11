@@ -25,7 +25,7 @@ const searchSchema = z.object({
   year: fallback(z.number().int().optional(), undefined),
 });
 
-export const Route = createFileRoute("/federation/events")({
+export const Route = createFileRoute("/_site/federation/events")({
   validateSearch: zodValidator(searchSchema),
   loaderDeps: ({ search }) => ({ year: search.year }),
   loader: async ({ deps }) => {
@@ -54,7 +54,7 @@ export const Route = createFileRoute("/federation/events")({
 
 /**
  * Раму (шапка, крошки, боковое меню, подвал) рисует макет раздела
- * (src/routes/federation.tsx) — здесь только содержимое колонки.
+ * (src/routes/_site.federation.tsx) — здесь только содержимое колонки.
  */
 function FederationEventsPage() {
   const { years, defaultYear, events, today } = Route.useLoaderData();

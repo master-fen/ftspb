@@ -1,7 +1,5 @@
 import type { ReactNode } from "react";
 import { Breadcrumbs, type Crumb } from "@/components/site/Breadcrumbs";
-import { SiteFooter } from "@/components/site/SiteFooter";
-import { SiteHeader } from "@/components/site/SiteHeader";
 
 type SectionFrameProps = {
   crumbs: Crumb[];
@@ -32,11 +30,13 @@ const ASIDE_TALL =
   "w-full lg:order-2 lg:col-span-1 lg:tall:sticky lg:tall:top-6 lg:tall:flex lg:tall:max-h-[calc(100vh-3rem)] lg:tall:flex-col";
 
 /**
- * Рама страницы раздела: шапка, хлебные крошки, сетка трёх равных колонок
+ * Раскладка страницы раздела: хлебные крошки, сетка трёх равных колонок
  * (содержимое — две колонки слева, `aside` — одна справа; на узких экранах —
- * столбиком, содержимое первым), подвал. Раскладка раздела «Федерация»
- * (src/routes/federation.tsx) и страницы полного текста Устава
- * (src/routes/federation_.charter.text.tsx) рисуются этим компонентом.
+ * столбиком, содержимое первым). Шапку, подвал и полную высоту страницы даёт
+ * рама `_site` (src/routes/_site.tsx). Раскладка раздела «Федерация»
+ * (src/routes/_site.federation.tsx), страница полного текста Устава
+ * (src/routes/_site.federation_.charter.text.tsx) и страница события
+ * (src/routes/_site.federation_.events.$slug.tsx) рисуются этим компонентом.
  */
 export function SectionFrame({
   crumbs,
@@ -45,19 +45,13 @@ export function SectionFrame({
   children,
 }: SectionFrameProps) {
   return (
-    <div className="flex min-h-screen flex-col bg-background">
-      <SiteHeader />
+    <main className="mx-auto w-full max-w-7xl flex-1 px-4 pt-6 pb-12 md:px-6 md:pt-8 md:pb-16 lg:px-10">
+      <Breadcrumbs items={crumbs} />
 
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 pt-6 pb-12 md:px-6 md:pt-8 md:pb-16 lg:px-10">
-        <Breadcrumbs items={crumbs} />
-
-        <div className="flex flex-col gap-10 lg:grid lg:grid-cols-3 lg:items-start lg:gap-6">
-          <div className="min-w-0 lg:order-1 lg:col-span-2">{children}</div>
-          <aside className={stickyAside === "tall" ? ASIDE_TALL : ASIDE_ALWAYS}>{aside}</aside>
-        </div>
-      </main>
-
-      <SiteFooter />
-    </div>
+      <div className="flex flex-col gap-10 lg:grid lg:grid-cols-3 lg:items-start lg:gap-6">
+        <div className="min-w-0 lg:order-1 lg:col-span-2">{children}</div>
+        <aside className={stickyAside === "tall" ? ASIDE_TALL : ASIDE_ALWAYS}>{aside}</aside>
+      </div>
+    </main>
   );
 }
