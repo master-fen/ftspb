@@ -1,5 +1,7 @@
 import { createFileRoute, Link, Outlet, redirect } from "@tanstack/react-router";
 import { getSessionFn } from "@/lib/auth-server-fn";
+import { requestMigrationStatus } from "@/lib/migration-status-request";
+import { getMigrationStatus } from "@/lib/migration-status-server-fn";
 
 /**
  * Пропускает дальше, только если сессия жива — throw redirect на /admin/login
@@ -14,6 +16,20 @@ export const Route = createFileRoute("/admin/_authed")({
     }
     return { session };
   },
+  // Состояние журнала миграций — для баннера на всех страницах админки.
+  // requestMigrationStatus не выбрасывает: исключение в лоадере рамы заменило
+  // бы errorComponent-ом всю админку. Кешем (60 с) управляет сама серверная
+  // функция.
+  // shouldReload: true — без него лоадер рамы при переходе между дочерними
+  // страницами не перезапускается (матч рамы тот же, cause 'stay'), и баннер в
+  // открытой вкладке устаревает навсегда. staleTime не задан намеренно: при
+  // shouldReload: true вычисление по staleTime не выполняется ни на переходе,
+  // ни на том же адресе, ни на предзагрузке (router-core,
+  // `shouldReload ?? staleMatchShouldReload`). Перезапуск идёт фоном, переход
+  // не ждёт; цена — вызов серверной функции на каждый переход и на каждое
+  // наведение на ссылку админки (defaultPreload: "intent").
+  loader: () => requestMigrationStatus(() => getMigrationStatus()),
+  shouldReload: true,
   component: AdminLayout,
 });
 
