@@ -12,7 +12,6 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
-import { PageTransition } from "@/components/site/PageTransition";
 import { OG_IMAGE_URL, SITE_NAME, SITE_URL } from "@/lib/site";
 
 function NotFoundComponent() {
@@ -156,9 +155,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <PageTransition>
-        <Outlet />
-      </PageTransition>
+      <Outlet />
       <Toaster />
     </QueryClientProvider>
   );
