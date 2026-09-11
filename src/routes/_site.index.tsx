@@ -5,7 +5,7 @@ import { FeaturedNewsSection } from "@/components/site/FeaturedNewsSection";
 import { LatestNewsSection } from "@/components/site/LatestNewsSection";
 import { getFeaturedAndLatest } from "@/lib/news-server-fn";
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute("/_site/")({
   loader: () => getFeaturedAndLatest(),
   component: HomePage,
 });

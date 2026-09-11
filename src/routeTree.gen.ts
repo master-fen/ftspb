@@ -13,9 +13,8 @@ import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as FederationRouteImport } from './routes/federation'
 import { Route as SiteRouteImport } from './routes/_site'
 import { Route as AdminRouteRouteImport } from './routes/admin/route'
-import { Route as IndexRouteImport } from './routes/index'
 import { Route as FederationIndexRouteImport } from './routes/federation.index'
-import { Route as NewsNewsIdRouteImport } from './routes/news.$newsId'
+import { Route as SiteIndexRouteImport } from './routes/_site.index'
 import { Route as FederationStructureRouteImport } from './routes/federation.structure'
 import { Route as FederationNewsRouteImport } from './routes/federation.news'
 import { Route as FederationLeadershipRouteImport } from './routes/federation.leadership'
@@ -39,6 +38,7 @@ import { Route as FederationEventsSlugRouteImport } from './routes/federation_.e
 import { Route as FederationCharterTextRouteImport } from './routes/federation_.charter.text'
 import { Route as ApiAdminUploadRouteImport } from './routes/api/admin/upload'
 import { Route as ApiAdminPhotoSourceRouteImport } from './routes/api/admin/photo-source'
+import { Route as SiteNewsNewsIdRouteImport } from './routes/_site.news.$newsId'
 import { Route as AdminAuthedPersonsIndexRouteImport } from './routes/admin/_authed/persons.index'
 import { Route as AdminAuthedNewsIndexRouteImport } from './routes/admin/_authed/news.index'
 import { Route as AdminAuthedEventsIndexRouteImport } from './routes/admin/_authed/events.index'
@@ -71,20 +71,15 @@ const AdminRouteRoute = AdminRouteRouteImport.update({
   path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const FederationIndexRoute = FederationIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => FederationRoute,
 } as any)
-const NewsNewsIdRoute = NewsNewsIdRouteImport.update({
-  id: '/news/$newsId',
-  path: '/news/$newsId',
-  getParentRoute: () => rootRouteImport,
+const SiteIndexRoute = SiteIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => SiteRoute,
 } as any)
 const FederationStructureRoute = FederationStructureRouteImport.update({
   id: '/structure',
@@ -200,6 +195,11 @@ const ApiAdminPhotoSourceRoute = ApiAdminPhotoSourceRouteImport.update({
   path: '/api/admin/photo-source',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SiteNewsNewsIdRoute = SiteNewsNewsIdRouteImport.update({
+  id: '/news/$newsId',
+  path: '/news/$newsId',
+  getParentRoute: () => SiteRoute,
+} as any)
 const AdminAuthedPersonsIndexRoute = AdminAuthedPersonsIndexRouteImport.update({
   id: '/persons/',
   path: '/persons/',
@@ -263,8 +263,8 @@ const AdminAuthedDocumentsIdRoute = AdminAuthedDocumentsIdRouteImport.update({
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
   '/admin': typeof AdminRouteRouteWithChildren
+  '/': typeof SiteIndexRoute
   '/federation': typeof FederationRouteWithChildren
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/contacts': typeof SiteContactsRoute
@@ -283,8 +283,8 @@ export interface FileRoutesByFullPath {
   '/federation/leadership': typeof FederationLeadershipRoute
   '/federation/news': typeof FederationNewsRoute
   '/federation/structure': typeof FederationStructureRoute
-  '/news/$newsId': typeof NewsNewsIdRoute
   '/federation/': typeof FederationIndexRoute
+  '/news/$newsId': typeof SiteNewsNewsIdRoute
   '/api/admin/photo-source': typeof ApiAdminPhotoSourceRoute
   '/api/admin/upload': typeof ApiAdminUploadRoute
   '/federation/charter/text': typeof FederationCharterTextRoute
@@ -305,7 +305,6 @@ export interface FileRoutesByFullPath {
   '/admin/persons/': typeof AdminAuthedPersonsIndexRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
   '/admin': typeof AdminAuthedIndexRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/contacts': typeof SiteContactsRoute
@@ -324,8 +323,9 @@ export interface FileRoutesByTo {
   '/federation/leadership': typeof FederationLeadershipRoute
   '/federation/news': typeof FederationNewsRoute
   '/federation/structure': typeof FederationStructureRoute
-  '/news/$newsId': typeof NewsNewsIdRoute
+  '/': typeof SiteIndexRoute
   '/federation': typeof FederationIndexRoute
+  '/news/$newsId': typeof SiteNewsNewsIdRoute
   '/api/admin/photo-source': typeof ApiAdminPhotoSourceRoute
   '/api/admin/upload': typeof ApiAdminUploadRoute
   '/federation/charter/text': typeof FederationCharterTextRoute
@@ -346,7 +346,6 @@ export interface FileRoutesByTo {
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
   '/admin': typeof AdminRouteRouteWithChildren
   '/_site': typeof SiteRouteWithChildren
   '/federation': typeof FederationRouteWithChildren
@@ -368,8 +367,9 @@ export interface FileRoutesById {
   '/federation/leadership': typeof FederationLeadershipRoute
   '/federation/news': typeof FederationNewsRoute
   '/federation/structure': typeof FederationStructureRoute
-  '/news/$newsId': typeof NewsNewsIdRoute
+  '/_site/': typeof SiteIndexRoute
   '/federation/': typeof FederationIndexRoute
+  '/_site/news/$newsId': typeof SiteNewsNewsIdRoute
   '/api/admin/photo-source': typeof ApiAdminPhotoSourceRoute
   '/api/admin/upload': typeof ApiAdminUploadRoute
   '/federation_/charter/text': typeof FederationCharterTextRoute
@@ -392,8 +392,8 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | '/'
     | '/admin'
+    | '/'
     | '/federation'
     | '/sitemap.xml'
     | '/contacts'
@@ -412,8 +412,8 @@ export interface FileRouteTypes {
     | '/federation/leadership'
     | '/federation/news'
     | '/federation/structure'
-    | '/news/$newsId'
     | '/federation/'
+    | '/news/$newsId'
     | '/api/admin/photo-source'
     | '/api/admin/upload'
     | '/federation/charter/text'
@@ -434,7 +434,6 @@ export interface FileRouteTypes {
     | '/admin/persons/'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/'
     | '/admin'
     | '/sitemap.xml'
     | '/contacts'
@@ -453,8 +452,9 @@ export interface FileRouteTypes {
     | '/federation/leadership'
     | '/federation/news'
     | '/federation/structure'
-    | '/news/$newsId'
+    | '/'
     | '/federation'
+    | '/news/$newsId'
     | '/api/admin/photo-source'
     | '/api/admin/upload'
     | '/federation/charter/text'
@@ -474,7 +474,6 @@ export interface FileRouteTypes {
     | '/admin/persons'
   id:
     | '__root__'
-    | '/'
     | '/admin'
     | '/_site'
     | '/federation'
@@ -496,8 +495,9 @@ export interface FileRouteTypes {
     | '/federation/leadership'
     | '/federation/news'
     | '/federation/structure'
-    | '/news/$newsId'
+    | '/_site/'
     | '/federation/'
+    | '/_site/news/$newsId'
     | '/api/admin/photo-source'
     | '/api/admin/upload'
     | '/federation_/charter/text'
@@ -519,12 +519,10 @@ export interface FileRouteTypes {
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
   AdminRouteRoute: typeof AdminRouteRouteWithChildren
   SiteRoute: typeof SiteRouteWithChildren
   FederationRoute: typeof FederationRouteWithChildren
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
-  NewsNewsIdRoute: typeof NewsNewsIdRoute
   ApiAdminPhotoSourceRoute: typeof ApiAdminPhotoSourceRoute
   ApiAdminUploadRoute: typeof ApiAdminUploadRoute
   FederationCharterTextRoute: typeof FederationCharterTextRoute
@@ -561,13 +559,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/federation/': {
       id: '/federation/'
       path: '/'
@@ -575,12 +566,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FederationIndexRouteImport
       parentRoute: typeof FederationRoute
     }
-    '/news/$newsId': {
-      id: '/news/$newsId'
-      path: '/news/$newsId'
-      fullPath: '/news/$newsId'
-      preLoaderRoute: typeof NewsNewsIdRouteImport
-      parentRoute: typeof rootRouteImport
+    '/_site/': {
+      id: '/_site/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof SiteIndexRouteImport
+      parentRoute: typeof SiteRoute
     }
     '/federation/structure': {
       id: '/federation/structure'
@@ -743,6 +734,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminPhotoSourceRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_site/news/$newsId': {
+      id: '/_site/news/$newsId'
+      path: '/news/$newsId'
+      fullPath: '/news/$newsId'
+      preLoaderRoute: typeof SiteNewsNewsIdRouteImport
+      parentRoute: typeof SiteRoute
+    }
     '/admin/_authed/persons/': {
       id: '/admin/_authed/persons/'
       path: '/persons'
@@ -888,6 +886,8 @@ interface SiteRouteChildren {
   SiteTeamsRoute: typeof SiteTeamsRoute
   SiteTermsRoute: typeof SiteTermsRoute
   SiteTournamentsRoute: typeof SiteTournamentsRoute
+  SiteIndexRoute: typeof SiteIndexRoute
+  SiteNewsNewsIdRoute: typeof SiteNewsNewsIdRoute
   SiteNewsIndexRoute: typeof SiteNewsIndexRoute
 }
 
@@ -900,6 +900,8 @@ const SiteRouteChildren: SiteRouteChildren = {
   SiteTeamsRoute: SiteTeamsRoute,
   SiteTermsRoute: SiteTermsRoute,
   SiteTournamentsRoute: SiteTournamentsRoute,
+  SiteIndexRoute: SiteIndexRoute,
+  SiteNewsNewsIdRoute: SiteNewsNewsIdRoute,
   SiteNewsIndexRoute: SiteNewsIndexRoute,
 }
 
@@ -932,12 +934,10 @@ const FederationRouteWithChildren = FederationRoute._addFileChildren(
 )
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
   AdminRouteRoute: AdminRouteRouteWithChildren,
   SiteRoute: SiteRouteWithChildren,
   FederationRoute: FederationRouteWithChildren,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
-  NewsNewsIdRoute: NewsNewsIdRoute,
   ApiAdminPhotoSourceRoute: ApiAdminPhotoSourceRoute,
   ApiAdminUploadRoute: ApiAdminUploadRoute,
   FederationCharterTextRoute: FederationCharterTextRoute,

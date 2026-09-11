@@ -24,7 +24,7 @@ const searchSchema = z.object({
   from: fallback(z.enum(NEWS_ORIGINS).optional(), undefined).optional(),
 });
 
-export const Route = createFileRoute("/news/$newsId")({
+export const Route = createFileRoute("/_site/news/$newsId")({
   validateSearch: zodValidator(searchSchema),
   search: {
     middlewares: [stripSearchParams({ from: undefined })],
