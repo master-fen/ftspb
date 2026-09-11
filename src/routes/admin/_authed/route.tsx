@@ -2,6 +2,7 @@ import { createFileRoute, Link, Outlet, redirect } from "@tanstack/react-router"
 import { getSessionFn } from "@/lib/auth-server-fn";
 import { requestMigrationStatus } from "@/lib/migration-status-request";
 import { getMigrationStatus } from "@/lib/migration-status-server-fn";
+import { MigrationBanner } from "./-components/MigrationBanner";
 
 /**
  * Пропускает дальше, только если сессия жива — throw redirect на /admin/login
@@ -34,6 +35,8 @@ export const Route = createFileRoute("/admin/_authed")({
 });
 
 function AdminLayout() {
+  const migrationStatus = Route.useLoaderData();
+
   return (
     <>
       <nav aria-label="Управление сайтом" className="border-b bg-card px-4 md:px-8">
@@ -71,6 +74,15 @@ function AdminLayout() {
           </Link>
         </div>
       </nav>
+      {/* Над содержимым любой страницы админки. При `ok` баннера нет — и полосы
+          с отступами под него тоже. */}
+      {migrationStatus.state === "ok" ? null : (
+        <div className="bg-background px-4 pt-6 md:px-8">
+          <div className="mx-auto max-w-6xl">
+            <MigrationBanner status={migrationStatus} />
+          </div>
+        </div>
+      )}
       <Outlet />
     </>
   );
