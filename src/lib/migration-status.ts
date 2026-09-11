@@ -25,7 +25,7 @@ export type MigrationStatus =
       /** Есть в базе, нет в репозитории: откат кода на более старую версию. */
       unknownInDb: { createdAt: number; hash12: string }[];
     }
-  | { state: "unavailable"; reason: "no-db" | "timeout" | "query-failed" };
+  | { state: "unavailable"; reason: "no-db" | "timeout" | "query-failed" | "request-failed" };
 
 export function compareMigrations(
   journal: readonly JournalEntry[],

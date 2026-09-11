@@ -5,6 +5,7 @@ const REASON_TEXT = {
   "no-db": "база данных не настроена (DATABASE_URL не задан)",
   timeout: "база не ответила за 5 секунд",
   "query-failed": "запрос к журналу завершился ошибкой — нет таблицы журнала, прав или соединения",
+  "request-failed": "запрос проверки не выполнился — сервер не ответил или ответил ошибкой",
 } as const satisfies Record<Extract<MigrationStatus, { state: "unavailable" }>["reason"], string>;
 
 /** Дата применения из `created_at` (мс). UTC — одинаково на сервере и в браузере. */
