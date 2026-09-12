@@ -129,9 +129,7 @@ function NewsDetailPage() {
         <div className="text-[11px] font-semibold tracking-[0.14em] text-brand-orange uppercase">
           {newsMetaLine(item.category, item.date)}
         </div>
-        <h1 className="mt-3 text-[28px] leading-[1.18] font-bold tracking-tight text-foreground [text-wrap:balance] md:text-[36px]">
-          {item.title}
-        </h1>
+        <h1 className="mt-3 ui-h1">{item.title}</h1>
         {showLead ? (
           <p className="mt-4 text-[17px] leading-relaxed text-muted-foreground md:text-lg">
             {item.excerpt}
@@ -153,9 +151,7 @@ function NewsDetailPage() {
           {item.attachments && item.attachments.length > 0 ? (
             <section>
               <div className="h-px w-full bg-brand-navy/25" />
-              <h2 className="mt-6 text-sm font-bold tracking-wide text-foreground uppercase">
-                Прикреплённые файлы
-              </h2>
+              <h2 className="mt-6 ui-h2">Прикреплённые файлы</h2>
               <ul className="mt-4 space-y-2">
                 {item.attachments.map(
                   (att: NonNullable<NewsItem["attachments"]>[number], i: number) => (
@@ -236,7 +232,7 @@ function NewsNotFound() {
   return (
     <main className="mx-auto max-w-3xl px-4 py-20 text-center md:px-6">
       <p className="text-sm font-semibold tracking-wide text-brand-orange uppercase">404</p>
-      <h1 className="mt-3 text-3xl font-black tracking-tight md:text-4xl">Новость не найдена</h1>
+      <h1 className="mt-3 ui-h1">Новость не найдена</h1>
       <p className="mt-4 text-muted-foreground">Возможно, материал был перемещён или удалён.</p>
       <Link
         to="/news"
@@ -251,9 +247,7 @@ function NewsNotFound() {
 function NewsError({ reset }: { reset: () => void }) {
   return (
     <main className="mx-auto max-w-3xl px-4 py-20 text-center md:px-6">
-      <h1 className="text-3xl font-black tracking-tight md:text-4xl">
-        Не удалось загрузить новость
-      </h1>
+      <h1 className="ui-h1">Не удалось загрузить новость</h1>
       <button
         type="button"
         onClick={reset}

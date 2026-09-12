@@ -61,9 +61,7 @@ function FederationEventsPage() {
 
   return (
     <article>
-      <h1 className="text-3xl font-medium tracking-tight text-foreground md:text-4xl lg:text-5xl">
-        События
-      </h1>
+      <h1 className="ui-h1">События</h1>
       <p className="mt-5 font-ui text-base leading-[1.6] text-foreground">
         Заседания Правления, общие собрания и другие события Федерации — даты, повестка и документы.
       </p>

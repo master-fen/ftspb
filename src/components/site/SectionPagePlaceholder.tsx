@@ -7,9 +7,7 @@ export function SectionPagePlaceholder({
 }) {
   return (
     <article>
-      <h1 className="text-3xl font-medium tracking-tight text-foreground md:text-4xl lg:text-5xl">
-        {title}
-      </h1>
+      <h1 className="ui-h1">{title}</h1>
       <p className="mt-3 font-ui text-[16px] leading-[19px] font-bold text-brand-orange">
         В разработке
       </p>

@@ -94,9 +94,7 @@ function EventPage() {
   return (
     <SectionFrame crumbs={[...SECTION_CRUMBS, { label: event.title }]} aside={ASIDE}>
       <article>
-        <h1 className="text-3xl font-medium tracking-tight text-foreground md:text-4xl lg:text-5xl">
-          {event.title}
-        </h1>
+        <h1 className="ui-h1">{event.title}</h1>
         <p className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 font-ui text-base leading-[1.6] text-foreground/80">
           <span>{formatEventDateLong(event.startsOn, event.datePrecision, event.startsTime)}</span>
           {past ? <EventPastBadge /> : null}
@@ -119,10 +117,7 @@ function EventPage() {
 
         {documents.length > 0 ? (
           <section className="mt-10" aria-labelledby="event-documents-title">
-            <h2
-              id="event-documents-title"
-              className="text-xl font-medium text-foreground md:text-2xl"
-            >
+            <h2 id="event-documents-title" className="ui-h2">
               Документы
             </h2>
             <div className="mt-4 space-y-2">
@@ -143,7 +138,7 @@ function EventPage() {
 
         {news.length > 0 ? (
           <section className="mt-10" aria-labelledby="event-news-title">
-            <h2 id="event-news-title" className="text-xl font-medium text-foreground md:text-2xl">
+            <h2 id="event-news-title" className="ui-h2">
               Новости о событии
             </h2>
             <ul className="mt-4 space-y-3">
@@ -173,9 +168,7 @@ function EventNotFound() {
   return (
     <SectionFrame crumbs={SECTION_CRUMBS} aside={ASIDE}>
       <article>
-        <h1 className="text-3xl font-medium tracking-tight text-foreground md:text-4xl lg:text-5xl">
-          Событие не найдено
-        </h1>
+        <h1 className="ui-h1">Событие не найдено</h1>
         <p className="mt-5 font-ui text-base leading-[1.6] text-foreground">
           Возможно, событие было перемещено или удалено.{" "}
           <Link
@@ -194,9 +187,7 @@ function EventError({ reset }: { reset: () => void }) {
   return (
     <SectionFrame crumbs={SECTION_CRUMBS} aside={ASIDE}>
       <article>
-        <h1 className="text-3xl font-medium tracking-tight text-foreground md:text-4xl lg:text-5xl">
-          Не удалось загрузить событие
-        </h1>
+        <h1 className="ui-h1">Не удалось загрузить событие</h1>
         <button
           type="button"
           onClick={reset}

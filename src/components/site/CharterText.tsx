@@ -26,7 +26,7 @@ export function CharterText({ content }: { content: CharterContent }) {
 
       {content.sections.map((section) => (
         <section key={section.number} id={`razdel-${section.number}`} className="scroll-mt-24">
-          <h2 className="font-sans text-2xl font-medium text-foreground">
+          <h2 className="ui-h2">
             {section.number}. {CHARTER_SECTION_TITLES[section.number]}
           </h2>
           <div className="mt-3 space-y-3">

@@ -99,9 +99,7 @@ function CharterTextPage() {
       {/* Юридический текст: 16px, межстрочный интервал не меньше 1.55,
           text-foreground без прозрачности — ради контраста. */}
       <article className="font-ui text-base leading-[1.6] text-foreground">
-        <h1 className="font-sans text-3xl font-medium tracking-tight text-foreground md:text-4xl lg:text-5xl">
-          Устав
-        </h1>
+        <h1 className="ui-h1">Устав</h1>
         <p className="mt-3 text-foreground/80">
           Редакция от{" "}
           <time dateTime={CHARTER_META.editionDate}>{CHARTER_META.editionDateText}</time>

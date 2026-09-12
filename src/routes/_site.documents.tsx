@@ -62,9 +62,7 @@ function DocumentsPage() {
       <Breadcrumbs items={CRUMBS} />
 
       <header className="mb-6 md:mb-8">
-        <h1 className="text-4xl font-black tracking-tight text-foreground md:text-5xl lg:text-6xl">
-          Документы
-        </h1>
+        <h1 className="ui-h1">Документы</h1>
       </header>
 
       <CategoryFilterChips active={active} onSelect={select} labels={SECTION_CATEGORY_LABELS} />
