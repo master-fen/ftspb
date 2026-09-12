@@ -47,8 +47,13 @@
   --color-news-card-foreground: var(--news-card-foreground);
 
   --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Manrope", ui-sans-serif, system-ui, sans-serif;
   --font-ui: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  /* Заголовок страницы: 28px, от md 36px — по эталону (заголовок новости). */
+  --text-page-title: 1.75rem;
+  --text-page-title--line-height: 1.18;
+  --text-page-title-md: 2.25rem;
+  --text-page-title-md--line-height: 1.18;
 }
 
 :root {
@@ -253,13 +258,13 @@ html {
 /* Заголовки по ролям — docs/style-rules.md, «Типографика». Страницы ставят
    утилиту роли, строку её классов не копируют. */
 @utility ui-h1 {
-  @apply text-3xl font-medium tracking-tight text-foreground md:text-4xl lg:text-5xl;
+  @apply font-sans text-page-title font-bold tracking-tight text-foreground [text-wrap:balance] md:text-page-title-md;
 }
 
 @utility ui-h2 {
-  @apply font-sans text-2xl font-medium text-foreground;
+  @apply font-sans text-2xl font-semibold text-foreground;
 }
 
 @utility ui-h3 {
-  @apply font-sans text-xl font-medium text-foreground;
+  @apply font-sans text-xl font-semibold text-foreground;
 }

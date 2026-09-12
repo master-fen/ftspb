@@ -7,7 +7,7 @@ type SectionHeadingProps = {
 
 export function SectionHeading({ eyebrow, title }: SectionHeadingProps) {
   return (
-    <h2 className="flex items-center gap-3 text-3xl font-black tracking-tight text-foreground md:text-4xl">
+    <h2 className="flex items-center gap-3 ui-h1">
       <span>{eyebrow}</span>
       <img
         src={ballSrc}

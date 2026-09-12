@@ -32,9 +32,7 @@ function CharterPage() {
 
   return (
     <article className="max-w-3xl font-ui text-base leading-[1.6] text-foreground">
-      <h1 className="font-sans text-3xl font-medium tracking-tight text-foreground md:text-4xl lg:text-5xl">
-        Устав
-      </h1>
+      <h1 className="ui-h1">Устав</h1>
 
       <p className="mt-5">
         Устав — учредительный документ Санкт-Петербургской Региональной общественной организации

@@ -117,10 +117,7 @@ function EventPage() {
 
         {documents.length > 0 ? (
           <section className="mt-10" aria-labelledby="event-documents-title">
-            <h2
-              id="event-documents-title"
-              className="text-xl font-medium text-foreground md:text-2xl"
-            >
+            <h2 id="event-documents-title" className="ui-h2">
               Документы
             </h2>
             <div className="mt-4 space-y-2">
@@ -141,7 +138,7 @@ function EventPage() {
 
         {news.length > 0 ? (
           <section className="mt-10" aria-labelledby="event-news-title">
-            <h2 id="event-news-title" className="text-xl font-medium text-foreground md:text-2xl">
+            <h2 id="event-news-title" className="ui-h2">
               Новости о событии
             </h2>
             <ul className="mt-4 space-y-3">
