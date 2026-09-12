@@ -11,7 +11,8 @@ import process from "node:process";
  *
  * Страницы — все <loc> из БАЗОВЫЙ_URL/sitemap.xml (берётся только путь: в
  * карте абсолютные адреса боевого домена) плюс фиксированный набор страниц,
- * которых в карте нет (заглушки с noindex, /federation). На каждую страницу
+ * которых в карте нет (заглушки с noindex, /federation, несуществующая
+ * новость — у неё ожидается 404, см. EXTRA_PATHS). На каждую страницу
  * пишутся ИМЯ.html — нормализованная разметка — и ИМЯ.preloads.txt — пути
  * modulepreload/preload. Каталоги сравниваются так:
  *   git diff --no-index --text --stat КАТАЛОГ_A КАТАЛОГ_B
@@ -32,17 +33,29 @@ export type NormalizeOptions = {
   classMap?: Record<string, string>;
 };
 
-const EXTRA_PATHS = [
-  "/federation/about",
-  "/referees",
-  "/teams",
-  "/tournaments",
-  "/courts",
-  "/contacts",
-  "/privacy",
-  "/terms",
-  "/federation",
-];
+/**
+ * Страницы вне sitemap.xml → ожидаемый HTTP-статус. Заглушки с noindex и
+ * /federation — 200; несуществующая новость — 404: её notFoundComponent
+ * рисуется под рамой _site, и вид этой страницы тоже должен попадать в снимок.
+ * Страницы из sitemap.xml ожидаются с 200.
+ */
+const EXTRA_PATHS: Record<string, number> = {
+  "/federation/about": 200,
+  "/referees": 200,
+  "/teams": 200,
+  "/tournaments": 200,
+  "/courts": 200,
+  "/contacts": 200,
+  "/privacy": 200,
+  "/terms": 200,
+  "/federation": 200,
+  "/news/nesuschestvuyuschiy-slug-dlya-snimka": 404,
+};
+
+/** Текст отказа, если статус ответа не тот, что ожидался; иначе null. */
+export function statusMismatch(url: string, status: number, expected: number): string | null {
+  return status === expected ? null : `${url} → HTTP ${status}, ожидался ${expected}`;
+}
 
 const PRELOAD_LINE = /rel="(?:modulepreload|preload)"/;
 
@@ -215,9 +228,10 @@ function readClassMap(file: string): Record<string, string> {
   return parsed as Record<string, string>;
 }
 
-async function fetchText(url: string): Promise<string> {
+async function fetchText(url: string, expected = 200): Promise<string> {
   const res = await fetch(url);
-  if (res.status !== 200) fail(`${url} → HTTP ${res.status}`);
+  const mismatch = statusMismatch(url, res.status, expected);
+  if (mismatch) fail(mismatch);
   return res.text();
 }
 
@@ -277,10 +291,11 @@ async function main() {
   const fromSitemap = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(
     (m) => new URL(m[1].trim()).pathname,
   );
-  const pages = [...new Set([...fromSitemap, ...EXTRA_PATHS])];
+  const extraPaths = Object.keys(EXTRA_PATHS);
+  const pages = [...new Set([...fromSitemap, ...extraPaths])];
 
   for (const pagePath of pages) {
-    const raw = await fetchText(`${baseUrl}${pagePath}`);
+    const raw = await fetchText(`${baseUrl}${pagePath}`, EXTRA_PATHS[pagePath] ?? 200);
     const { html, preloads } = normalizeHtml(raw, { classMap });
     const name = fileNameForPath(decodeURIComponent(pagePath));
     fs.writeFileSync(path.join(outDir, `${name}.html`), html);
@@ -288,7 +303,7 @@ async function main() {
   }
 
   console.log(
-    `страниц: ${pages.length} (из sitemap.xml: ${fromSitemap.length}, фиксированных: ${EXTRA_PATHS.length})` +
+    `страниц: ${pages.length} (из sitemap.xml: ${fromSitemap.length}, фиксированных: ${extraPaths.length})` +
       `${classMap ? `, карта классов: ${classMapPath}` : ""} → ${outDir}`,
   );
 }

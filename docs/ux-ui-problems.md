@@ -45,11 +45,32 @@ lg:text-6xl font-black`: разные шкала, насыщенность и с
   (`_site.federation.structure.tsx:47`, `/80`), примечание Устава
   (`_site.federation_.charter.text.tsx:105`, `/80`), название прошедшего события
   (`_site.federation.events.tsx:89`, `/50`), заголовок «Читайте также»
-  (`_site.news.$newsId.tsx:191`, `/80`), иконки (`DocumentFileRow.tsx:52`, `/50`;
-  `_site.news.$newsId.tsx:165`, `:176`, `text-brand-navy/70`, `/60`). На тёмном фоне — до PR по
+  (`_site.news.$newsId.tsx:189`, `/80`), иконки (`DocumentFileRow.tsx:52`, `/50`;
+  `_site.news.$newsId.tsx:163`, `:174`, `text-brand-navy/70`, `/60`). На тёмном фоне — до PR по
   поверхностям: подвал (`SiteFooter.tsx:21`, `:33`, `text-white/90`; реквизиты `:31`, `:44`,
   `text-white/75`), строка на фото и анонс в «Главном» (`NewsCard.tsx:41`, `:52`), панель
   просмотрщика фото (`NewsGallery.tsx:110`, `text-white/90`).
+- **Кандидаты в отдельные роли: плашки пустых списков и панели раздела — PR по поверхностям.**
+  Плашки пустых списков — один набор `rounded-xl bg-muted p-8` в четырёх местах
+  (`_site.documents.tsx:71`, `_site.federation.leadership.tsx:33`, `_site.federation.news.tsx:41`,
+  `_site.news.index.tsx:83`); панели навигации и оглавления — `rounded-[30px] border
+border-brand-blue/10` (`FederationSidebar.tsx:41`, `_site.federation_.charter.text.tsx:74`). В
+  #75 к карточкам не отнесены.
+- **Радиусы блоков не унифицированы.** Карточки — `rounded-xl` (`ui-card`, #75), обёртка секции
+  «Читайте также» — `rounded-2xl` (`_site.news.$newsId.tsx:188`), рамка обложки новости —
+  `rounded-2xl` (`NewsGallery.tsx:53`). Унификация — PR по поверхностям.
+- **Тень на рамке обложки новости.** У карточек тени нет с #75, а рамка обложки
+  (`NewsGallery.tsx:53`, медиа, не карточка роли) сохраняет `shadow-sm`.
+- **Строка и заголовок на фото в «Главном».** `NewsCard.tsx:41` (категория · дата, `text-white/75`)
+  и `NewsCard.tsx:44` (заголовок, белый, размеры по варианту hero) лежат на тёмном фото; для
+  тёмного фона правила надзаголовка и заголовка карточки цвет не задают — PR по поверхностям.
+- **Карточка руководства без `ui-card`.** `LeadershipCard.tsx:23`: отступ карточек роли не
+  единообразен — на корнях `NewsCard` и `NewsListCard` отступа нет, у внутренних блоков он разный
+  (`p-5` + у hero `md:p-7` против `p-5 md:p-6`); рамка без отступа легла бы вплотную к фото и
+  тексту. Заголовок карточки при этом переведён на `ui-card-title` (#75).
+- **Заголовок секции «Читайте также» — не роль.** `_site.news.$newsId.tsx:189`
+  (`text-sm font-bold tracking-wide text-foreground/80`): литеральный заголовок секции, не
+  заголовок карточки (#75); вид не приведён ни к одной роли.
 - **Страница 404 без рамы.** Несуществующий адрес рисует корневой `NotFoundComponent`
   (`src/routes/__root.tsx`): ни шапки, ни подвала, текст на английском («Page not found»,
   «Go home»).

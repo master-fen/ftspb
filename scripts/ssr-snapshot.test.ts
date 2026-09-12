@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { classifyPair, fileNameForPath, normalizeHtml, sortManifestPreloads } from "./ssr-snapshot";
+import {
+  classifyPair,
+  fileNameForPath,
+  normalizeHtml,
+  sortManifestPreloads,
+  statusMismatch,
+} from "./ssr-snapshot";
 
 const UI_LINK_MAP = { "ui-link": "transition-colors hover:text-brand-orange" };
 
@@ -184,5 +190,17 @@ describe("fileNameForPath", () => {
     expect(fileNameForPath("/")).toBe("index");
     expect(fileNameForPath("/federation/events")).toBe("federation__events");
     expect(fileNameForPath("/news/")).toBe("news");
+  });
+});
+
+describe("statusMismatch", () => {
+  test("статус совпал — отказа нет (200 и 404)", () => {
+    expect(statusMismatch("/news", 200, 200)).toBeNull();
+    expect(statusMismatch("/news/x", 404, 404)).toBeNull();
+  });
+
+  test("статус не совпал — отказ с обоими статусами", () => {
+    expect(statusMismatch("/news/x", 200, 404)).toBe("/news/x → HTTP 200, ожидался 404");
+    expect(statusMismatch("/news", 404, 200)).toBe("/news → HTTP 404, ожидался 200");
   });
 });
