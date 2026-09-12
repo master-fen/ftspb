@@ -15,7 +15,7 @@ export function NewsListCard({ item, from }: { item: NewsItem; from?: NewsOrigin
       to="/news/$newsId"
       params={{ newsId: item.id }}
       search={from ? { from } : undefined}
-      className="group flex h-full flex-col overflow-hidden rounded-xl bg-news-card text-news-card-foreground shadow-sm ring-1 ring-black/5 transition-all duration-300 hover:-translate-y-0.5 hover:bg-news-card-hover"
+      className="group flex h-full flex-col overflow-hidden ui-card ring-black/5 bg-news-card text-news-card-foreground transition-all duration-300 hover:-translate-y-0.5 hover:bg-news-card-hover"
     >
       <div className="aspect-[4/3] w-full overflow-hidden">
         {item.cover ? (
