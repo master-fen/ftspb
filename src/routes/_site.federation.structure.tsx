@@ -12,7 +12,6 @@ export const Route = createFileRoute("/_site/federation/structure")({
     meta: [
       { title: TITLE },
       { name: "description", content: DESCRIPTION },
-      { name: "robots", content: "noindex" },
       { property: "og:title", content: TITLE },
       { property: "og:description", content: DESCRIPTION },
     ],
