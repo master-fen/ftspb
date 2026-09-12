@@ -5,7 +5,9 @@ import process from "node:process";
 /**
  * SSR-снимки публичных страниц — для сравнения «до/после» правок вёрстки.
  *
- * Запуск: bun scripts/ssr-snapshot.ts snap БАЗОВЫЙ_URL КАТАЛОГ [--class-map ФАЙЛ.json]
+ * Запуск:
+ *   bun scripts/ssr-snapshot.ts snap БАЗОВЫЙ_URL КАТАЛОГ [--class-map ФАЙЛ.json]
+ *   bun scripts/ssr-snapshot.ts classify КАТАЛОГ_A КАТАЛОГ_B
  *
  * Страницы — все <loc> из БАЗОВЫЙ_URL/sitemap.xml (берётся только путь: в
  * карте абсолютные адреса боевого домена) плюс фиксированный набор страниц,
@@ -18,6 +20,11 @@ import process from "node:process";
  * запроса к запросу при той же разметке (хэши ассетов, id потока, путь к
  * исходнику в dev-атрибуте). Списки preload не выбрасываются, а выносятся в
  * отдельный файл: переезд чанков должен быть виден, но не топить diff разметки.
+ *
+ * classify раскладывает различия пары каталогов по файлам: «совпали»,
+ * «только манифест» (различаются только строки встроенного манифеста роутера,
+ * и после сортировки массивов preloads они совпадают) и «прочее» — всё
+ * остальное, с номерами строк. Код выхода 1, если «прочее» непусто.
  */
 
 export type NormalizeOptions = {
@@ -90,6 +97,72 @@ export function fileNameForPath(pagePath: string): string {
   return trimmed === "" ? "index" : trimmed.replaceAll("/", "__");
 }
 
+/** Строка встроенного манифеста роутера: правило 4 ставит тег на свою строку, скрипт в ней целиком. */
+const MANIFEST_LINE_PREFIX = '<script class="$tsr" id="$tsr-stream-barrier">';
+
+/** Массив preloads в манифесте: preloads:$R[N]=["/assets/…",…]. */
+const PRELOADS_ARRAY = /(preloads:\$R\[\d+\]=\[)([^\]]*)\]/g;
+
+/**
+ * Строка манифеста с отсортированными элементами каждого массива preloads.
+ * Порядок элементов — не сигнал: смена хэша одного чанка переставляет массив.
+ * Совпадение после сортировки НЕ доказывает тождество состава: после
+ * нормализации чанки одного маршрута (…_newsId-HASH.js ×3) неразличимы —
+ * состав доказывается листингом файлов обеих сборок.
+ */
+export function sortManifestPreloads(line: string): string {
+  return line.replace(PRELOADS_ARRAY, (_, head: string, body: string) => {
+    const items = body === "" ? [] : body.split(",");
+    return `${head}${items.sort().join(",")}]`;
+  });
+}
+
+export type PairVerdict =
+  | { kind: "same" }
+  | { kind: "manifest"; lines: number[] }
+  | { kind: "other"; reason: string; lines: number[]; manifestLines: number[] };
+
+/**
+ * Пара нормализованных файлов снимка, сравнение по позициям строк.
+ * «manifest» — каждая различающаяся строка на обеих сторонах — строка
+ * манифеста, и после sortManifestPreloads они совпадают; иначе «other»:
+ * lines — строки вне этого правила, manifestLines — строки манифеста,
+ * различные только порядком preloads (отделены, а не спрятаны).
+ */
+export function classifyPair(a: string, b: string): PairVerdict {
+  if (a === b) return { kind: "same" };
+  const linesA = a.split("\n");
+  const linesB = b.split("\n");
+  if (linesA.length !== linesB.length) {
+    return {
+      kind: "other",
+      reason: `строк ${linesA.length} и ${linesB.length}`,
+      lines: [],
+      manifestLines: [],
+    };
+  }
+  const manifest: number[] = [];
+  const other: number[] = [];
+  for (let i = 0; i < linesA.length; i++) {
+    const lineA = linesA[i];
+    const lineB = linesB[i];
+    if (lineA === lineB) continue;
+    const onlyOrder =
+      lineA.startsWith(MANIFEST_LINE_PREFIX) &&
+      lineB.startsWith(MANIFEST_LINE_PREFIX) &&
+      sortManifestPreloads(lineA) === sortManifestPreloads(lineB);
+    (onlyOrder ? manifest : other).push(i + 1);
+  }
+  return other.length === 0
+    ? { kind: "manifest", lines: manifest }
+    : {
+        kind: "other",
+        reason: "различие не в порядке preloads",
+        lines: other,
+        manifestLines: manifest,
+      };
+}
+
 // ───────────────────────── запуск ─────────────────────────
 
 function fail(message: string): never {
@@ -97,7 +170,15 @@ function fail(message: string): never {
   process.exit(1);
 }
 
-function parseArgs(argv: string[]) {
+const USAGE =
+  "вызов: bun scripts/ssr-snapshot.ts snap БАЗОВЫЙ_URL КАТАЛОГ [--class-map ФАЙЛ.json]" +
+  " | classify КАТАЛОГ_A КАТАЛОГ_B";
+
+type Args =
+  | { command: "snap"; baseUrl: string; outDir: string; classMapPath?: string }
+  | { command: "classify"; dirA: string; dirB: string };
+
+function parseArgs(argv: string[]): Args {
   const positional: string[] = [];
   let classMapPath: string | undefined;
 
@@ -113,11 +194,14 @@ function parseArgs(argv: string[]) {
     }
   }
 
-  const [command, baseUrl, outDir, ...rest] = positional;
-  if (command !== "snap" || !baseUrl || !outDir || rest.length > 0) {
-    fail("вызов: bun scripts/ssr-snapshot.ts snap БАЗОВЫЙ_URL КАТАЛОГ [--class-map ФАЙЛ.json]");
+  const [command, ...rest] = positional;
+  if (command === "classify") {
+    if (rest.length !== 2 || classMapPath) fail(USAGE);
+    return { command, dirA: rest[0], dirB: rest[1] };
   }
-  return { baseUrl: baseUrl.replace(/\/+$/, ""), outDir, classMapPath };
+  const [baseUrl, outDir, ...extra] = rest;
+  if (command !== "snap" || !baseUrl || !outDir || extra.length > 0) fail(USAGE);
+  return { command, baseUrl: baseUrl.replace(/\/+$/, ""), outDir, classMapPath };
 }
 
 function readClassMap(file: string): Record<string, string> {
@@ -137,8 +221,49 @@ async function fetchText(url: string): Promise<string> {
   return res.text();
 }
 
+function classifyDirs(dirA: string, dirB: string): number {
+  for (const dir of [dirA, dirB]) {
+    if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) fail(`${dir}: нет такого каталога`);
+  }
+  const names = [...new Set([...fs.readdirSync(dirA), ...fs.readdirSync(dirB)])].sort();
+  const counts = { same: 0, manifest: 0, other: 0 };
+  let orderOnlyLines = 0;
+
+  for (const name of names) {
+    const fileA = path.join(dirA, name);
+    const fileB = path.join(dirB, name);
+    const missing = !fs.existsSync(fileA) ? dirA : !fs.existsSync(fileB) ? dirB : null;
+    const verdict: PairVerdict = missing
+      ? { kind: "other", reason: `нет в ${missing}`, lines: [], manifestLines: [] }
+      : classifyPair(fs.readFileSync(fileA, "utf8"), fs.readFileSync(fileB, "utf8"));
+    counts[verdict.kind]++;
+    if (verdict.kind === "manifest") {
+      orderOnlyLines += verdict.lines.length;
+      console.log(`только манифест  ${name}  строки ${verdict.lines.join(", ")}`);
+    } else if (verdict.kind === "other") {
+      orderOnlyLines += verdict.manifestLines.length;
+      const lines = verdict.lines.length > 0 ? `: строки ${verdict.lines.join(", ")}` : "";
+      const order =
+        verdict.manifestLines.length > 0
+          ? `; манифест, только порядок: строки ${verdict.manifestLines.join(", ")}`
+          : "";
+      console.log(`прочее  ${name}  ${verdict.reason}${lines}${order}`);
+    }
+  }
+
+  console.log(
+    `файлов: ${names.length}; совпали: ${counts.same}; только манифест: ${counts.manifest}; ` +
+      `прочее: ${counts.other}; строк манифеста, различных только порядком: ${orderOnlyLines}`,
+  );
+  return counts.other > 0 ? 1 : 0;
+}
+
 async function main() {
-  const { baseUrl, outDir, classMapPath } = parseArgs(process.argv.slice(2));
+  const args = parseArgs(process.argv.slice(2));
+  if (args.command === "classify") {
+    process.exit(classifyDirs(args.dirA, args.dirB));
+  }
+  const { baseUrl, outDir, classMapPath } = args;
   const classMap = classMapPath ? readClassMap(classMapPath) : undefined;
 
   // Снимок поверх старого смешал бы файлы двух сборок: пропавшая страница

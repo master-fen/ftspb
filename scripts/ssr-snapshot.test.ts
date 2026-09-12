@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { fileNameForPath, normalizeHtml } from "./ssr-snapshot";
+import { classifyPair, fileNameForPath, normalizeHtml, sortManifestPreloads } from "./ssr-snapshot";
 
 const UI_LINK_MAP = { "ui-link": "transition-colors hover:text-brand-orange" };
 
@@ -76,6 +76,106 @@ describe("normalizeHtml — контроли компаратора", () => {
     const a = normalizeHtml('<main class="p-4"><a href="/news">Новости</a></main>');
     const b = normalizeHtml('<main class="p-4"><a href="/documents">Документы</a></main>');
     expect(a.html).not.toBe(b.html);
+  });
+});
+
+// Форма строки манифеста — как в нормализованном снимке сборки.
+const manifestLine = (root: string[], route: string[], key = "/_site") =>
+  '<script class="$tsr" id="$tsr-stream-barrier">(self.$R=self.$R||{})["tsr"]=[];' +
+  `$R[1]={routes:$R[2]={__root__:$R[3]={preloads:$R[4]=[${root.map((p) => `"${p}"`).join(",")}]},` +
+  `"${key}":$R[8]={preloads:$R[9]=[${route.map((p) => `"${p}"`).join(",")}]}}};</script>`;
+const page = (manifest: string, heading = '<h1 class="ui-h1">Заголовок</h1>') =>
+  ["<main>", heading, "</main>", manifest].join("\n");
+
+const ROOT = ["/assets/index-HASH.js", "/assets/root-HASH.js"];
+const ROUTE = ["/assets/_site-HASH.js", "/assets/x-HASH.js", "/assets/_site-HASH.js"];
+// ROUTE — палиндром, reverse() его не меняет; перестановка — только так.
+const ROUTE_SHUFFLED = [ROUTE[1], ROUTE[2], ROUTE[0]];
+
+describe("sortManifestPreloads", () => {
+  test("сортирует элементы внутри каждого массива preloads, остальное не трогает", () => {
+    expect(
+      sortManifestPreloads('a:1,preloads:$R[4]=["/b","/a"],c:2,preloads:$R[9]=["/z","/y"]'),
+    ).toBe('a:1,preloads:$R[4]=["/a","/b"],c:2,preloads:$R[9]=["/y","/z"]');
+  });
+
+  test("пустой массив остаётся пустым", () => {
+    expect(sortManifestPreloads("preloads:$R[4]=[]")).toBe("preloads:$R[4]=[]");
+  });
+});
+
+describe("classifyPair — ветка «только манифест»", () => {
+  test("переставлены элементы одного массива preloads → manifest, номер строки манифеста", () => {
+    const a = page(manifestLine(ROOT, ROUTE));
+    const b = page(manifestLine(ROOT, ROUTE_SHUFFLED));
+    expect(ROUTE_SHUFFLED).not.toEqual(ROUTE);
+    expect(classifyPair(a, b)).toEqual({ kind: "manifest", lines: [4] });
+  });
+
+  test("переставлены оба массива → manifest", () => {
+    const a = page(manifestLine(ROOT, ROUTE));
+    const b = page(manifestLine([...ROOT].reverse(), ROUTE_SHUFFLED));
+    expect(classifyPair(a, b)).toEqual({ kind: "manifest", lines: [4] });
+  });
+});
+
+describe("classifyPair — ветка «прочее»", () => {
+  test("изменён класс при переставленном манифесте → other: строка класса и строка манифеста раздельно", () => {
+    const a = page(manifestLine(ROOT, ROUTE));
+    const b = page(manifestLine(ROOT, ROUTE_SHUFFLED), '<h1 class="text-3xl">Заголовок</h1>');
+    expect(classifyPair(a, b)).toEqual({
+      kind: "other",
+      reason: "различие не в порядке preloads",
+      lines: [2],
+      manifestLines: [4],
+    });
+  });
+
+  test("элемент preloads заменён другим → other", () => {
+    const a = page(manifestLine(ROOT, ROUTE));
+    const b = page(manifestLine(ROOT, [ROUTE[0], "/assets/y-HASH.js", ROUTE[2]]));
+    expect(classifyPair(a, b)).toMatchObject({ kind: "other", lines: [4] });
+  });
+
+  test("элемент preloads убран (повтор схлопнулся) → other", () => {
+    const a = page(manifestLine(ROOT, ROUTE));
+    const b = page(manifestLine(ROOT, ROUTE.slice(0, 2)));
+    expect(classifyPair(a, b)).toMatchObject({ kind: "other", lines: [4] });
+  });
+
+  test("строка манифеста отличается вне preloads → other", () => {
+    const a = page(manifestLine(ROOT, ROUTE));
+    const b = page(manifestLine(ROOT, ROUTE, "/_site/news"));
+    expect(classifyPair(a, b)).toMatchObject({ kind: "other", lines: [4] });
+  });
+
+  test("переставленный массив preloads не в строке манифеста → other", () => {
+    const line = (items: string[]) => `<script>preloads:$R[4]=[${items.join(",")}]</script>`;
+    expect(classifyPair(line(["1", "2"]), line(["2", "1"]))).toMatchObject({
+      kind: "other",
+      lines: [1],
+    });
+  });
+
+  test("разное число строк → other без номеров", () => {
+    const a = page(manifestLine(ROOT, ROUTE));
+    expect(classifyPair(a, `${a}\n<p>x</p>`)).toEqual({
+      kind: "other",
+      reason: "строк 4 и 5",
+      lines: [],
+      manifestLines: [],
+    });
+  });
+});
+
+describe("classifyPair — контроли", () => {
+  test("положительный: один текст дважды → same", () => {
+    const a = page(manifestLine(ROOT, ROUTE));
+    expect(classifyPair(a, a)).toEqual({ kind: "same" });
+  });
+
+  test("отрицательный: разный текст → не same", () => {
+    expect(classifyPair("<p>a</p>", "<p>b</p>").kind).not.toBe("same");
   });
 });
 
