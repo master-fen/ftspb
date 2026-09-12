@@ -6,7 +6,7 @@ export function Breadcrumbs({ items }: { items: Crumb[] }) {
   return (
     <nav
       aria-label="Хлебные крошки"
-      className="mb-4 flex h-8 flex-wrap items-center gap-3 text-sm leading-8 font-medium text-foreground/40 md:mb-5"
+      className="mb-4 flex flex-wrap items-center gap-3 text-sm leading-8 font-medium text-foreground/40 md:mb-5"
     >
       {items.map((item, i) => (
         <span key={`${item.label}-${i}`} className="flex items-center gap-3">
@@ -17,7 +17,11 @@ export function Breadcrumbs({ items }: { items: Crumb[] }) {
             />
           ) : null}
           {item.href ? (
-            <Link to={item.href} className="transition-colors hover:text-foreground">
+            <Link
+              to={item.href}
+              activeOptions={{ exact: true }}
+              className="transition-colors hover:text-foreground"
+            >
               {item.label}
             </Link>
           ) : (

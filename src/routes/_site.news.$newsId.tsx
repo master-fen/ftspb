@@ -1,7 +1,8 @@
 import { createFileRoute, Link, notFound, stripSearchParams } from "@tanstack/react-router";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
-import { ChevronRight, Download, FileText } from "lucide-react";
+import { Download, FileText } from "lucide-react";
+import { Breadcrumbs, type Crumb } from "@/components/site/Breadcrumbs";
 import { NewsGallery } from "@/components/site/NewsGallery";
 import { NewsVideo } from "@/components/site/NewsVideo";
 import { NewsBody } from "@/components/site/NewsBody";
@@ -89,15 +90,15 @@ export const Route = createFileRoute("/_site/news/$newsId")({
 });
 
 /** Крошки отражают путь, которым пришли (`?from=`), а не раздел новости. */
-const CRUMBS_DEFAULT = [
-  { label: "Главная", to: "/" },
-  { label: "Новости", to: "/news" },
-] as const;
-const CRUMBS_FEDERATION = [
-  { label: "Главная", to: "/" },
-  { label: "Федерация", to: "/federation" },
-  { label: "Новости Федерации", to: "/federation/news" },
-] as const;
+const CRUMBS_DEFAULT: Crumb[] = [
+  { label: "Главная", href: "/" },
+  { label: "Новости", href: "/news" },
+];
+const CRUMBS_FEDERATION: Crumb[] = [
+  { label: "Главная", href: "/" },
+  { label: "Федерация", href: "/federation" },
+  { label: "Новости Федерации", href: "/federation/news" },
+];
 
 function NewsDetailPage() {
   const { item, related } = Route.useLoaderData();
@@ -122,21 +123,7 @@ function NewsDetailPage() {
 
   return (
     <main className="mx-auto max-w-7xl px-4 pt-6 pb-14 md:px-6 md:pt-8 md:pb-20 lg:px-10">
-      {/* Breadcrumbs */}
-      <nav
-        aria-label="Хлебные крошки"
-        className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground"
-      >
-        {crumbs.map((crumb) => (
-          <span key={crumb.to} className="flex items-center gap-1.5">
-            <Link to={crumb.to} className="transition-colors hover:text-brand-orange">
-              {crumb.label}
-            </Link>
-            <ChevronRight className="h-4 w-4 opacity-60" aria-hidden />
-          </span>
-        ))}
-        <span className="text-foreground/80 line-clamp-1">{item.title}</span>
-      </nav>
+      <Breadcrumbs items={[...crumbs, { label: item.title }]} />
 
       <header className="mt-5 md:mt-7 lg:max-w-[calc(100%-304px)] xl:max-w-[calc(100%-440px)]">
         <div className="text-[11px] font-semibold tracking-[0.14em] text-brand-orange uppercase">
