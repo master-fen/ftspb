@@ -42,7 +42,7 @@ export function FederationSidebar({ activeHref }: { activeHref?: string } = {}) 
     >
       {federationNav.map((group) => (
         <div key={group.label} className="mb-6 last:mb-0">
-          <h2 className="px-6 text-xl font-medium text-foreground md:text-2xl">{group.label}</h2>
+          <h2 className="px-6 ui-caption">{group.label}</h2>
           <ul className="mt-3">
             {group.items.map((item) => {
               const isActive = current === item.href;

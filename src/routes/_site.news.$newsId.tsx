@@ -217,9 +217,7 @@ function RelatedItem({ item }: { item: NewsItem }) {
         params={{ newsId: item.id }}
         className="block text-foreground ui-link"
       >
-        <div className="text-[10px] font-semibold tracking-[0.14em] text-brand-orange uppercase">
-          {newsMetaLine(item.category, item.date)}
-        </div>
+        <div className="ui-caption">{newsMetaLine(item.category, item.date)}</div>
         <div className="mt-1 text-sm leading-snug font-semibold">{item.title}</div>
       </Link>
     </li>

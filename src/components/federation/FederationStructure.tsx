@@ -153,7 +153,7 @@ export function FederationStructure({ className }: { className?: string }) {
           );
         })}
       </ol>
-      <p className="mt-4 font-ui text-sm text-muted-foreground">{STRUCTURE_BOARD_CAPTION}</p>
+      <p className="mt-4 font-ui ui-caption">{STRUCTURE_BOARD_CAPTION}</p>
     </div>
   );
 }
