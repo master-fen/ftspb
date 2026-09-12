@@ -164,7 +164,7 @@ function NewsDetailPage() {
                         href={att.url ?? "#"}
                         target="_blank"
                         rel="noreferrer"
-                        className="group flex items-center gap-3 rounded-xl bg-muted/60 px-4 py-3 ring-1 ring-black/5 transition-colors hover:bg-brand-orange/5"
+                        className="group flex items-center gap-3 rounded-xl bg-muted/60 px-4 py-3 ring-1 ring-black/5 ui-link-row"
                       >
                         <FileText className="h-5 w-5 text-brand-navy/70" aria-hidden />
                         <span className="rounded-md bg-brand-navy px-2 py-0.5 text-[10px] font-bold tracking-wider text-white uppercase">
@@ -203,7 +203,7 @@ function NewsDetailPage() {
             <div className="mt-6 border-t border-brand-navy/15 pt-4">
               <Link
                 to="/news"
-                className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-navy transition-colors hover:text-brand-orange"
+                className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-navy ui-link"
               >
                 <span aria-hidden>←</span> Ко всем новостям
               </Link>

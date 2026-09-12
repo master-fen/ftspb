@@ -16,7 +16,7 @@ type DocumentFileRowProps = {
 };
 
 const ROW_CLASS =
-  "group flex items-center gap-3 rounded-md bg-muted px-3 py-2.5 transition-colors hover:bg-brand-orange/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-blue";
+  "group flex items-center gap-3 rounded-md bg-muted px-3 py-2.5 ui-link-row focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-blue";
 
 /**
  * Строка файла документа: слева иконка и бейдж формата, в центре действие и

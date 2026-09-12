@@ -8,7 +8,7 @@ import { SectionHeading } from "./SectionHeading";
 import { newsMetaLine } from "@/lib/news-meta";
 
 const allNewsLinkClass =
-  "font-ui text-[15px] font-bold leading-[19.25px] text-brand-blue transition-colors hover:text-brand-orange inline-block xl:text-[16px]";
+  "font-ui text-[15px] font-bold leading-[19.25px] text-brand-blue ui-link inline-block xl:text-[16px]";
 
 type LatestNewsSectionProps = {
   items?: NewsItem[];

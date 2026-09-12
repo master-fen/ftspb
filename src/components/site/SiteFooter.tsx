@@ -18,10 +18,7 @@ export function SiteFooter() {
             <ul className="grid grid-cols-1 gap-x-12 gap-y-3 text-sm sm:grid-cols-2">
               {navSections.map((s) => (
                 <li key={s.label}>
-                  <Link
-                    to={s.href}
-                    className="font-ui font-bold text-white/90 transition-colors hover:text-brand-orange"
-                  >
+                  <Link to={s.href} className="font-ui font-bold text-white/90 ui-link">
                     {s.label}
                   </Link>
                 </li>
@@ -33,11 +30,7 @@ export function SiteFooter() {
         <div className="mt-10 border-t border-white/15 pt-6">
           <div className="flex flex-col gap-2 text-xs text-white/75 md:hidden">
             {siteMeta.legal.map((l) => (
-              <Link
-                key={l.label}
-                to={l.href}
-                className="text-sm font-medium text-white/90 transition-colors hover:text-brand-orange"
-              >
+              <Link key={l.label} to={l.href} className="text-sm font-medium text-white/90 ui-link">
                 {l.label}
               </Link>
             ))}
@@ -58,11 +51,7 @@ export function SiteFooter() {
             </div>
             <div className="flex flex-col gap-1.5">
               {siteMeta.legal.map((l) => (
-                <Link
-                  key={l.label}
-                  to={l.href}
-                  className="transition-colors hover:text-brand-orange"
-                >
+                <Link key={l.label} to={l.href} className="ui-link">
                   {l.label}
                 </Link>
               ))}

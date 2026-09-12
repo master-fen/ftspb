@@ -1,8 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { NewsCoverPlaceholder } from "@/components/site/NewsCoverPlaceholder";
 
-const linkClass =
-  "font-ui text-[16px] font-bold leading-[19.25px] text-brand-blue transition-colors hover:text-brand-orange";
+const linkClass = "font-ui text-[16px] font-bold leading-[19.25px] text-brand-blue ui-link";
 
 export function ComingSoon({ title, description }: { title: string; description?: string }) {
   return (
