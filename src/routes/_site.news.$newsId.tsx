@@ -170,9 +170,7 @@ function NewsDetailPage() {
                           {att.title}
                         </span>
                         {att.size ? (
-                          <span className="hidden text-xs text-muted-foreground sm:inline">
-                            {att.size}
-                          </span>
+                          <span className="hidden ui-caption sm:inline">{att.size}</span>
                         ) : null}
                         <Download
                           className="h-4 w-4 text-brand-navy/60 transition-colors group-hover:text-brand-orange"

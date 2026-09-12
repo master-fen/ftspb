@@ -32,9 +32,7 @@ export function LatestNewsSection({ items = latestNews }: LatestNewsSectionProps
                 <h3 className="line-clamp-2 text-[15px] font-semibold text-news-card-foreground">
                   {item.title}
                 </h3>
-                <div className="mt-1.5 text-xs text-muted-foreground">
-                  {newsMetaLine(item.category, item.date)}
-                </div>
+                <div className="mt-1.5 ui-caption">{newsMetaLine(item.category, item.date)}</div>
               </div>
               <div className="aspect-square h-[84px] w-[84px] shrink-0 overflow-hidden rounded-lg">
                 {item.cover ? (

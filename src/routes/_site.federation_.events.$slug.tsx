@@ -151,7 +151,7 @@ function EventPage() {
                   >
                     {item.title}
                   </Link>
-                  <span className="block font-ui text-xs text-muted-foreground">
+                  <span className="block font-ui ui-caption">
                     {formatIsoDateRu(item.publishedAt)}
                   </span>
                 </li>

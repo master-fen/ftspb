@@ -85,9 +85,7 @@ export function NewsGallery({ cover, gallery, title }: NewsGalleryProps) {
               </button>
             ))}
           </div>
-          <p className="mt-2 text-xs text-muted-foreground">
-            {images.length} фото — нажмите, чтобы открыть
-          </p>
+          <p className="mt-2 ui-caption">{images.length} фото — нажмите, чтобы открыть</p>
         </>
       ) : null}
 
