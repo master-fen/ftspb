@@ -17,11 +17,7 @@ export function Breadcrumbs({ items }: { items: Crumb[] }) {
             />
           ) : null}
           {item.href ? (
-            <Link
-              to={item.href}
-              activeOptions={{ exact: true }}
-              className="transition-colors hover:text-foreground"
-            >
+            <Link to={item.href} activeOptions={{ exact: true }} className="ui-link">
               {item.label}
             </Link>
           ) : (

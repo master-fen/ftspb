@@ -180,7 +180,7 @@ function EventNotFound() {
           Возможно, событие было перемещено или удалено.{" "}
           <Link
             to="/federation/events"
-            className="text-brand-navy underline underline-offset-4 hover:text-brand-orange"
+            className="text-brand-navy underline underline-offset-4 ui-link"
           >
             Все события
           </Link>

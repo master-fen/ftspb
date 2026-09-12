@@ -45,10 +45,7 @@ export function LeadershipCard({
           {phone ? (
             <p>
               <span className="text-muted-foreground">Телефон:</span>{" "}
-              <a
-                href={`tel:${phone.replace(/\s/g, "")}`}
-                className="hover:text-brand-blue hover:underline"
-              >
+              <a href={`tel:${phone.replace(/\s/g, "")}`} className="ui-link">
                 {phone}
               </a>
             </p>
@@ -56,7 +53,7 @@ export function LeadershipCard({
           {email ? (
             <p>
               <span className="text-muted-foreground">Email:</span>{" "}
-              <a href={`mailto:${email}`} className="hover:text-brand-blue hover:underline">
+              <a href={`mailto:${email}`} className="ui-link">
                 {email}
               </a>
             </p>
@@ -70,7 +67,7 @@ export function LeadershipCard({
                   href={link.href}
                   target="_blank"
                   rel="noreferrer"
-                  className="hover:text-brand-blue hover:underline"
+                  className="ui-link"
                 >
                   {link.label}
                 </a>
