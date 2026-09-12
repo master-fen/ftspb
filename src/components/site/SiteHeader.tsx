@@ -92,10 +92,10 @@ export function SiteHeader() {
   }, [searchOpen]);
 
   const navItemClass =
-    "inline-block min-w-0 whitespace-nowrap px-0.5 text-center font-ui text-[14px] font-bold leading-6 text-brand-blue transition-colors hover:text-brand-orange min-[1100px]:text-[15px] xl:text-[17px]";
+    "inline-block min-w-0 whitespace-nowrap px-0.5 text-center font-ui text-[14px] font-bold leading-6 text-brand-blue ui-link min-[1100px]:text-[15px] xl:text-[17px]";
 
   const dropdownItemClass =
-    "font-ui text-[16px] leading-[19.25px] font-bold text-brand-blue transition-colors hover:text-brand-orange whitespace-nowrap";
+    "font-ui text-[16px] leading-[19.25px] font-bold text-brand-blue ui-link whitespace-nowrap";
 
   return (
     <header className="w-full bg-background">
@@ -268,7 +268,7 @@ export function SiteHeader() {
                     <button
                       type="button"
                       onClick={() => setMobileExpanded((cur) => (cur === s.label ? null : s.label))}
-                      className="flex w-full items-center justify-between py-3 text-base font-bold text-brand-blue transition-colors hover:text-brand-orange"
+                      className="flex w-full items-center justify-between py-3 text-base font-bold text-brand-blue ui-link"
                       aria-expanded={expanded}
                     >
                       <span>{s.label}</span>
@@ -283,7 +283,7 @@ export function SiteHeader() {
                             key={c.label}
                             to={c.href}
                             onClick={() => setMobileOpen(false)}
-                            className="py-2 text-sm font-bold text-brand-blue transition-colors hover:text-brand-orange"
+                            className="py-2 text-sm font-bold text-brand-blue ui-link"
                           >
                             {c.label}
                           </Link>
@@ -298,7 +298,7 @@ export function SiteHeader() {
                   key={s.label}
                   to={s.href}
                   onClick={() => setMobileOpen(false)}
-                  className="border-b border-border py-3 text-base font-bold text-brand-blue transition-colors last:border-b-0 hover:text-brand-orange"
+                  className="border-b border-border py-3 text-base font-bold text-brand-blue last:border-b-0 ui-link"
                 >
                   {s.label}
                 </Link>
@@ -307,7 +307,7 @@ export function SiteHeader() {
                   key={s.label}
                   href={s.href}
                   onClick={() => setMobileOpen(false)}
-                  className="border-b border-border py-3 text-base font-bold text-brand-blue transition-colors last:border-b-0 hover:text-brand-orange"
+                  className="border-b border-border py-3 text-base font-bold text-brand-blue last:border-b-0 ui-link"
                 >
                   {s.label}
                 </a>

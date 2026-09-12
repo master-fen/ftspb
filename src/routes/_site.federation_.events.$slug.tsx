@@ -152,7 +152,7 @@ function EventPage() {
                   <Link
                     to="/news/$newsId"
                     params={{ newsId: item.slug }}
-                    className="font-ui text-base font-medium text-foreground transition-colors hover:text-brand-orange"
+                    className="font-ui text-base font-medium text-foreground ui-link"
                   >
                     {item.title}
                   </Link>
@@ -180,7 +180,7 @@ function EventNotFound() {
           Возможно, событие было перемещено или удалено.{" "}
           <Link
             to="/federation/events"
-            className="text-brand-navy underline underline-offset-4 hover:text-brand-orange"
+            className="text-brand-navy underline underline-offset-4 ui-link"
           >
             Все события
           </Link>

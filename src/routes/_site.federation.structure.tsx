@@ -51,10 +51,7 @@ function StructurePage() {
           ))}
         </div>
         <p className="mt-6">
-          <Link
-            to={CHARTER_TEXT_PATH}
-            className="font-bold text-brand-blue transition-colors hover:text-brand-orange"
-          >
+          <Link to={CHARTER_TEXT_PATH} className="font-bold text-brand-blue ui-link">
             Полный текст Устава
           </Link>
         </p>

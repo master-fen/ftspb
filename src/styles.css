@@ -239,3 +239,13 @@ html {
 @utility animate-page-in {
   animation: page-in 260ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
 }
+
+/* Наведение по ролям — docs/style-rules.md, «Ссылки и наведение». Страницы
+   ставят утилиту роли, строку её классов не копируют. */
+@utility ui-link {
+  @apply transition-colors hover:text-brand-orange;
+}
+
+@utility ui-link-row {
+  @apply transition-colors hover:bg-brand-orange/5;
+}

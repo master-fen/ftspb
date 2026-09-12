@@ -8,7 +8,7 @@ const sectionNumbers = Object.keys(CHARTER_SECTION_TITLES)
   .sort((a, b) => a - b);
 
 const LINK_CLASS =
-  "block rounded-md py-1 font-ui text-[15px] leading-6 text-foreground/65 transition-colors hover:text-brand-blue focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-blue";
+  "block rounded-md py-1 font-ui text-[15px] leading-6 text-foreground/65 ui-link focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-blue";
 
 /**
  * Поведение прокрутки к разделу: плавно, но при системной настройке

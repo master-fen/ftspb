@@ -50,10 +50,10 @@ export function FederationSidebar({ activeHref }: { activeHref?: string } = {}) 
                 <li key={item.href} className="relative">
                   <Link
                     to={item.href}
-                    className={`relative flex min-h-10 items-center rounded-[5px] px-6 text-base transition-colors md:text-lg ${
+                    className={`relative flex min-h-10 items-center rounded-[5px] px-6 text-base md:text-lg ${
                       isActive
-                        ? "bg-brand-blue/20 font-medium text-foreground"
-                        : "text-foreground/60 hover:text-foreground"
+                        ? "bg-brand-blue/20 font-medium text-foreground transition-colors"
+                        : "text-foreground/60 ui-link"
                     }`}
                   >
                     {isActive ? (
