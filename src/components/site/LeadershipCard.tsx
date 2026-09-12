@@ -44,7 +44,7 @@ export function LeadershipCard({
         <div className="mt-5 space-y-2 font-ui text-[15px] leading-snug text-foreground">
           {phone ? (
             <p>
-              <span className="text-muted-foreground">Телефон:</span>{" "}
+              <span className="ui-caption">Телефон:</span>{" "}
               <a href={`tel:${phone.replace(/\s/g, "")}`} className="ui-link">
                 {phone}
               </a>
@@ -52,7 +52,7 @@ export function LeadershipCard({
           ) : null}
           {email ? (
             <p>
-              <span className="text-muted-foreground">Email:</span>{" "}
+              <span className="ui-caption">Email:</span>{" "}
               <a href={`mailto:${email}`} className="ui-link">
                 {email}
               </a>
@@ -60,7 +60,7 @@ export function LeadershipCard({
           ) : null}
           {links && links.length > 0 ? (
             <p className="flex flex-wrap gap-x-4 gap-y-1">
-              <span className="text-muted-foreground">Социальные сети/новости:</span>
+              <span className="ui-caption">Социальные сети/новости:</span>
               {links.map((link) => (
                 <a
                   key={link.href}

@@ -74,10 +74,7 @@ function CharterTextPage() {
         className="mt-5 hidden rounded-[30px] border border-brand-blue/10 bg-background px-0 py-6 md:py-8 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col"
         aria-labelledby="charter-toc-title"
       >
-        <h2
-          id="charter-toc-title"
-          className="shrink-0 px-6 text-xl font-medium text-foreground md:text-2xl"
-        >
+        <h2 id="charter-toc-title" className="shrink-0 px-6 ui-caption">
           Содержание
         </h2>
         <CharterToc className="mt-3 px-6 lg:min-h-0 lg:flex-1 lg:overflow-y-auto" />
@@ -100,7 +97,7 @@ function CharterTextPage() {
           text-foreground без прозрачности — ради контраста. */}
       <article className="font-ui text-base leading-[1.6] text-foreground">
         <h1 className="ui-h1">Устав</h1>
-        <p className="mt-3 text-foreground/80">
+        <p className="mt-3 ui-caption">
           Редакция от{" "}
           <time dateTime={CHARTER_META.editionDate}>{CHARTER_META.editionDateText}</time>
         </p>

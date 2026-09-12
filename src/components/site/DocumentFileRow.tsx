@@ -44,9 +44,9 @@ export function DocumentFileRow({
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate font-ui text-sm font-medium text-foreground">{action}</span>
-        <span className="block font-ui text-xs text-muted-foreground">{meta}</span>
+        <span className="block font-ui ui-caption">{meta}</span>
       </span>
-      <span className="flex shrink-0 items-center gap-2 font-ui text-xs text-muted-foreground">
+      <span className="flex shrink-0 items-center gap-2 font-ui ui-caption">
         {sizeBytes !== undefined ? <span>{formatFileSize(sizeBytes)}</span> : null}
         <ActionIcon
           className="size-4 text-foreground/50 transition-colors group-hover:text-brand-blue"

@@ -95,15 +95,11 @@ function EventPage() {
     <SectionFrame crumbs={[...SECTION_CRUMBS, { label: event.title }]} aside={ASIDE}>
       <article>
         <h1 className="ui-h1">{event.title}</h1>
-        <p className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 font-ui text-base leading-[1.6] text-foreground/80">
+        <p className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 font-ui ui-caption">
           <span>{formatEventDateLong(event.startsOn, event.datePrecision, event.startsTime)}</span>
           {past ? <EventPastBadge /> : null}
         </p>
-        {event.location ? (
-          <p className="mt-1 font-ui text-base leading-[1.6] text-foreground/80">
-            {event.location}
-          </p>
-        ) : null}
+        {event.location ? <p className="mt-1 font-ui ui-caption">{event.location}</p> : null}
 
         {paragraphs.length > 0 ? (
           <div className="mt-6 space-y-4 font-ui text-base leading-[1.6] text-foreground">
@@ -151,7 +147,7 @@ function EventPage() {
                   >
                     {item.title}
                   </Link>
-                  <span className="block font-ui text-xs text-muted-foreground">
+                  <span className="block font-ui ui-caption">
                     {formatIsoDateRu(item.publishedAt)}
                   </span>
                 </li>

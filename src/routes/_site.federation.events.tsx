@@ -78,11 +78,7 @@ function FederationEventsPage() {
                 <li key={event.id} className="flex items-baseline gap-4 py-3">
                   {/* Метка даты фиксированной ширины: самая длинная — «сентябрь»,
                       «1-е пол.» (8 знаков) — в 6rem помещается с запасом. */}
-                  <span
-                    className={`w-24 shrink-0 font-ui text-sm font-semibold ${
-                      past ? "text-foreground/50" : "text-brand-navy"
-                    }`}
-                  >
+                  <span className="w-24 shrink-0 font-ui ui-caption">
                     {formatEventDateShort(event.startsOn, event.datePrecision)}
                   </span>
                   <span className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3 gap-y-1">

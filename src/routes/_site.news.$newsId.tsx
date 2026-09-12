@@ -170,9 +170,7 @@ function NewsDetailPage() {
                           {att.title}
                         </span>
                         {att.size ? (
-                          <span className="hidden text-xs text-muted-foreground sm:inline">
-                            {att.size}
-                          </span>
+                          <span className="hidden ui-caption sm:inline">{att.size}</span>
                         ) : null}
                         <Download
                           className="h-4 w-4 text-brand-navy/60 transition-colors group-hover:text-brand-orange"
@@ -219,9 +217,7 @@ function RelatedItem({ item }: { item: NewsItem }) {
         params={{ newsId: item.id }}
         className="block text-foreground ui-link"
       >
-        <div className="text-[10px] font-semibold tracking-[0.14em] text-brand-orange uppercase">
-          {newsMetaLine(item.category, item.date)}
-        </div>
+        <div className="ui-caption">{newsMetaLine(item.category, item.date)}</div>
         <div className="mt-1 text-sm leading-snug font-semibold">{item.title}</div>
       </Link>
     </li>

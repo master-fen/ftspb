@@ -268,3 +268,9 @@ html {
 @utility ui-h3 {
   @apply font-sans text-xl font-semibold text-foreground;
 }
+
+/* Подпись и дата — docs/style-rules.md, «Типографика». Семейство в объявление
+   не входит: шрифт текста открыт, его задаёт элемент или предок. */
+@utility ui-caption {
+  @apply text-sm font-normal text-muted-foreground;
+}

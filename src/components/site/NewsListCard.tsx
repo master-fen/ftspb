@@ -30,9 +30,7 @@ export function NewsListCard({ item, from }: { item: NewsItem; from?: NewsOrigin
       </div>
 
       <div className="flex flex-1 flex-col gap-2 p-5 md:p-6">
-        <div className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
-          {newsMetaLine(item.category, item.date)}
-        </div>
+        <div className="ui-caption">{newsMetaLine(item.category, item.date)}</div>
         <h3 className="text-lg leading-snug font-bold text-news-card-foreground md:text-[19px]">
           {item.title}
         </h3>
