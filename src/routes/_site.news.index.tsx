@@ -1,7 +1,8 @@
 import { useMemo } from "react";
-import { createFileRoute, Link, useNavigate, stripSearchParams } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, stripSearchParams } from "@tanstack/react-router";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
+import { Breadcrumbs, type Crumb } from "@/components/site/Breadcrumbs";
 import { CategoryFilterChips } from "@/components/site/CategoryFilterChips";
 import { listNews } from "@/lib/news-server-fn";
 import { NewsListCard } from "@/components/site/NewsListCard";
@@ -15,6 +16,8 @@ import {
 import type { NewsSection } from "@/lib/types/news";
 
 const DEFAULT_FILTER: SectionCategory = DEFAULT_SECTION_CATEGORY;
+
+const CRUMBS: Crumb[] = [{ label: "Главная", href: "/" }, { label: "Новости" }];
 
 const searchSchema = z.object({
   category: fallback(z.enum(SECTION_CATEGORIES), DEFAULT_FILTER).default(DEFAULT_FILTER),
@@ -68,16 +71,7 @@ function NewsPage() {
 
   return (
     <main className="mx-auto max-w-7xl px-4 pt-6 pb-12 md:px-6 md:pt-8 md:pb-16 lg:px-10">
-      <nav
-        aria-label="Хлебные крошки"
-        className="mb-4 flex h-8 items-center gap-3 text-sm leading-8 font-medium text-foreground/40 md:mb-5"
-      >
-        <Link to="/" className="transition-colors hover:text-foreground">
-          Главная
-        </Link>
-        <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-foreground/15" aria-hidden="true" />
-        <span aria-current="page">Новости</span>
-      </nav>
+      <Breadcrumbs items={CRUMBS} />
 
       <header className="mb-6 md:mb-8">
         <h1 className="text-4xl font-black tracking-tight text-foreground md:text-5xl lg:text-6xl">
