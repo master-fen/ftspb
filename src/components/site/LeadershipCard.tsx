@@ -30,9 +30,7 @@ export function LeadershipCard({
       </div>
 
       <div className="flex min-w-0 flex-col py-1">
-        <h2 className="font-ui text-xl font-semibold leading-tight text-foreground md:text-2xl">
-          {name}
-        </h2>
+        <h2 className="ui-card-title text-foreground">{name}</h2>
         <p className="mt-1 font-ui text-base font-medium text-brand-blue">{role}</p>
 
         {bio ? (

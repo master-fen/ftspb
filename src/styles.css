@@ -54,6 +54,9 @@
   --text-page-title--line-height: 1.18;
   --text-page-title-md: 2.25rem;
   --text-page-title-md--line-height: 1.18;
+
+  /* Разрядка надзаголовка — по эталону (строка над заголовком новости). */
+  --tracking-overline: 0.14em;
 }
 
 :root {
@@ -275,10 +278,22 @@ html {
   @apply text-sm font-normal text-muted-foreground;
 }
 
-/* Карточка — docs/style-rules.md, «Карточки»: скругление, ширина рамки, тень.
-   Цвет рамки (ring-black/5), фон, отступы и наведение — на элементе:
+/* Карточка — docs/style-rules.md, «Карточки»: скругление и ширина рамки, тени
+   нет. Цвет рамки (ring-black/5), фон, отступы и наведение — на элементе:
    поверхности и токены открыты. Цвет рамки в @apply не переносится — там
    теряется фолбэк color-mix, а --tw-ring-color подставляется в box-shadow. */
 @utility ui-card {
-  @apply rounded-xl shadow-sm ring-1;
+  @apply rounded-xl ring-1;
+}
+
+/* Заголовок карточки — «Типографика»: Manrope, 18px, полужирный; цвет — от
+   карточки (класс на элементе остаётся, где он не дублирует предка). */
+@utility ui-card-title {
+  @apply font-sans text-lg font-semibold;
+}
+
+/* Надзаголовок — строка над заголовком страницы: 12px, полужирный, прописные,
+   разрядка (--tracking-overline), оранжевый. */
+@utility ui-overline {
+  @apply text-xs font-semibold uppercase tracking-overline text-brand-orange;
 }

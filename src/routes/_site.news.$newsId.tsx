@@ -126,9 +126,7 @@ function NewsDetailPage() {
       <Breadcrumbs items={[...crumbs, { label: item.title }]} />
 
       <header className="mt-5 md:mt-7 lg:max-w-[calc(100%-304px)] xl:max-w-[calc(100%-440px)]">
-        <div className="text-[11px] font-semibold tracking-[0.14em] text-brand-orange uppercase">
-          {newsMetaLine(item.category, item.date)}
-        </div>
+        <div className="ui-overline">{newsMetaLine(item.category, item.date)}</div>
         <h1 className="mt-3 ui-h1">{item.title}</h1>
         {showLead ? (
           <p className="mt-4 text-[17px] leading-relaxed text-muted-foreground md:text-lg">
@@ -227,7 +225,7 @@ function RelatedItem({ item }: { item: NewsItem }) {
 function NewsNotFound() {
   return (
     <main className="mx-auto max-w-3xl px-4 py-20 text-center md:px-6">
-      <p className="text-sm font-semibold tracking-wide text-brand-orange uppercase">404</p>
+      <p className="ui-overline">404</p>
       <h1 className="mt-3 ui-h1">Новость не найдена</h1>
       <p className="mt-4 text-muted-foreground">Возможно, материал был перемещён или удалён.</p>
       <Link
