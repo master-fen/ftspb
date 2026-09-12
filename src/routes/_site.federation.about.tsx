@@ -26,7 +26,7 @@ export const Route = createFileRoute("/_site/federation/about")({
         aria-labelledby="org-requisites-title"
         className="mt-8 font-ui text-base leading-[1.6] text-foreground"
       >
-        <h2 id="org-requisites-title" className="font-sans text-2xl font-medium text-foreground">
+        <h2 id="org-requisites-title" className="ui-h2">
           Реквизиты
         </h2>
         <dl className="mt-3 space-y-3">

@@ -94,9 +94,7 @@ function EventPage() {
   return (
     <SectionFrame crumbs={[...SECTION_CRUMBS, { label: event.title }]} aside={ASIDE}>
       <article>
-        <h1 className="text-3xl font-medium tracking-tight text-foreground md:text-4xl lg:text-5xl">
-          {event.title}
-        </h1>
+        <h1 className="ui-h1">{event.title}</h1>
         <p className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 font-ui text-base leading-[1.6] text-foreground/80">
           <span>{formatEventDateLong(event.startsOn, event.datePrecision, event.startsTime)}</span>
           {past ? <EventPastBadge /> : null}
@@ -173,9 +171,7 @@ function EventNotFound() {
   return (
     <SectionFrame crumbs={SECTION_CRUMBS} aside={ASIDE}>
       <article>
-        <h1 className="text-3xl font-medium tracking-tight text-foreground md:text-4xl lg:text-5xl">
-          Событие не найдено
-        </h1>
+        <h1 className="ui-h1">Событие не найдено</h1>
         <p className="mt-5 font-ui text-base leading-[1.6] text-foreground">
           Возможно, событие было перемещено или удалено.{" "}
           <Link
@@ -194,9 +190,7 @@ function EventError({ reset }: { reset: () => void }) {
   return (
     <SectionFrame crumbs={SECTION_CRUMBS} aside={ASIDE}>
       <article>
-        <h1 className="text-3xl font-medium tracking-tight text-foreground md:text-4xl lg:text-5xl">
-          Не удалось загрузить событие
-        </h1>
+        <h1 className="ui-h1">Не удалось загрузить событие</h1>
         <button
           type="button"
           onClick={reset}

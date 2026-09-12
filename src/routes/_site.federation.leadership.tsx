@@ -24,9 +24,7 @@ function LeadershipPage() {
 
   return (
     <article>
-      <h1 className="text-3xl font-medium tracking-tight text-foreground md:text-4xl lg:text-5xl">
-        Руководство
-      </h1>
+      <h1 className="ui-h1">Руководство</h1>
       <p className="mt-3 max-w-2xl font-ui text-[16px] leading-[24px] text-muted-foreground">
         Президент, вице-президенты, Правление: должности и зоны ответственности, контактные данные.
       </p>

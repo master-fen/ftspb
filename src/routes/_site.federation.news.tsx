@@ -35,9 +35,7 @@ function FederationNewsPage() {
 
   return (
     <article>
-      <h1 className="text-3xl font-medium tracking-tight text-foreground md:text-4xl lg:text-5xl">
-        Новости Федерации
-      </h1>
+      <h1 className="ui-h1">Новости Федерации</h1>
 
       {items.length === 0 ? (
         <p className="mt-8 rounded-xl bg-muted p-8 text-center text-muted-foreground">

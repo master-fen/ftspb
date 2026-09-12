@@ -43,7 +43,7 @@ function CharterPage() {
       </p>
 
       <section aria-labelledby="charter-about-title" className="mt-8">
-        <h2 id="charter-about-title" className="font-sans text-2xl font-medium text-foreground">
+        <h2 id="charter-about-title" className="ui-h2">
           О документе
         </h2>
         <dl className="mt-3 space-y-3">
@@ -65,7 +65,7 @@ function CharterPage() {
       </section>
 
       <section aria-labelledby="charter-scope-title" className="mt-8">
-        <h2 id="charter-scope-title" className="font-sans text-2xl font-medium text-foreground">
+        <h2 id="charter-scope-title" className="ui-h2">
           Что регулирует Устав
         </h2>
         <p className="mt-3">
@@ -74,13 +74,13 @@ function CharterPage() {
           формирования имущества и ведения предпринимательской деятельности, символику, порядок
           внесения изменений, реорганизации и ликвидации.
         </p>
-        <h3 className="mt-6 font-sans text-xl font-medium text-foreground">Содержание</h3>
+        <h3 className="mt-6 ui-h3">Содержание</h3>
         {/* Каждый пункт ведёт в раздел полного текста на отдельной странице. */}
         <CharterToc className="mt-3" hrefBase={CHARTER_TEXT_PATH} />
       </section>
 
       <section aria-labelledby="charter-document-title" className="mt-8">
-        <h2 id="charter-document-title" className="font-sans text-2xl font-medium text-foreground">
+        <h2 id="charter-document-title" className="ui-h2">
           Документ
         </h2>
         <div className="mt-3 space-y-2">

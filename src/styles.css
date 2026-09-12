@@ -249,3 +249,17 @@ html {
 @utility ui-link-row {
   @apply transition-colors hover:bg-brand-orange/5;
 }
+
+/* Заголовки по ролям — docs/style-rules.md, «Типографика». Страницы ставят
+   утилиту роли, строку её классов не копируют. */
+@utility ui-h1 {
+  @apply text-3xl font-medium tracking-tight text-foreground md:text-4xl lg:text-5xl;
+}
+
+@utility ui-h2 {
+  @apply font-sans text-2xl font-medium text-foreground;
+}
+
+@utility ui-h3 {
+  @apply font-sans text-xl font-medium text-foreground;
+}

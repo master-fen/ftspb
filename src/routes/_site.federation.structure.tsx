@@ -26,9 +26,7 @@ export const Route = createFileRoute("/_site/federation/structure")({
 function StructurePage() {
   return (
     <article>
-      <h1 className="text-3xl font-medium tracking-tight text-foreground md:text-4xl lg:text-5xl">
-        Структура
-      </h1>
+      <h1 className="ui-h1">Структура</h1>
       <p className="mt-5 max-w-2xl font-ui text-[16px] leading-[24px] text-muted-foreground">
         {STRUCTURE_INTRO}
       </p>
@@ -39,13 +37,13 @@ function StructurePage() {
         aria-labelledby="charter-bodies-title"
         className="mt-10 font-ui text-base leading-[1.6] text-foreground"
       >
-        <h2 id="charter-bodies-title" className="font-sans text-2xl font-medium text-foreground">
+        <h2 id="charter-bodies-title" className="ui-h2">
           Органы Федерации по Уставу
         </h2>
         <div className="mt-4 space-y-6">
           {CHARTER_BODIES.map((body) => (
             <div key={body.id}>
-              <h3 className="font-sans text-xl font-medium text-foreground">{body.title}</h3>
+              <h3 className="ui-h3">{body.title}</h3>
               <p className="mt-2 text-foreground/80">{body.line}</p>
             </div>
           ))}
