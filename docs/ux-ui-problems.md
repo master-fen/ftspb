@@ -90,3 +90,11 @@ border-brand-blue/10` (`FederationSidebar.tsx:41`, `_site.federation_.charter.te
   а также `og:type`, `og:site_name`, `og:locale`, `og:image`, `twitter:card`, `twitter:image`,
   `google-site-verification`, `charset`, `viewport`. `canonical` нет — ни у страницы, ни у
   `_site.tsx` и `_site.federation.tsx`, ни в корне.
+- **Тёмная тема не поддерживается.** В `src/styles.css` объявлены вариант `dark` (`:5`) и блок
+  `.dark` с парами токенов (`:100–123`), но класс `.dark` нигде не ставится — пары не применяются;
+  у `brand-*` пар нет. Правило поверхностей (`docs/style-rules.md`) блок `.dark` не расширяет: новые
+  токены пары не получают.
+- **`style=` с цветом в шапке.** Правило поверхностей его запрещает, в `SiteHeader.tsx` два места:
+  индикатор под активным пунктом меню (`:228`, `backgroundColor: "var(--color-brand-blue)"`, в том
+  же `style=` — геометрия `left`, `width`, `opacity`) и оранжевая полоса внизу шапки (`:322`,
+  `backgroundColor: "var(--color-brand-orange)"`). Цвет взят из переменной темы, но не классом.
