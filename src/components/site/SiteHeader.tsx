@@ -99,9 +99,9 @@ export function SiteHeader() {
 
   return (
     <header className="w-full bg-background">
-      <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 pt-2 pb-2 md:px-6 md:pt-2.5 md:pb-2.5 lg:gap-2 lg:px-10 xl:gap-4 xl:px-10">
+      <div className="mx-auto flex max-w-7xl items-center gap-4 pl-3 pr-2 max-lg:h-18 md:pt-2.5 md:pb-2.5 lg:gap-2 lg:px-10 xl:gap-4 xl:px-10">
         <Link to="/" className="shrink-0">
-          <Logo sizeClassName="h-28 md:h-36 lg:h-40 xl:h-48" />
+          <Logo sizeClassName="h-14 min-[390px]:h-15 lg:h-40 xl:h-48" />
         </Link>
 
         <div className="relative hidden min-h-40 flex-1 self-stretch lg:block xl:min-h-48">
@@ -234,24 +234,28 @@ export function SiteHeader() {
           </nav>
         </div>
 
-        <div className="ml-auto flex items-center gap-2 self-center lg:hidden">
+        <div className="ml-auto flex items-center gap-1 self-center lg:hidden">
           <Button
             type="button"
             aria-label="Поиск"
             onClick={() => toast("Пока не готово")}
             size="icon"
-            className="h-11 w-11 shrink-0 rounded-full bg-brand-blue text-primary-foreground shadow-none transition-opacity hover:bg-brand-blue hover:opacity-90"
+            className="h-11 w-11 shrink-0 rounded-full bg-transparent text-primary-foreground shadow-none transition-opacity hover:bg-transparent hover:opacity-90"
           >
-            <Search className="h-4 w-4" />
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-blue">
+              <Search className="h-4 w-4" />
+            </span>
           </Button>
           <Button
             type="button"
             aria-label={mobileOpen ? "Закрыть меню" : "Открыть меню"}
             onClick={() => setMobileOpen((v) => !v)}
             size="icon"
-            className="h-11 w-11 shrink-0 rounded-full bg-brand-blue text-primary-foreground shadow-none transition-opacity hover:bg-brand-blue hover:opacity-90"
+            className="h-11 w-11 shrink-0 rounded-full bg-transparent text-primary-foreground shadow-none transition-opacity hover:bg-transparent hover:opacity-90"
           >
-            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-blue">
+              {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </span>
           </Button>
         </div>
       </div>
