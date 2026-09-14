@@ -119,8 +119,10 @@ export function FederationMobileNav({ activeHref }: { activeHref?: string } = {}
             e.preventDefault();
             openerRef.current?.focus();
           }}
-          // *:shrink-0: пустая ручка — flex-элемент с нулевым автоминимумом, при ограничении высоты весь дефицит уходит в неё.
-          className="max-h-dvh overflow-y-auto px-2 pb-5 *:shrink-0"
+          // Прокручивается список, а не панель: иначе псевдоэлемент vaul ::after (высота 200%,
+          // vaul/dist/index.mjs:62) входит в прокручиваемую область. *:shrink-0 отдаёт весь
+          // дефицит высоты списку, shrink! выводит из-под *:shrink-0 саму обёртку списка.
+          className="max-h-dvh px-2 pb-5 *:shrink-0"
         >
           <div className="flex items-center justify-between py-1.5 pr-2 pl-4">
             <DrawerTitle className="font-ui text-base font-semibold">
@@ -136,35 +138,37 @@ export function FederationMobileNav({ activeHref }: { activeHref?: string } = {}
               </button>
             </DrawerClose>
           </div>
-          {federationNav.map((navGroup, index) => (
-            <div key={navGroup.label}>
-              {index > 0 ? <div className="mx-4 mt-2.5 mb-0.5 border-t border-border" /> : null}
-              <p className="px-4 pt-2 pb-1 ui-caption">{navGroup.label}</p>
-              <ul>
-                {navGroup.items.map((navItem) => {
-                  const isCurrent = navItem.href === item.href;
-                  return (
-                    <li key={navItem.href}>
-                      <Link
-                        to={navItem.href}
-                        aria-current={isCurrent ? "page" : undefined}
-                        onClick={() => setOpen(false)}
-                        className={isCurrent ? SHEET_ITEM_CURRENT : SHEET_ITEM}
-                      >
-                        {isCurrent ? (
-                          <span
-                            aria-hidden="true"
-                            className="absolute top-0 left-0 h-full w-1 rounded-l-md bg-brand-blue"
-                          />
-                        ) : null}
-                        {navItem.label}
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          ))}
+          <div className="overflow-y-auto shrink!">
+            {federationNav.map((navGroup, index) => (
+              <div key={navGroup.label}>
+                {index > 0 ? <div className="mx-4 mt-2.5 mb-0.5 border-t border-border" /> : null}
+                <p className="px-4 pt-2 pb-1 ui-caption">{navGroup.label}</p>
+                <ul>
+                  {navGroup.items.map((navItem) => {
+                    const isCurrent = navItem.href === item.href;
+                    return (
+                      <li key={navItem.href}>
+                        <Link
+                          to={navItem.href}
+                          aria-current={isCurrent ? "page" : undefined}
+                          onClick={() => setOpen(false)}
+                          className={isCurrent ? SHEET_ITEM_CURRENT : SHEET_ITEM}
+                        >
+                          {isCurrent ? (
+                            <span
+                              aria-hidden="true"
+                              className="absolute top-0 left-0 h-full w-1 rounded-l-md bg-brand-blue"
+                            />
+                          ) : null}
+                          {navItem.label}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
+          </div>
         </DrawerContent>
       </Drawer>
     </>
