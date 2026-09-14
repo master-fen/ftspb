@@ -2,6 +2,7 @@ import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import type { Crumb } from "@/components/site/Breadcrumbs";
 import { DocumentFileRow } from "@/components/site/DocumentFileRow";
 import { EventPastBadge } from "@/components/site/EventPastBadge";
+import { FederationMobileNav } from "@/components/site/FederationMobileNav";
 import { FederationSidebar } from "@/components/site/FederationSidebar";
 import { SectionFrame } from "@/components/site/SectionFrame";
 import { documentBadge } from "@/lib/document-badge";
@@ -100,6 +101,7 @@ function EventPage() {
           {past ? <EventPastBadge /> : null}
         </p>
         {event.location ? <p className="mt-1 font-ui ui-caption">{event.location}</p> : null}
+        <FederationMobileNav activeHref="/federation/events" />
 
         {paragraphs.length > 0 ? (
           <div className="mt-6 space-y-4 font-ui text-base leading-[1.6] text-foreground">

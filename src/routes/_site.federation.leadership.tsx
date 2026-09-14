@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { FederationMobileNav } from "@/components/site/FederationMobileNav";
 import { LeadershipCard } from "@/components/site/LeadershipCard";
 import { listPublishedPersons } from "@/lib/federation-person-server-fn";
 
@@ -28,6 +29,7 @@ function LeadershipPage() {
       <p className="mt-3 max-w-2xl font-ui text-[16px] leading-[24px] text-muted-foreground">
         Президент, вице-президенты, Правление: должности и зоны ответственности, контактные данные.
       </p>
+      <FederationMobileNav />
 
       {persons.length === 0 ? (
         <p className="mt-8 rounded-xl bg-muted p-8 text-center text-muted-foreground">

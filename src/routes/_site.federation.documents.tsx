@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { DocumentFileRow } from "@/components/site/DocumentFileRow";
+import { FederationMobileNav } from "@/components/site/FederationMobileNav";
 import { documentBadge } from "@/lib/document-badge";
 import { listPublishedLibraryDocuments } from "@/lib/documents-server-fn";
 import { formatIsoDateRu } from "@/lib/format-iso-date";
@@ -32,6 +33,7 @@ function FederationDocumentsPage() {
   return (
     <article>
       <h1 className="ui-h1">Документы Федерации</h1>
+      <FederationMobileNav />
       <p className="mt-5 font-ui text-base leading-[1.6] text-foreground">
         Официальные документы, регулирующие деятельность Федерации и проведение соревнований:
         положения, регламенты, правила, формы и другие материалы.

@@ -3,6 +3,7 @@ import type { Crumb } from "@/components/site/Breadcrumbs";
 import { CharterText } from "@/components/site/CharterText";
 import { CharterToc } from "@/components/site/CharterToc";
 import { DocumentFileRow } from "@/components/site/DocumentFileRow";
+import { FederationMobileNav } from "@/components/site/FederationMobileNav";
 import { FederationSidebar } from "@/components/site/FederationSidebar";
 import { SectionFrame } from "@/components/site/SectionFrame";
 import { charterContent } from "@/lib/charter/content";
@@ -101,6 +102,7 @@ function CharterTextPage() {
           Редакция от{" "}
           <time dateTime={CHARTER_META.editionDate}>{CHARTER_META.editionDateText}</time>
         </p>
+        <FederationMobileNav activeHref="/federation/charter" />
         {pdfRow ? <div className="mt-4 max-w-md">{pdfRow}</div> : null}
         <p className="mt-6 text-foreground/80">
           Текст приводится для ознакомления. При расхождениях приоритет имеет документ в формате

@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { FederationMobileNav } from "@/components/site/FederationMobileNav";
 import { NewsListCard } from "@/components/site/NewsListCard";
 import { listNews } from "@/lib/news-server-fn";
 import { sortNewsByDateDesc } from "@/lib/news-date";
@@ -36,6 +37,7 @@ function FederationNewsPage() {
   return (
     <article>
       <h1 className="ui-h1">Новости Федерации</h1>
+      <FederationMobileNav />
 
       {items.length === 0 ? (
         <p className="mt-8 rounded-xl bg-muted p-8 text-center text-muted-foreground">

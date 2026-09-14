@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { FederationMobileNav } from "@/components/site/FederationMobileNav";
 import { SectionPagePlaceholder } from "@/components/site/SectionPagePlaceholder";
 import { ORG_REQUISITES } from "@/lib/site";
 
@@ -21,6 +22,7 @@ export const Route = createFileRoute("/_site/federation/about")({
       <SectionPagePlaceholder
         title="Общая информация"
         description="Здесь будет рассказ об истории, миссии и направлениях работы Федерации тенниса Санкт-Петербурга."
+        afterStatus={<FederationMobileNav />}
       />
       <section
         aria-labelledby="org-requisites-title"

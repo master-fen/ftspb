@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { CharterToc } from "@/components/site/CharterToc";
 import { DocumentFileRow } from "@/components/site/DocumentFileRow";
+import { FederationMobileNav } from "@/components/site/FederationMobileNav";
 import { CHARTER_DOCUMENT_SLUG, CHARTER_META, CHARTER_TEXT_PATH } from "@/lib/charter/meta";
 import { getPublishedDocumentBySlug } from "@/lib/documents-server-fn";
 import { formatIsoDateRu } from "@/lib/format-iso-date";
@@ -33,6 +34,7 @@ function CharterPage() {
   return (
     <article className="max-w-3xl font-ui text-base leading-[1.6] text-foreground">
       <h1 className="ui-h1">Устав</h1>
+      <FederationMobileNav />
 
       <p className="mt-5">
         Устав — учредительный документ Санкт-Петербургской Региональной общественной организации
