@@ -36,6 +36,9 @@ export function FederationMobileNav({ activeHref }: { activeHref?: string } = {}
   const [mounted, setMounted] = useState(false);
   const [barVisible, setBarVisible] = useState(false);
   const selectorRef = useRef<HTMLButtonElement | null>(null);
+  // Кнопка, открывшая шторку (селектор или бар), — на неё возвращается фокус
+  // после закрытия. Автовозврат Radix работает только через Dialog.Trigger.
+  const openerRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -64,7 +67,10 @@ export function FederationMobileNav({ activeHref }: { activeHref?: string } = {}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={SHEET_ID}
-        onClick={() => setOpen(true)}
+        onClick={(e) => {
+          openerRef.current = e.currentTarget;
+          setOpen(true);
+        }}
         className="mt-4 flex min-h-16 w-full items-center justify-between gap-3 rounded-xl bg-background px-4 py-2.5 text-left font-ui ring-1 ring-border active:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-blue lg:hidden"
       >
         <span className="flex min-w-0 flex-col gap-0.5">
@@ -86,7 +92,10 @@ export function FederationMobileNav({ activeHref }: { activeHref?: string } = {}
               aria-haspopup="dialog"
               aria-expanded={open}
               aria-controls={SHEET_ID}
-              onClick={() => setOpen(true)}
+              onClick={(e) => {
+                openerRef.current = e.currentTarget;
+                setOpen(true);
+              }}
               className={barVisible ? BAR_SHOWN : BAR_HIDDEN}
             >
               <span className="min-w-0">
@@ -106,6 +115,10 @@ export function FederationMobileNav({ activeHref }: { activeHref?: string } = {}
           id={SHEET_ID}
           aria-modal="true"
           aria-describedby={undefined}
+          onCloseAutoFocus={(e) => {
+            e.preventDefault();
+            openerRef.current?.focus();
+          }}
           className="px-2 pb-5"
         >
           <div className="flex items-center justify-between py-1.5 pr-2 pl-4">
