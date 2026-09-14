@@ -43,7 +43,6 @@
   --color-brand-navy-foreground: var(--brand-navy-foreground);
 
   --color-news-card: var(--news-card);
-  --color-news-card-hover: var(--news-card-hover);
   --color-news-card-foreground: var(--news-card-foreground);
 
   /* Поверхности — docs/style-rules.md, «Поверхности»: роли и краски вне ролей. */
@@ -302,7 +301,7 @@ html {
 }
 
 @utility ui-link-row {
-  @apply transition-colors hover:bg-brand-orange/5;
+  @apply transition-colors hover:bg-row-hover;
 }
 
 /* Заголовки по ролям — docs/style-rules.md, «Типографика». Страницы ставят
@@ -326,9 +325,7 @@ html {
 }
 
 /* Карточка — docs/style-rules.md, «Карточки»: скругление и ширина рамки, тени
-   нет. Цвет рамки (ring-black/5), фон, отступы и наведение — на элементе:
-   поверхности и токены открыты. Цвет рамки в @apply не переносится — там
-   теряется фолбэк color-mix, а --tw-ring-color подставляется в box-shadow. */
+   нет. Цвет рамки (ring-card-border), фон, отступы и наведение — на элементе. */
 @utility ui-card {
   @apply rounded-xl ring-1;
 }

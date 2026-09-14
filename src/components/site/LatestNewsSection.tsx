@@ -26,7 +26,7 @@ export function LatestNewsSection({ items = latestNews }: LatestNewsSectionProps
             <Link
               to="/news/$newsId"
               params={{ newsId: item.id }}
-              className="grid grid-cols-[minmax(0,1fr)_84px] items-center gap-3 ui-card ring-black/5 bg-news-card p-3 transition-colors hover:bg-news-card-hover"
+              className="grid grid-cols-[minmax(0,1fr)_84px] items-center gap-3 ui-card ring-card-border bg-news-card p-3 transition-colors hover:bg-card-hover"
             >
               <div className="min-w-0">
                 <h3 className="line-clamp-2 ui-card-title text-news-card-foreground">

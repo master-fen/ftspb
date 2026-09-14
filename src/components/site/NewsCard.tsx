@@ -17,7 +17,7 @@ export function NewsCard({ item, size = "default", priority }: NewsCardProps) {
     <Link
       to="/news/$newsId"
       params={{ newsId: item.id }}
-      className="group relative block h-full w-full overflow-hidden ui-card ring-black/5 bg-card transition-transform duration-300 hover:-translate-y-0.5"
+      className="group relative block h-full w-full overflow-hidden ui-card ring-card-border bg-card transition-transform duration-300 hover:-translate-y-0.5"
     >
       <div className="relative h-full w-full">
         {item.cover ? (
@@ -31,7 +31,7 @@ export function NewsCard({ item, size = "default", priority }: NewsCardProps) {
           <NewsCoverPlaceholder />
         )}
 
-        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-scrim via-scrim-mid to-transparent" />
 
         <div
           className={`absolute inset-x-0 bottom-0 flex flex-col gap-1.5 p-5 text-white ${

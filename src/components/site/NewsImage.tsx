@@ -28,7 +28,7 @@ export function NewsImage({ src, alt, className = "", loading = "lazy" }: NewsIm
     <div className="relative h-full w-full overflow-hidden">
       <div
         aria-hidden="true"
-        className={`absolute inset-0 bg-brand-navy/10 ${
+        className={`absolute inset-0 bg-skeleton ${
           loaded ? "animate-out fade-out-0 fill-mode-forwards duration-700" : "animate-pulse"
         }`}
       />

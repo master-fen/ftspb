@@ -71,7 +71,7 @@ function CharterTextPage() {
           намеренно — она в шапке статьи: в колонке она съедала 80px, которых
           не хватало списку. */}
       <section
-        className="mt-5 hidden rounded-[30px] border border-brand-blue/10 bg-background px-0 py-6 md:py-8 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col"
+        className="mt-5 hidden rounded-[30px] border border-panel-border bg-panel px-0 py-6 md:py-8 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col"
         aria-labelledby="charter-toc-title"
       >
         <h2 id="charter-toc-title" className="shrink-0 px-6 ui-caption">

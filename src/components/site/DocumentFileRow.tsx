@@ -38,7 +38,7 @@ export function DocumentFileRow({
     <>
       <span className="flex w-20 shrink-0 items-center gap-1.5">
         <FileText className="size-5 text-brand-blue" aria-hidden="true" />
-        <span className="rounded bg-brand-blue/10 px-1.5 py-0.5 font-ui text-[11px] font-semibold tracking-wide text-brand-blue">
+        <span className="rounded bg-format-badge px-1.5 py-0.5 font-ui text-[11px] font-semibold tracking-wide text-brand-blue">
           {badge}
         </span>
       </span>

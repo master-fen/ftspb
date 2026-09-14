@@ -38,7 +38,7 @@ export function FederationSidebar({ activeHref }: { activeHref?: string } = {}) 
   return (
     <nav
       aria-label="Разделы Федерации"
-      className="rounded-[30px] border border-brand-blue/10 bg-background px-0 py-6 md:py-8"
+      className="rounded-[30px] border border-panel-border bg-panel px-0 py-6 md:py-8"
     >
       {federationNav.map((group) => (
         <div key={group.label} className="mb-6 last:mb-0">
@@ -52,7 +52,7 @@ export function FederationSidebar({ activeHref }: { activeHref?: string } = {}) 
                     to={item.href}
                     className={`relative flex min-h-10 items-center rounded-[5px] px-6 text-base md:text-lg ${
                       isActive
-                        ? "bg-brand-blue/20 font-medium text-foreground transition-colors"
+                        ? "bg-nav-active font-medium text-foreground transition-colors"
                         : "text-foreground/60 ui-link"
                     }`}
                   >

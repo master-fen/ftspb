@@ -12,7 +12,7 @@ export function Breadcrumbs({ items }: { items: Crumb[] }) {
         <span key={`${item.label}-${i}`} className="flex items-center gap-3">
           {i > 0 ? (
             <span
-              className="h-2.5 w-2.5 shrink-0 rounded-full bg-foreground/15"
+              className="h-2.5 w-2.5 shrink-0 rounded-full bg-breadcrumb-dot"
               aria-hidden="true"
             />
           ) : null}
