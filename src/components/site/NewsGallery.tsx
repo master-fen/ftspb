@@ -50,7 +50,7 @@ export function NewsGallery({ cover, gallery, title }: NewsGalleryProps) {
   return (
     <>
       {cover ? (
-        <figure className="overflow-hidden rounded-2xl bg-muted shadow-sm ring-1 ring-black/5">
+        <figure className="overflow-hidden rounded-2xl bg-muted shadow-sm ring-1 ring-media-border">
           <button
             type="button"
             onClick={() => setOpenIndex(0)}
@@ -75,7 +75,7 @@ export function NewsGallery({ cover, gallery, title }: NewsGalleryProps) {
                 type="button"
                 onClick={() => setOpenIndex(i + coverOffset)}
                 aria-label={`Фото ${i + coverOffset + 1} из ${images.length}`}
-                className="aspect-[4/3] overflow-hidden rounded-lg bg-muted ring-1 ring-black/5 transition-opacity hover:opacity-85"
+                className="aspect-[4/3] overflow-hidden rounded-lg bg-muted ring-1 ring-media-border transition-opacity hover:opacity-85"
               >
                 <NewsImage
                   src={src}
@@ -95,7 +95,7 @@ export function NewsGallery({ cover, gallery, title }: NewsGalleryProps) {
               role="dialog"
               aria-modal="true"
               aria-label={`${title}: фото ${openIndex + 1} из ${images.length}`}
-              className="animate-in fade-in-0 fixed inset-0 z-[100] flex h-dvh flex-col bg-brand-navy/95 duration-200"
+              className="animate-in fade-in-0 fixed inset-0 z-[100] flex h-dvh flex-col bg-overlay duration-200"
               onClick={close}
               onTouchStart={(e) => {
                 touchX.current = e.touches[0].clientX;
@@ -115,7 +115,7 @@ export function NewsGallery({ cover, gallery, title }: NewsGalleryProps) {
                   type="button"
                   onClick={close}
                   aria-label="Закрыть"
-                  className="rounded-full p-2 transition-colors hover:bg-white/10"
+                  className="rounded-full p-2 transition-colors hover:bg-overlay-control"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -139,7 +139,7 @@ export function NewsGallery({ cover, gallery, title }: NewsGalleryProps) {
                         e.stopPropagation();
                         step(-1);
                       }}
-                      className="absolute left-2 hidden rounded-full bg-white/10 p-3 text-white transition-colors hover:bg-white/20 md:block"
+                      className="absolute left-2 hidden rounded-full bg-overlay-control p-3 text-white transition-colors hover:bg-overlay-control-hover md:block"
                     >
                       <ChevronLeft className="h-6 w-6" />
                     </button>
@@ -150,7 +150,7 @@ export function NewsGallery({ cover, gallery, title }: NewsGalleryProps) {
                         e.stopPropagation();
                         step(1);
                       }}
-                      className="absolute right-2 hidden rounded-full bg-white/10 p-3 text-white transition-colors hover:bg-white/20 md:block"
+                      className="absolute right-2 hidden rounded-full bg-overlay-control p-3 text-white transition-colors hover:bg-overlay-control-hover md:block"
                     >
                       <ChevronRight className="h-6 w-6" />
                     </button>

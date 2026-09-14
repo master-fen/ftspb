@@ -20,17 +20,17 @@ type Node = StructureNode & { id: StructureNodeId };
  * он избирается Общим собранием и Правлению не подчиняется.
  */
 const LINE_UP =
-  "lg:before:absolute lg:before:content-[''] lg:before:left-1/2 lg:before:-top-6 lg:before:h-6 lg:before:border-l lg:before:border-brand-blue/30";
+  "lg:before:absolute lg:before:content-[''] lg:before:left-1/2 lg:before:-top-6 lg:before:h-6 lg:before:border-l lg:before:border-diagram-line";
 const LINE_UP_HALF =
-  "lg:before:absolute lg:before:content-[''] lg:before:left-1/2 lg:before:-top-3 lg:before:h-3 lg:before:border-l lg:before:border-brand-blue/30";
+  "lg:before:absolute lg:before:content-[''] lg:before:left-1/2 lg:before:-top-3 lg:before:h-3 lg:before:border-l lg:before:border-diagram-line";
 const LINE_UP_HALF_DASHED =
-  "lg:before:absolute lg:before:content-[''] lg:before:left-1/2 lg:before:-top-3 lg:before:h-3 lg:before:border-l lg:before:border-dashed lg:before:border-brand-blue/30";
+  "lg:before:absolute lg:before:content-[''] lg:before:left-1/2 lg:before:-top-3 lg:before:h-3 lg:before:border-l lg:before:border-dashed lg:before:border-diagram-line";
 const LINE_BRANCH_RIGHT =
-  "lg:after:absolute lg:after:content-[''] lg:after:-top-3 lg:after:left-1/2 lg:after:w-[calc(100%+1.5rem)] lg:after:border-t lg:after:border-brand-blue/30";
+  "lg:after:absolute lg:after:content-[''] lg:after:-top-3 lg:after:left-1/2 lg:after:w-[calc(100%+1.5rem)] lg:after:border-t lg:after:border-diagram-line";
 const LINE_BRANCH_RIGHT_DASHED =
-  "lg:after:absolute lg:after:content-[''] lg:after:-top-3 lg:after:left-1/2 lg:after:w-[calc(100%+1.5rem)] lg:after:border-t lg:after:border-dashed lg:after:border-brand-blue/30";
+  "lg:after:absolute lg:after:content-[''] lg:after:-top-3 lg:after:left-1/2 lg:after:w-[calc(100%+1.5rem)] lg:after:border-t lg:after:border-dashed lg:after:border-diagram-line";
 const LINE_BRANCH_LEFT =
-  "lg:after:absolute lg:after:content-[''] lg:after:-top-3 lg:after:right-1/2 lg:after:w-[calc(100%+1.5rem)] lg:after:border-t lg:after:border-brand-blue/30";
+  "lg:after:absolute lg:after:content-[''] lg:after:-top-3 lg:after:right-1/2 lg:after:w-[calc(100%+1.5rem)] lg:after:border-t lg:after:border-diagram-line";
 
 /**
  * Шесть членов Правления — братья с общим `parent`, поэтому вертикали от
@@ -55,17 +55,17 @@ const LINE_BRANCH_LEFT =
 const GUTTER_LEFT = "lg:pl-6";
 const GUTTER_RIGHT = "lg:pl-0 lg:pr-6";
 const SPINE_LEFT =
-  "lg:before:absolute lg:before:content-[''] lg:before:left-3 lg:before:-top-6 lg:before:h-[calc(100%+1.5rem)] lg:before:border-l lg:before:border-brand-blue/30";
+  "lg:before:absolute lg:before:content-[''] lg:before:left-3 lg:before:-top-6 lg:before:h-[calc(100%+1.5rem)] lg:before:border-l lg:before:border-diagram-line";
 const SPINE_LEFT_END =
-  "lg:before:absolute lg:before:content-[''] lg:before:left-3 lg:before:-top-6 lg:before:h-[calc(1.5rem+21px)] lg:before:border-l lg:before:border-brand-blue/30";
+  "lg:before:absolute lg:before:content-[''] lg:before:left-3 lg:before:-top-6 lg:before:h-[calc(1.5rem+21px)] lg:before:border-l lg:before:border-diagram-line";
 const STUB_LEFT =
-  "lg:after:absolute lg:after:content-[''] lg:after:left-3 lg:after:top-[21px] lg:after:w-3 lg:after:border-t lg:after:border-brand-blue/30";
+  "lg:after:absolute lg:after:content-[''] lg:after:left-3 lg:after:top-[21px] lg:after:w-3 lg:after:border-t lg:after:border-diagram-line";
 const SPINE_RIGHT =
-  "lg:before:absolute lg:before:content-[''] lg:before:right-3 lg:before:-top-6 lg:before:h-[calc(100%+1.5rem)] lg:before:border-l lg:before:border-brand-blue/30";
+  "lg:before:absolute lg:before:content-[''] lg:before:right-3 lg:before:-top-6 lg:before:h-[calc(100%+1.5rem)] lg:before:border-l lg:before:border-diagram-line";
 const SPINE_RIGHT_END =
-  "lg:before:absolute lg:before:content-[''] lg:before:right-3 lg:before:-top-6 lg:before:h-[calc(1.5rem+21px)] lg:before:border-l lg:before:border-brand-blue/30";
+  "lg:before:absolute lg:before:content-[''] lg:before:right-3 lg:before:-top-6 lg:before:h-[calc(1.5rem+21px)] lg:before:border-l lg:before:border-diagram-line";
 const STUB_RIGHT =
-  "lg:after:absolute lg:after:content-[''] lg:after:right-3 lg:after:top-[21px] lg:after:w-3 lg:after:border-t lg:after:border-brand-blue/30";
+  "lg:after:absolute lg:after:content-[''] lg:after:right-3 lg:after:top-[21px] lg:after:w-3 lg:after:border-t lg:after:border-diagram-line";
 
 /**
  * Размещение узлов в сетке lg+ (колонка/строка), горизонтальный отступ на lg
@@ -125,8 +125,8 @@ export function FederationStructure({ className }: { className?: string }) {
               className={`relative pl-[calc(var(--level)*1.25rem)] ${PLACEMENT[node.id]}`}
             >
               <div
-                className={`flex h-full items-start gap-3 rounded-lg border bg-background px-4 py-3 ${
-                  isAudit ? "border-dashed border-brand-blue/30" : "border-brand-blue/10"
+                className={`flex h-full items-start gap-3 rounded-lg border bg-panel px-4 py-3 ${
+                  isAudit ? "border-dashed border-diagram-line" : "border-panel-border"
                 }`}
               >
                 {Icon ? (
