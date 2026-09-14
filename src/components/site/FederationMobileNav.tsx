@@ -119,7 +119,8 @@ export function FederationMobileNav({ activeHref }: { activeHref?: string } = {}
             e.preventDefault();
             openerRef.current?.focus();
           }}
-          className="px-2 pb-5"
+          // *:shrink-0: пустая ручка — flex-элемент с нулевым автоминимумом, при ограничении высоты весь дефицит уходит в неё.
+          className="max-h-dvh overflow-y-auto px-2 pb-5 *:shrink-0"
         >
           <div className="flex items-center justify-between py-1.5 pr-2 pl-4">
             <DrawerTitle className="font-ui text-base font-semibold">
