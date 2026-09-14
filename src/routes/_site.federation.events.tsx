@@ -3,6 +3,7 @@ import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
 import { EventPastBadge } from "@/components/site/EventPastBadge";
 import { EventYearChips } from "@/components/site/EventYearChips";
+import { FederationMobileNav } from "@/components/site/FederationMobileNav";
 import { eventYear, formatEventDateShort, isPast, pickDefaultEventYear } from "@/lib/event-date";
 import { listPublishedEventYears, listPublishedEventsByYear } from "@/lib/events-server-fn";
 import { todayInMoscow } from "@/lib/today-msk";
@@ -62,6 +63,7 @@ function FederationEventsPage() {
   return (
     <article>
       <h1 className="ui-h1">События</h1>
+      <FederationMobileNav />
       <p className="mt-5 font-ui text-base leading-[1.6] text-foreground">
         Заседания Правления, общие собрания и другие события Федерации — даты, повестка и документы.
       </p>

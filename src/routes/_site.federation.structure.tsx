@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { FederationStructure } from "@/components/federation/FederationStructure";
+import { FederationMobileNav } from "@/components/site/FederationMobileNav";
 import { CHARTER_TEXT_PATH } from "@/lib/charter/meta";
 import { CHARTER_BODIES, STRUCTURE_INTRO } from "@/lib/federation-structure";
 
@@ -30,6 +31,7 @@ function StructurePage() {
       <p className="mt-5 max-w-2xl font-ui text-[16px] leading-[24px] text-muted-foreground">
         {STRUCTURE_INTRO}
       </p>
+      <FederationMobileNav />
 
       <FederationStructure className="mt-8" />
 

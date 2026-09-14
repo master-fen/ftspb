@@ -1,7 +1,8 @@
 import { createFileRoute, Outlet, useRouterState } from "@tanstack/react-router";
 import type { Crumb } from "@/components/site/Breadcrumbs";
-import { FederationSidebar, findFederationItem } from "@/components/site/FederationSidebar";
+import { FederationSidebar } from "@/components/site/FederationSidebar";
 import { SectionFrame } from "@/components/site/SectionFrame";
+import { findFederationItem } from "@/lib/federation-nav";
 
 export const Route = createFileRoute("/_site/federation")({
   component: FederationLayout,
