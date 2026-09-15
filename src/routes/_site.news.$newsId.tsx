@@ -161,7 +161,7 @@ function NewsDetailPage() {
                         className="group flex items-center gap-3 rounded-xl bg-muted px-4 py-3 ui-link-row"
                       >
                         <FileText className="h-5 w-5 text-brand-navy/70" aria-hidden />
-                        <span className="rounded-md bg-brand-navy px-2 py-0.5 text-[10px] font-bold tracking-wider text-inverse-foreground uppercase">
+                        <span className="rounded-md bg-brand-navy px-2 py-0.5 text-[10px] font-bold tracking-wider text-brand-navy-foreground uppercase">
                           {att.kind}
                         </span>
                         <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">

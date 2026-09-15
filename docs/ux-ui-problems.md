@@ -11,12 +11,12 @@
   см. следующий пункт.
 - **Список событий: подложка на всю строку — после макета экрана событий.** Правило относит
   записи списка событий к строке списка (подложка на всю строку), а наведение сейчас — у ссылки
-  заголовка (`hover:text-brand-orange`, `src/routes/_site.federation.events.tsx:94`). Строка
+  заголовка (`hover:text-brand-orange`, `src/routes/_site.federation.events.tsx:90`). Строка
   `<li>` ссылкой не является, дата и бейдж «прошло» — вне ссылки, горизонтального отступа у
   строки нет: подложка требует перестройки разметки, не замены классов.
 - **Иконки в строках меняют цвет при наведении, цвета разные.** Синий в
   `src/components/site/DocumentFileRow.tsx:52` (`group-hover:text-brand-blue`), оранжевый в
-  `src/routes/_site.news.$newsId.tsx:182` (`group-hover:text-brand-orange`). Правило строки
+  `src/routes/_site.news.$newsId.tsx:174` (`group-hover:text-brand-orange`). Правило строки
   списка об иконках молчит.
 - **Ссылки в тексте новости: база оранжевая, hover navy — конфликт с правилом.** `.news-prose a`
   (`src/styles.css`): цвет `--brand-orange` с подчёркиванием, при наведении — `--brand-navy`.
@@ -33,7 +33,7 @@ lg:text-6xl font-black`: разные шкала, насыщенность и с
   записи различаются бейджем «Состоялось» (есть у каждой прошедшей записи по всем годам).
 - **Список событий: дата прошедшего события не приглушена, название приглушено — до макета экрана
   событий.** После #74 дата прошедшей записи — обычная подпись, а ссылка-название осталась на
-  `text-foreground/50` (`src/routes/_site.federation.events.tsx:89`): временная несогласованность.
+  `text-foreground/50` (`src/routes/_site.federation.events.tsx:91`): временная несогласованность.
 - **Дата у события и правило надзаголовка.** Правило относит «дату у события» к надзаголовку —
   строке над заголовком страницы, а на странице события дата стоит под h1
   (`src/routes/_site.federation_.events.$slug.tsx:98`); в #74 она оформлена подписью. Перенос над
@@ -41,10 +41,10 @@ lg:text-6xl font-black`: разные шкала, насыщенность и с
 - **Прозрачность цвета вместо токена приглушения вне ролей подписи.** Правило запрещает
   `text-*/NN`, в ролях подписи и даты она убрана в #74, вне их осталась: крошки
   (`Breadcrumbs.tsx:9`, `text-foreground/40`), оглавление Устава (`CharterToc.tsx:11`, `/65`),
-  неактивный пункт бокового меню (`FederationSidebar.tsx:56`, `/60`), описание органа
-  (`_site.federation.structure.tsx:47`, `/80`), примечание Устава
-  (`_site.federation_.charter.text.tsx:105`, `/80`), название прошедшего события
-  (`_site.federation.events.tsx:89`, `/50`), заголовок «Читайте также»
+  неактивный пункт бокового меню (`FederationSidebar.tsx:41`, `/60`), описание органа
+  (`_site.federation.structure.tsx:49`, `/80`), примечание Устава
+  (`_site.federation_.charter.text.tsx:107`, `/80`), название прошедшего события
+  (`_site.federation.events.tsx:91`, `/50`), заголовок «Читайте также»
   (`_site.news.$newsId.tsx:189`, `/80`), иконки (`DocumentFileRow.tsx:52`, `/50`;
   `_site.news.$newsId.tsx:163`, `:174`, `text-brand-navy/70`, `/60`). Текст на тёмном фоне сюда
   больше не входит — закрыто в #81 (`inverse-foreground`, `inverse-foreground-muted`). Перечень
@@ -99,12 +99,12 @@ border-brand-blue/10` (`FederationSidebar.tsx:41`, `_site.federation_.charter.te
   токены пары не получают.
 - **`style=` с цветом в шапке.** Правило поверхностей его запрещает, в `SiteHeader.tsx` два места:
   индикатор под активным пунктом меню (`:228`, `backgroundColor: "var(--color-brand-blue)"`, в том
-  же `style=` — геометрия `left`, `width`, `opacity`) и оранжевая полоса внизу шапки (`:322`,
+  же `style=` — геометрия `left`, `width`, `opacity`) и оранжевая полоса внизу шапки (`:326`,
   `backgroundColor: "var(--color-brand-orange)"`). Цвет взят из переменной темы, но не классом.
 - **Корневые 404 и ошибка не покрыты снимками.** Снимок несуществующей новости рисует `NewsNotFound`
   (`src/routes/_site.news.$newsId.tsx:87`) под рамой `_site` — с шапкой и подвалом. Корневые
   `NotFoundComponent` и `ErrorComponent` (`src/routes/__root.tsx:134–135`), `EventNotFound` и
-  `EventError` (`_site.federation_.events.$slug.tsx:82–83`), `NewsError` (`$newsId:88`) не рисуются
+  `EventError` (`_site.federation_.events.$slug.tsx:83–84`), `NewsError` (`$newsId:88`) не рисуются
   ни на одной странице снимка: их правки (в #77 — `hover:bg-primary-hover` у кнопок корня)
   проверяются только diff'ом и правилами собранного CSS.
 - **`--card-hover` — псевдоним `--news-card-hover` — закрыто в #81.** Было:
@@ -153,3 +153,7 @@ border-brand-blue/10` (`FederationSidebar.tsx:41`, `_site.federation_.charter.te
   `.preloads.txt`. Тот же шум, что в #77: условия сравнения снимков формулируются через
   `classify`/`strip3` (манифест — после сортировки preloads), а не через побайтность строки
   манифеста.
+- **Скругление и отступы строки вложения и строки документа различаются.** Строка вложения
+  новости — `rounded-xl px-4 py-3` (`_site.news.$newsId.tsx:161`), строка файла документа —
+  `rounded-md px-3 py-2.5` (`DocumentFileRow.tsx:19`). Фон и рамка у обеих сведены в #81,
+  геометрия — нет (#82).
