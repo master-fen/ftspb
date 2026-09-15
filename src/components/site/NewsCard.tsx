@@ -38,7 +38,7 @@ export function NewsCard({ item, size = "default", priority }: NewsCardProps) {
             isHero ? "md:p-7" : ""
           }`}
         >
-          <div className="text-[11px] font-medium tracking-wide text-white/75 uppercase">
+          <div className="text-[11px] font-medium tracking-wide text-inverse-foreground-muted uppercase">
             {newsMetaLine(item.category, item.date)}
           </div>
           <h3

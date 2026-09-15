@@ -5,7 +5,7 @@ import { Logo } from "./Logo";
 
 export function SiteFooter() {
   return (
-    <footer className="bg-inverse text-brand-navy-foreground">
+    <footer className="bg-inverse text-inverse-foreground">
       <div className="mx-auto max-w-7xl px-4 pt-10 pb-8 md:px-6 md:pt-12 lg:px-10">
         <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between md:gap-12">
           {/* Logo — on white plate to keep the navy PNG visible on navy footer */}
@@ -28,7 +28,7 @@ export function SiteFooter() {
         </div>
 
         <div className="mt-10 border-t border-inverse-border pt-6">
-          <div className="flex flex-col gap-2 text-xs text-white/75 md:hidden">
+          <div className="flex flex-col gap-2 text-xs text-inverse-foreground-muted md:hidden">
             {siteMeta.legal.map((l) => (
               <Link key={l.label} to={l.href} className="text-sm font-medium text-white/90 ui-link">
                 {l.label}
@@ -41,7 +41,7 @@ export function SiteFooter() {
             <div>{siteMeta.copyright}</div>
           </div>
 
-          <div className="hidden grid-cols-2 gap-3 text-xs text-white/75 md:grid">
+          <div className="hidden grid-cols-2 gap-3 text-xs text-inverse-foreground-muted md:grid">
             <div className="space-y-1.5">
               <div>
                 {ORG_REQUISITES.fullName}, ОГРН {ORG_REQUISITES.ogrn}

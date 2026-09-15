@@ -185,7 +185,7 @@ function NewsDetailPage() {
 
         {/* Sidebar */}
         <aside className="lg:sticky lg:top-8 lg:self-start">
-          <div className="rounded-2xl bg-muted/70 p-6 ring-1 ring-black/5">
+          <div className="rounded-2xl bg-muted/70 p-6 ring-1 ring-card-border">
             <h2 className="text-sm font-bold tracking-wide text-foreground/80">Читайте также</h2>
             <ul className="mt-5 space-y-5">
               {related.map((r: NewsItem) => (
