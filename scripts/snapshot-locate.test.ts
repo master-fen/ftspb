@@ -60,14 +60,14 @@ describe("locateDirs — маркеры области", () => {
     const r = run({ "p.html": ["<html>", HIT, "</main>", "</html>"] });
     expect(r.lines).toContain("  нет начала: p.html");
     expect(r.noStart).toBe(1);
-    expect(r.exitCode).toBe(0);
+    expect(r.exitCode).toBe(1);
   });
 
   test("3) нет конца области", () => {
     const r = run({ "p.html": ["<html>", "<main>", HIT, "</html>"] });
     expect(r.lines).toContain("  нет конца: p.html");
     expect(r.noEnd).toBe(1);
-    expect(r.exitCode).toBe(0);
+    expect(r.exitCode).toBe(1);
   });
 
   test("4) конец перед началом, второго конца нет — «нет конца», не «порядок»", () => {
@@ -77,7 +77,7 @@ describe("locateDirs — маркеры области", () => {
     // Ветка «порядок» недостижима: конец ищется только после начала.
     expect(r.badOrder).toBe(0);
     expect(r.lines.some((l) => l.startsWith("  порядок:"))).toBe(false);
-    expect(r.exitCode).toBe(0);
+    expect(r.exitCode).toBe(1);
   });
 
   test("5) вхождение после </main> — вне области", () => {
@@ -103,6 +103,34 @@ describe("locateDirs — маркеры области", () => {
     expect(r.pagesWithHits).toBe(1);
     expect(r.totals).toEqual([1]);
     expect(r.lines).toContain("страниц с вхождениями: 1; всего: бейдж(старый) 1");
+  });
+});
+
+describe("недопустимая область — отказ", () => {
+  test("23) нет начала — проблема с маркером начала и именем страницы", () => {
+    const r = run({ "p.html": ["<html>", HIT, "</main>", "</html>"] });
+    expect(r.lines).toContain("  маркер области не найден: начало «<main» — p.html");
+    // Прежние строки и счётчики на месте, проблема их не заменяет.
+    expect(r.lines).toContain("  нет начала: p.html");
+  });
+
+  test("24) нет конца — проблема с маркером конца и именем страницы", () => {
+    const r = run({ "p.html": ["<html>", "<main>", HIT, "</html>"] });
+    expect(r.lines).toContain("  маркер области не найден: конец «</main>» — p.html");
+    expect(r.lines).toContain("  нет конца: p.html");
+  });
+
+  test("25) конец перед началом — та же проблема «конец»", () => {
+    const r = run({ "p.html": ["<html>", "</main>", "<main>", HIT, "</html>"] });
+    expect(r.lines).toContain("  маркер области не найден: конец «</main>» — p.html");
+    expect(r.lines.some((l) => l.startsWith("  порядок:"))).toBe(false);
+  });
+
+  test("26) --expect засчитывает вхождение после </main> и выходит с 0", () => {
+    // Областью --expect не ограничен и аргументов области не принимает.
+    const r = runExpect({ "p.html": ["<main>", "</main>", HIT] }, [commit()]);
+    expect(r.lines).toEqual(["коммит 1: страниц 1, строк по факту 1, расхождений 0"]);
+    expect(r.exitCode).toBe(0);
   });
 });
 
