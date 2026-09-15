@@ -20,7 +20,7 @@ export function LeadershipCard({
   photo,
 }: LeadershipCardProps) {
   return (
-    <article className="grid gap-5 overflow-hidden ui-card ring-card-border bg-card-surface md:grid-cols-[minmax(0,240px)_1fr]">
+    <article className="grid overflow-hidden ui-card ring-card-border bg-card-surface md:grid-cols-[minmax(0,240px)_1fr]">
       <div className="relative aspect-[3/4] w-full overflow-hidden md:aspect-auto md:h-full md:min-h-[320px]">
         {photo ? (
           <img src={photo} alt={name} loading="lazy" className="h-full w-full object-cover" />
