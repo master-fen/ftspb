@@ -28,7 +28,7 @@ export function CategoryFilterChips({ active, onSelect, labels }: CategoryFilter
             className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
               isActive
                 ? "bg-chip-active text-brand-navy-foreground"
-                : "bg-muted text-brand-navy hover:bg-brand-orange/10 hover:text-brand-orange"
+                : "bg-muted text-brand-navy hover:bg-chip-hover hover:text-brand-orange"
             }`}
           >
             {labels[value]}

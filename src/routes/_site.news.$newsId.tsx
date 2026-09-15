@@ -148,7 +148,7 @@ function NewsDetailPage() {
 
           {item.attachments && item.attachments.length > 0 ? (
             <section>
-              <div className="h-px w-full bg-brand-navy/25" />
+              <div className="h-px w-full bg-border" />
               <h2 className="mt-6 ui-h2">Прикреплённые файлы</h2>
               <ul className="mt-4 space-y-2">
                 {item.attachments.map(
@@ -158,10 +158,10 @@ function NewsDetailPage() {
                         href={att.url ?? "#"}
                         target="_blank"
                         rel="noreferrer"
-                        className="group flex items-center gap-3 rounded-xl bg-muted/60 px-4 py-3 ring-1 ring-black/5 ui-link-row"
+                        className="group flex items-center gap-3 rounded-xl bg-muted px-4 py-3 ui-link-row"
                       >
                         <FileText className="h-5 w-5 text-brand-navy/70" aria-hidden />
-                        <span className="rounded-md bg-brand-navy px-2 py-0.5 text-[10px] font-bold tracking-wider text-white uppercase">
+                        <span className="rounded-md bg-brand-navy px-2 py-0.5 text-[10px] font-bold tracking-wider text-inverse-foreground uppercase">
                           {att.kind}
                         </span>
                         <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
@@ -185,14 +185,14 @@ function NewsDetailPage() {
 
         {/* Sidebar */}
         <aside className="lg:sticky lg:top-8 lg:self-start">
-          <div className="rounded-2xl bg-muted/70 p-6 ring-1 ring-black/5">
+          <div className="ui-card ring-card-border bg-muted p-6">
             <h2 className="text-sm font-bold tracking-wide text-foreground/80">Читайте также</h2>
             <ul className="mt-5 space-y-5">
               {related.map((r: NewsItem) => (
                 <RelatedItem key={r.id} item={r} />
               ))}
             </ul>
-            <div className="mt-6 border-t border-brand-navy/15 pt-4">
+            <div className="mt-6 border-t border-border pt-4">
               <Link
                 to="/news"
                 className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-navy ui-link"

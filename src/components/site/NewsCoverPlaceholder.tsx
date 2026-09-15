@@ -14,7 +14,7 @@ export function NewsCoverPlaceholder({
   return (
     <div
       aria-hidden
-      className={`flex h-full w-full items-center justify-center ${withBackground ? "bg-news-card" : ""} ${className ?? ""}`}
+      className={`flex h-full w-full items-center justify-center ${withBackground ? "bg-card-surface" : ""} ${className ?? ""}`}
     >
       <img
         src={logoTransparentSrc}

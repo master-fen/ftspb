@@ -9,7 +9,7 @@ export function PersonPhotoPlaceholder({ className }: { className?: string }) {
   return (
     <div
       aria-hidden
-      className={`relative flex h-full w-full items-center justify-center overflow-hidden bg-news-card ${className ?? ""}`}
+      className={`relative flex h-full w-full items-center justify-center overflow-hidden bg-card-surface ${className ?? ""}`}
     >
       <svg
         viewBox="0 0 120 140"
@@ -20,12 +20,12 @@ export function PersonPhotoPlaceholder({ className }: { className?: string }) {
         <path
           d="M60 68c13.8 0 25-11.2 25-25S73.8 18 60 18 35 29.2 35 43s11.2 25 25 25z"
           fill="currentColor"
-          className="text-news-card-foreground"
+          className="text-foreground"
         />
         <path
           d="M60 78c-22.1 0-40 17.9-40 40v12h80v-12c0-22.1-17.9-40-40-40z"
           fill="currentColor"
-          className="text-news-card-foreground"
+          className="text-foreground"
         />
       </svg>
 

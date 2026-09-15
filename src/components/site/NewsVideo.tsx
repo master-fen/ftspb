@@ -11,7 +11,7 @@ interface NewsVideoProps {
 export function NewsVideo({ src, title }: NewsVideoProps) {
   return (
     <section aria-label="Видео новости">
-      <div className="aspect-video w-full overflow-hidden rounded-xl bg-black ring-1 ring-media-border">
+      <div className="aspect-video w-full overflow-hidden rounded-xl bg-video-backdrop ring-1 ring-media-border">
         <iframe
           src={src}
           title={`Видео: ${title}`}

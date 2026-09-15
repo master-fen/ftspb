@@ -26,12 +26,10 @@ export function LatestNewsSection({ items = latestNews }: LatestNewsSectionProps
             <Link
               to="/news/$newsId"
               params={{ newsId: item.id }}
-              className="grid grid-cols-[minmax(0,1fr)_84px] items-center gap-3 ui-card ring-card-border bg-news-card p-3 transition-colors hover:bg-card-hover"
+              className="grid grid-cols-[minmax(0,1fr)_84px] items-center gap-3 ui-card ring-card-border bg-card-surface p-3 transition-colors hover:bg-card-hover"
             >
               <div className="min-w-0">
-                <h3 className="line-clamp-2 ui-card-title text-news-card-foreground">
-                  {item.title}
-                </h3>
+                <h3 className="line-clamp-2 ui-card-title text-foreground">{item.title}</h3>
                 <div className="mt-1.5 ui-caption">{newsMetaLine(item.category, item.date)}</div>
               </div>
               <div className="aspect-square h-[84px] w-[84px] shrink-0 overflow-hidden rounded-lg">

@@ -9,7 +9,7 @@ type EventYearChipsProps = {
 
 const CHIP = "rounded-full px-4 py-2 text-sm font-semibold transition-colors";
 const CHIP_ACTIVE = "bg-chip-active text-brand-navy-foreground";
-const CHIP_IDLE = "bg-muted text-brand-navy hover:bg-brand-orange/10 hover:text-brand-orange";
+const CHIP_IDLE = "bg-muted text-brand-navy hover:bg-chip-hover hover:text-brand-orange";
 
 /**
  * Чипы годов списка /federation/events. Вид — как у CategoryFilterChips, но
