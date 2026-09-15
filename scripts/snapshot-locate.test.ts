@@ -1,9 +1,13 @@
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, test } from "bun:test";
+import { compare, parseExpectations, type Region } from "./snapshot-align";
 import {
+  type CommitSpec,
+  expectDirs,
   loadPlaces,
   locateDirs,
+  parseCommits,
   parsePlaces,
   type Places,
   type ReadPage,
@@ -11,13 +15,14 @@ import {
 } from "./snapshot-locate";
 
 // Встроенной самопроверки у прежней версии (check.ts, md5 e792c22c) не было;
-// случаи синтетические, по форме нормализованного снимка. Правило счёта здесь
-// прежнее: строка снимка засчитывается метке, если содержит её строку
-// подстрокой. Значения спецификации — в обёртке class="…", как константы
-// check.ts:9-16.
+// случаи синтетические, по форме нормализованного снимка. Правило счёта —
+// правило exp.ts: по строке идёт class="([^"]*)", вхождение засчитывается,
+// если значение точно равно строке метки. Значения спецификации — без
+// обёртки class="…".
 
-const NEEDLE = 'class="badge old"';
-const PLACES: Places = { "бейдж(старый)": [NEEDLE] };
+const VALUE = "badge old";
+const PLACES: Places = { "бейдж(старый)": [VALUE] };
+const HIT = `<div class="${VALUE}">`;
 
 const read =
   (pages: Record<string, string[]>): ReadPage =>
@@ -27,9 +32,18 @@ const read =
 const run = (pages: Record<string, string[]>, places: Places = PLACES) =>
   locateDirs(Object.keys(pages).sort(), read(pages), places);
 
-const HIT = `<div ${NEEDLE}>`;
+const runExpect = (pages: Record<string, string[]>, commits: CommitSpec[]) =>
+  expectDirs(Object.keys(pages).sort(), read(pages), commits);
 
-describe("locateDirs — правило подстроки", () => {
+const commit = (over: Partial<CommitSpec> = {}): CommitSpec => ({
+  метка: "коммит 1",
+  файл: "exp1.json",
+  план: { p: 1 },
+  места: PLACES,
+  ...over,
+});
+
+describe("locateDirs — маркеры области", () => {
   test("1) маркеры на месте, вхождение внутри области", () => {
     const r = run({ "p.html": ["<html>", "<main>", HIT, "</main>", "</html>"] });
     expect(r.noStart).toBe(0);
@@ -71,18 +85,11 @@ describe("locateDirs — правило подстроки", () => {
     expect(r.lines).toContain("  p: бейдж(старый)=1; все вхождения в области: false");
   });
 
-  test("6) два вхождения в одной строке снимка засчитываются за одно", () => {
-    const r = run({ "p.html": ["<html>", "<main>", `${HIT}${HIT}`, "</main>", "</html>"] });
-    expect(r.totals).toEqual([1]);
-  });
-
   test("7) у метки две строки, каждая по разу на своей строке — 2", () => {
-    const second = 'class="badge new"';
+    const second = "badge new";
     const r = run(
-      {
-        "p.html": ["<html>", "<main>", HIT, `<div ${second}>`, "</main>", "</html>"],
-      },
-      { бейдж: [NEEDLE, second] },
+      { "p.html": ["<html>", "<main>", HIT, `<div class="${second}">`, "</main>", "</html>"] },
+      { бейдж: [VALUE, second] },
     );
     expect(r.totals).toEqual([2]);
   });
@@ -96,6 +103,97 @@ describe("locateDirs — правило подстроки", () => {
     expect(r.pagesWithHits).toBe(1);
     expect(r.totals).toEqual([1]);
     expect(r.lines).toContain("страниц с вхождениями: 1; всего: бейдж(старый) 1");
+  });
+});
+
+describe("правило счёта — точное значение class, каждое вхождение", () => {
+  test("13) два элемента с одинаковой строкой классов в одной строке — 2", () => {
+    const r = run({ "p.html": ["<html>", "<main>", `${HIT}${HIT}`, "</main>", "</html>"] });
+    expect(r.totals).toEqual([2]);
+  });
+
+  test("14) искомая строка подстрокой более длинной строки классов — 0", () => {
+    const r = run({
+      "p.html": ["<html>", "<main>", `<div class="${VALUE} extra">`, "</main>", "</html>"],
+    });
+    expect(r.totals).toEqual([0]);
+    expect(r.pagesWithHits).toBe(0);
+  });
+
+  test("15) значение в другом атрибуте засчитывается — названное ограничение", () => {
+    // Границы имени атрибута у class="([^"]*)" нет: вхождение внутри значения
+    // другого атрибута считается, ровно как у прежнего правила подстроки.
+    // Разметка React такого не выдаёт — кавычки экранируются в &quot;.
+    const r = run({
+      "p.html": [
+        "<html>",
+        "<main>",
+        `<div data-note='class="${VALUE}"' class="other">`,
+        "</main>",
+        "</html>",
+      ],
+    });
+    expect(r.totals).toEqual([1]);
+  });
+
+  test('16) значение метки в обёртке class=" — отказ с подсказкой', () => {
+    expect(() => parsePlaces('{"места":{"м":["class=\\"badge old\\""]}}')).toThrow(SpecError);
+    expect(() => parsePlaces('{"места":{"м":["class=\\"badge old\\""]}}')).toThrow(
+      /нужно значение атрибута без обёртки/,
+    );
+  });
+});
+
+describe("режим --expect", () => {
+  test("17) план совпал с фактом", () => {
+    const r = runExpect({ "p.html": ["<main>", HIT, "</main>"] }, [commit()]);
+    expect(r.lines).toEqual(["коммит 1: страниц 1, строк по факту 1, расхождений 0"]);
+    expect(r.exitCode).toBe(0);
+  });
+
+  test("18) план не совпал — страница, план и факт", () => {
+    const r = runExpect({ "p.html": ["<main>", HIT, "</main>"] }, [commit({ план: { p: 2 } })]);
+    expect(r.lines).toContain("  p: план 2, факт 1");
+    expect(r.exitCode).toBe(1);
+  });
+
+  test("19) страницы плана нет в снимке", () => {
+    const r = runExpect({ "p.html": ["<main>", HIT, "</main>"] }, [
+      commit({ план: { p: 1, q: 3 } }),
+    ]);
+    expect(r.lines).toContain("  q: страницы нет в снимке");
+    expect(r.exitCode).toBe(1);
+  });
+
+  test("20) записанный JSON: только ненулевой план, значение [N, 0], отступ 1", () => {
+    const r = runExpect(
+      {
+        "p.html": ["<main>", HIT, "</main>"],
+        "q.html": ["<main>", "<p>x</p>", "</main>"],
+      },
+      [commit({ план: { p: 1, q: 0 } })],
+    );
+    expect(r.files).toEqual([{ file: "exp1.json", json: '{\n "p": [\n  1,\n  0\n ]\n}' }]);
+  });
+
+  test("21) шаблон не того режима — отказ в обе стороны", () => {
+    expect(() => parsePlaces('{"коммиты":[]}')).toThrow(SpecError);
+    expect(() => parseCommits('{"места":{"м":["x"]}}')).toThrow(SpecError);
+  });
+
+  test("22) стык: файл --expect читается snapshot-align и даёт вердикт «по ожиданию»", () => {
+    const region: Region = { start: "<main", end: "</main>" };
+    const A = ["<html>", "<main>", HIT, "</main>", "<footer>"];
+    const B = ["<html>", "<main>", '<div class="badge new">', "</main>", "<footer>"];
+    const written = runExpect({ "p.html": A }, [commit()]).files[0].json;
+    const exp = parseExpectations(written);
+    expect(exp["p"]).toEqual([1, 0]);
+    const v = compare(A, B, region);
+    const [eC, eI] = exp["p"];
+    expect(v.changed).toBe(eC);
+    expect(v.inserted).toBe(eI);
+    expect(v.deleted).toBe(0);
+    expect(v.problems).toEqual([]);
   });
 });
 
