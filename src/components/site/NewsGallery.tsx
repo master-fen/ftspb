@@ -50,7 +50,7 @@ export function NewsGallery({ cover, gallery, title }: NewsGalleryProps) {
   return (
     <>
       {cover ? (
-        <figure className="overflow-hidden rounded-2xl bg-muted shadow-sm ring-1 ring-media-border">
+        <figure className="overflow-hidden rounded-2xl bg-muted ring-1 ring-media-border">
           <button
             type="button"
             onClick={() => setOpenIndex(0)}
@@ -107,7 +107,7 @@ export function NewsGallery({ cover, gallery, title }: NewsGalleryProps) {
                 touchX.current = null;
               }}
             >
-              <div className="flex items-center justify-between px-4 py-3 text-white/90">
+              <div className="flex items-center justify-between px-4 py-3 text-inverse-foreground">
                 <span className="text-sm font-semibold tabular-nums">
                   {openIndex + 1} / {images.length}
                 </span>
@@ -139,7 +139,7 @@ export function NewsGallery({ cover, gallery, title }: NewsGalleryProps) {
                         e.stopPropagation();
                         step(-1);
                       }}
-                      className="absolute left-2 hidden rounded-full bg-overlay-control p-3 text-white transition-colors hover:bg-overlay-control-hover md:block"
+                      className="absolute left-2 hidden rounded-full bg-overlay-control p-3 text-inverse-foreground transition-colors hover:bg-overlay-control-hover md:block"
                     >
                       <ChevronLeft className="h-6 w-6" />
                     </button>
@@ -150,7 +150,7 @@ export function NewsGallery({ cover, gallery, title }: NewsGalleryProps) {
                         e.stopPropagation();
                         step(1);
                       }}
-                      className="absolute right-2 hidden rounded-full bg-overlay-control p-3 text-white transition-colors hover:bg-overlay-control-hover md:block"
+                      className="absolute right-2 hidden rounded-full bg-overlay-control p-3 text-inverse-foreground transition-colors hover:bg-overlay-control-hover md:block"
                     >
                       <ChevronRight className="h-6 w-6" />
                     </button>

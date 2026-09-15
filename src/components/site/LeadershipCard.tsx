@@ -20,16 +20,16 @@ export function LeadershipCard({
   photo,
 }: LeadershipCardProps) {
   return (
-    <article className="grid gap-5 md:grid-cols-[minmax(0,240px)_1fr]">
-      <div className="relative aspect-[3/4] w-full overflow-hidden rounded-lg md:aspect-auto md:h-full md:min-h-[320px]">
+    <article className="grid gap-5 overflow-hidden ui-card ring-card-border bg-card-surface md:grid-cols-[minmax(0,240px)_1fr]">
+      <div className="relative aspect-[3/4] w-full overflow-hidden md:aspect-auto md:h-full md:min-h-[320px]">
         {photo ? (
           <img src={photo} alt={name} loading="lazy" className="h-full w-full object-cover" />
         ) : (
-          <PersonPhotoPlaceholder className="rounded-lg" />
+          <PersonPhotoPlaceholder />
         )}
       </div>
 
-      <div className="flex min-w-0 flex-col py-1">
+      <div className="flex min-w-0 flex-col p-5 md:p-6">
         <h2 className="ui-card-title text-foreground">{name}</h2>
         <p className="mt-1 font-ui text-base font-medium text-brand-blue">{role}</p>
 

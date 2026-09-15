@@ -73,7 +73,7 @@ function FederationEventsPage() {
       ) : (
         <div className="mt-8">
           <EventYearChips years={years} defaultYear={defaultYear} />
-          <ul className="divide-y divide-foreground/10 border-y border-foreground/10">
+          <ul className="divide-y divide-border border-y border-border">
             {events.map((event) => {
               const past = isPast(event.startsOn, event.datePrecision, today);
               return (
