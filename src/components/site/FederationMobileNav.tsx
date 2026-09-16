@@ -108,9 +108,7 @@ export function FederationMobileNav({ activeHref }: { activeHref?: string } = {}
           )
         : null}
 
-      {/* autoFocus: в vaul 1.1.2 по умолчанию false — автофокус Radix
-          отменяется, и фокус остаётся на триггере под aria-hidden. */}
-      <Drawer open={open} onOpenChange={setOpen} autoFocus>
+      <Drawer open={open} onOpenChange={setOpen}>
         <DrawerContent
           id={SHEET_ID}
           aria-modal="true"

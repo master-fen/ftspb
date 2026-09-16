@@ -3,11 +3,18 @@ import { Drawer as DrawerPrimitive } from "vaul";
 
 import { cn } from "@/lib/utils";
 
+// autoFocus: в vaul 1.1.2 по умолчанию false — автофокус Radix
+// отменяется, и фокус остаётся на триггере под aria-hidden.
 const Drawer = ({
   shouldScaleBackground = true,
+  autoFocus = true,
   ...props
 }: React.ComponentProps<typeof DrawerPrimitive.Root>) => (
-  <DrawerPrimitive.Root shouldScaleBackground={shouldScaleBackground} {...props} />
+  <DrawerPrimitive.Root
+    shouldScaleBackground={shouldScaleBackground}
+    autoFocus={autoFocus}
+    {...props}
+  />
 );
 Drawer.displayName = "Drawer";
 
