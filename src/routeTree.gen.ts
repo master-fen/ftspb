@@ -36,6 +36,7 @@ import { Route as SiteFederationLeadershipRouteImport } from './routes/_site.fed
 import { Route as SiteFederationEventsRouteImport } from './routes/_site.federation.events'
 import { Route as SiteFederationDocumentsRouteImport } from './routes/_site.federation.documents'
 import { Route as SiteFederationCharterRouteImport } from './routes/_site.federation.charter'
+import { Route as SiteFederationAntidopingRouteImport } from './routes/_site.federation.antidoping'
 import { Route as SiteFederationAboutRouteImport } from './routes/_site.federation.about'
 import { Route as AdminAuthedPersonsIndexRouteImport } from './routes/admin/_authed/persons.index'
 import { Route as AdminAuthedNewsIndexRouteImport } from './routes/admin/_authed/news.index'
@@ -186,6 +187,12 @@ const SiteFederationCharterRoute = SiteFederationCharterRouteImport.update({
   path: '/charter',
   getParentRoute: () => SiteFederationRoute,
 } as any)
+const SiteFederationAntidopingRoute =
+  SiteFederationAntidopingRouteImport.update({
+    id: '/antidoping',
+    path: '/antidoping',
+    getParentRoute: () => SiteFederationRoute,
+  } as any)
 const SiteFederationAboutRoute = SiteFederationAboutRouteImport.update({
   id: '/about',
   path: '/about',
@@ -280,6 +287,7 @@ export interface FileRoutesByFullPath {
   '/tournaments': typeof SiteTournamentsRoute
   '/admin/login': typeof AdminLoginRoute
   '/federation/about': typeof SiteFederationAboutRoute
+  '/federation/antidoping': typeof SiteFederationAntidopingRoute
   '/federation/charter': typeof SiteFederationCharterRoute
   '/federation/documents': typeof SiteFederationDocumentsRoute
   '/federation/events': typeof SiteFederationEventsRoute
@@ -321,6 +329,7 @@ export interface FileRoutesByTo {
   '/admin/login': typeof AdminLoginRoute
   '/': typeof SiteIndexRoute
   '/federation/about': typeof SiteFederationAboutRoute
+  '/federation/antidoping': typeof SiteFederationAntidopingRoute
   '/federation/charter': typeof SiteFederationCharterRoute
   '/federation/documents': typeof SiteFederationDocumentsRoute
   '/federation/events': typeof SiteFederationEventsRoute
@@ -365,6 +374,7 @@ export interface FileRoutesById {
   '/admin/login': typeof AdminLoginRoute
   '/_site/': typeof SiteIndexRoute
   '/_site/federation/about': typeof SiteFederationAboutRoute
+  '/_site/federation/antidoping': typeof SiteFederationAntidopingRoute
   '/_site/federation/charter': typeof SiteFederationCharterRoute
   '/_site/federation/documents': typeof SiteFederationDocumentsRoute
   '/_site/federation/events': typeof SiteFederationEventsRoute
@@ -409,6 +419,7 @@ export interface FileRouteTypes {
     | '/tournaments'
     | '/admin/login'
     | '/federation/about'
+    | '/federation/antidoping'
     | '/federation/charter'
     | '/federation/documents'
     | '/federation/events'
@@ -450,6 +461,7 @@ export interface FileRouteTypes {
     | '/admin/login'
     | '/'
     | '/federation/about'
+    | '/federation/antidoping'
     | '/federation/charter'
     | '/federation/documents'
     | '/federation/events'
@@ -493,6 +505,7 @@ export interface FileRouteTypes {
     | '/admin/login'
     | '/_site/'
     | '/_site/federation/about'
+    | '/_site/federation/antidoping'
     | '/_site/federation/charter'
     | '/_site/federation/documents'
     | '/_site/federation/events'
@@ -720,6 +733,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SiteFederationCharterRouteImport
       parentRoute: typeof SiteFederationRoute
     }
+    '/_site/federation/antidoping': {
+      id: '/_site/federation/antidoping'
+      path: '/antidoping'
+      fullPath: '/federation/antidoping'
+      preLoaderRoute: typeof SiteFederationAntidopingRouteImport
+      parentRoute: typeof SiteFederationRoute
+    }
     '/_site/federation/about': {
       id: '/_site/federation/about'
       path: '/about'
@@ -879,6 +899,7 @@ const AdminRouteRouteWithChildren = AdminRouteRoute._addFileChildren(
 
 interface SiteFederationRouteChildren {
   SiteFederationAboutRoute: typeof SiteFederationAboutRoute
+  SiteFederationAntidopingRoute: typeof SiteFederationAntidopingRoute
   SiteFederationCharterRoute: typeof SiteFederationCharterRoute
   SiteFederationDocumentsRoute: typeof SiteFederationDocumentsRoute
   SiteFederationEventsRoute: typeof SiteFederationEventsRoute
@@ -890,6 +911,7 @@ interface SiteFederationRouteChildren {
 
 const SiteFederationRouteChildren: SiteFederationRouteChildren = {
   SiteFederationAboutRoute: SiteFederationAboutRoute,
+  SiteFederationAntidopingRoute: SiteFederationAntidopingRoute,
   SiteFederationCharterRoute: SiteFederationCharterRoute,
   SiteFederationDocumentsRoute: SiteFederationDocumentsRoute,
   SiteFederationEventsRoute: SiteFederationEventsRoute,
