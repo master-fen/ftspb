@@ -40,7 +40,7 @@ export function FeaturedNewsSection({ items = featuredNews }: FeaturedNewsSectio
   };
 
   return (
-    <section className="mx-auto max-w-7xl px-4 pt-8 md:px-6 md:pt-10 lg:px-10">
+    <section className="mx-auto max-w-7xl lg:box-content px-4 pt-8 md:px-6 md:pt-10 lg:px-10">
       <SectionHeading eyebrow="Новости" title="Главное" />
 
       {/* Mobile: swipeable auto-playing carousel */}

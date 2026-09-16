@@ -70,7 +70,7 @@ function NewsPage() {
   };
 
   return (
-    <main className="mx-auto max-w-7xl px-4 pt-6 pb-12 md:px-6 md:pt-8 md:pb-16 lg:px-10">
+    <main className="mx-auto max-w-7xl lg:box-content px-4 pt-6 pb-12 md:px-6 md:pt-8 md:pb-16 lg:px-10">
       <Breadcrumbs items={CRUMBS} />
 
       <header className="mb-6 md:mb-8">

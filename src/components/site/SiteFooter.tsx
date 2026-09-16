@@ -6,7 +6,7 @@ import { Logo } from "./Logo";
 export function SiteFooter() {
   return (
     <footer className="bg-inverse text-inverse-foreground">
-      <div className="mx-auto max-w-7xl px-4 pt-10 pb-8 md:px-6 md:pt-12 lg:px-10">
+      <div className="mx-auto max-w-7xl lg:box-content px-4 pt-10 pb-8 md:px-6 md:pt-12 lg:px-10">
         <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between md:gap-12">
           {/* Logo — on white plate to keep the navy PNG visible on navy footer */}
           <div className="inline-block shrink-0 self-start rounded-xl bg-logo-plate p-3 md:p-4">

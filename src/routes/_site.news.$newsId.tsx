@@ -122,7 +122,7 @@ function NewsDetailPage() {
   const pageCover = item.hideCoverOnPage ? undefined : item.cover;
 
   return (
-    <main className="mx-auto max-w-7xl px-4 pt-6 pb-14 md:px-6 md:pt-8 md:pb-20 lg:px-10">
+    <main className="mx-auto max-w-7xl lg:box-content px-4 pt-6 pb-14 md:px-6 md:pt-8 md:pb-20 lg:px-10">
       <Breadcrumbs items={[...crumbs, { label: item.title }]} />
 
       <header className="mt-5 md:mt-7 lg:max-w-[calc(100%-304px)] xl:max-w-[calc(100%-440px)]">

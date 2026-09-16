@@ -99,7 +99,7 @@ export function SiteHeader() {
 
   return (
     <header className="w-full bg-background">
-      <div className="mx-auto flex max-w-7xl items-center gap-4 pl-3 pr-2 max-lg:h-18 md:pt-2.5 md:pb-2.5 lg:gap-2 lg:px-10 xl:gap-4 xl:px-10">
+      <div className="mx-auto flex max-w-7xl lg:box-content items-center gap-4 pl-3 pr-2 max-lg:h-18 md:pt-2.5 md:pb-2.5 lg:gap-2 lg:px-10 xl:gap-4 xl:px-10">
         <Link to="/" className="shrink-0">
           <Logo sizeClassName="h-14 min-[390px]:h-15 lg:h-40 xl:h-48" />
         </Link>
@@ -263,7 +263,7 @@ export function SiteHeader() {
       {/* Mobile drawer */}
       {mobileOpen ? (
         <div className="border-t border-border bg-background lg:hidden">
-          <nav className="mx-auto flex max-w-7xl flex-col px-4 py-2">
+          <nav className="mx-auto flex max-w-7xl lg:box-content flex-col px-4 py-2">
             {navSections.map((s) => {
               if (s.children) {
                 const expanded = mobileExpanded === s.label;

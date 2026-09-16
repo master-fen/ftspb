@@ -16,7 +16,7 @@ type LatestNewsSectionProps = {
 
 export function LatestNewsSection({ items = latestNews }: LatestNewsSectionProps) {
   return (
-    <section className="mx-auto max-w-7xl px-4 pt-10 pb-14 md:px-6 md:pt-14 md:pb-20 lg:px-10">
+    <section className="mx-auto max-w-7xl lg:box-content px-4 pt-10 pb-14 md:px-6 md:pt-14 md:pb-20 lg:px-10">
       <SectionHeading eyebrow="Новости" title="Последнее" />
 
       {/* Mobile: compact list */}
