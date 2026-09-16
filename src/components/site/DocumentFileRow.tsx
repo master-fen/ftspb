@@ -12,6 +12,8 @@ type DocumentFileRowProps = {
   href: string;
   /** Внешняя ссылка (файл в S3): `<a target="_blank">`; иначе клиентский `Link`. */
   external?: boolean;
+  /** Название переносится на следующие строки, а не обрезается многоточием. */
+  wrapTitle?: boolean;
   sizeBytes?: number;
 };
 
@@ -30,6 +32,7 @@ export function DocumentFileRow({
   meta,
   href,
   external = false,
+  wrapTitle = false,
   sizeBytes,
 }: DocumentFileRowProps) {
   const ActionIcon = badge === "HTML" ? Eye : Download;
@@ -43,7 +46,15 @@ export function DocumentFileRow({
         </span>
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate font-ui text-sm font-medium text-foreground">{action}</span>
+        <span
+          className={
+            wrapTitle
+              ? "block font-ui text-sm font-medium text-foreground"
+              : "block truncate font-ui text-sm font-medium text-foreground"
+          }
+        >
+          {action}
+        </span>
         <span className="block font-ui ui-caption">{meta}</span>
       </span>
       <span className="flex shrink-0 items-center gap-2 font-ui ui-caption">
@@ -58,7 +69,7 @@ export function DocumentFileRow({
 
   if (external) {
     return (
-      <a href={href} target="_blank" rel="noopener" className={ROW_CLASS}>
+      <a href={href} target="_blank" rel="noopener noreferrer" className={ROW_CLASS}>
         {content}
       </a>
     );
