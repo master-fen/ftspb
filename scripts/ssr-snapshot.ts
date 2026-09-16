@@ -42,6 +42,7 @@ export type NormalizeOptions = {
  */
 const EXTRA_PATHS: Record<string, number> = {
   "/federation/about": 200,
+  "/federation/antidoping": 200,
   "/referees": 200,
   "/teams": 200,
   "/tournaments": 200,
