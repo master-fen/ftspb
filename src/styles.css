@@ -66,6 +66,7 @@
   --color-breadcrumb-dot: var(--breadcrumb-dot);
   --color-primary-hover: var(--primary-hover);
   --color-overlay: var(--overlay);
+  --color-modal-overlay: var(--modal-overlay);
   --color-overlay-control: var(--overlay-control);
   --color-overlay-control-hover: var(--overlay-control-hover);
 
@@ -107,8 +108,8 @@
   --secondary-foreground: var(--brand-navy);
   --muted: oklch(0.955 0.008 240);
   --muted-foreground: oklch(0.5 0.02 250);
-  --accent: var(--brand-orange);
-  --accent-foreground: oklch(0.15 0.03 250);
+  --accent: var(--muted);
+  --accent-foreground: var(--foreground);
   --destructive: oklch(0.6 0.22 27);
   --destructive-foreground: oklch(0.98 0.003 250);
   --border: oklch(0.9 0.01 250);
@@ -141,6 +142,7 @@
   --breadcrumb-dot: color-mix(in oklab, var(--foreground) 15%, transparent);
   --primary-hover: color-mix(in oklab, var(--primary) 90%, transparent);
   --overlay: color-mix(in oklab, var(--brand-navy) 95%, transparent);
+  --modal-overlay: color-mix(in oklab, var(--brand-navy) 48%, transparent);
   --overlay-control: color-mix(in oklab, var(--color-white) 10%, transparent);
   --overlay-control-hover: color-mix(in oklab, var(--color-white) 20%, transparent);
 }

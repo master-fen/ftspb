@@ -122,11 +122,11 @@ border-brand-blue/10` (`FederationSidebar.tsx:41`, `_site.federation_.charter.te
   `FederationMobileNav.tsx` несут `aria-controls="federation-nav-sheet"`, а шторка рисуется в
   портале Radix только открытой: пока она закрыта, элемента с этим `id` в документе нет. Оставлено
   сознательно (#79).
-- **Drawer: `autoFocus` в vaul по умолчанию `false`.** vaul 1.1.2 отменяет автофокус Radix при
-  открытии (`node_modules/vaul/dist/index.mjs:879`, `:1476–1480`): фокус остаётся на кнопке,
-  открывшей шторку, — внутри поддерева, которое Radix пометил `aria-hidden="true"`. Каждое новое
-  использование Drawer обязано передавать `autoFocus`, пока это не закрыто в
-  `src/components/ui/drawer.tsx` — отдельным решением (#79).
+- **Drawer: `autoFocus` в vaul по умолчанию `false` — закрыто в #84.** Было: vaul 1.1.2 отменяет
+  автофокус Radix при открытии (`node_modules/vaul/dist/index.mjs:879`, `:1476–1480`): фокус
+  остаётся на кнопке, открывшей шторку, — внутри поддерева, которое Radix пометил
+  `aria-hidden="true"`; каждое использование Drawer передавало `autoFocus` само (#79). Стало:
+  `autoFocus = true` по умолчанию в обёртке Drawer, потребитель не передаёт (#84).
 - **Drawer: возврат фокуса только через `Dialog.Trigger`.** При закрытии модального диалога Radix
   отменяет стандартный возврат фокуса и фокусирует `triggerRef` (`@radix-ui/react-dialog` 1.1.15,
   `dist/index.mjs:146–149`); `triggerRef` заполняет только `Dialog.Trigger` (`:63`). Собственный
