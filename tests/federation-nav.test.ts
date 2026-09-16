@@ -33,11 +33,12 @@ describe("меню раздела «Федерация»", () => {
       "Новости Федерации",
       "События",
       "Документы",
+      "Антидопинг",
     ]);
   });
 
-  test("неизвестный путь — пункта нет, «остальные» — все семь", () => {
+  test("неизвестный путь — пункта нет, «остальные» — все восемь", () => {
     expect(federationNavState("/federation/unknown")).toBeNull();
-    expect(otherFederationGroups("/federation/unknown").flatMap((g) => g.items)).toHaveLength(7);
+    expect(otherFederationGroups("/federation/unknown").flatMap((g) => g.items)).toHaveLength(8);
   });
 });

@@ -23,6 +23,7 @@ export const federationNav: FederationNavGroup[] = [
       { label: "Новости Федерации", href: "/federation/news" },
       { label: "События", href: "/federation/events" },
       { label: "Документы", href: "/federation/documents" },
+      { label: "Антидопинг", href: "/federation/antidoping" },
     ],
   },
 ];
