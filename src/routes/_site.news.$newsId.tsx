@@ -125,19 +125,19 @@ function NewsDetailPage() {
     <main className="mx-auto max-w-7xl lg:box-content px-4 pt-6 pb-14 md:px-6 md:pt-8 md:pb-20 lg:px-10">
       <Breadcrumbs items={[...crumbs, { label: item.title }]} />
 
-      <header className="mt-5 md:mt-7 lg:max-w-[calc(100%-304px)] xl:max-w-[calc(100%-440px)]">
-        <div className="ui-overline">{newsMetaLine(item.category, item.date)}</div>
-        <h1 className="mt-3 ui-h1">{item.title}</h1>
+      <header className="mt-5 md:mt-7 lg:grid lg:grid-cols-12 lg:gap-x-5">
+        <div className="ui-overline lg:col-span-8">{newsMetaLine(item.category, item.date)}</div>
+        <h1 className="mt-3 ui-h1 lg:col-span-8">{item.title}</h1>
         {showLead ? (
-          <p className="mt-4 text-[17px] leading-relaxed text-muted-foreground md:text-lg">
+          <p className="mt-4 text-[17px] leading-relaxed text-muted-foreground md:text-lg lg:col-span-8">
             {item.excerpt}
           </p>
         ) : null}
       </header>
 
-      <div className="mt-7 grid grid-cols-1 gap-10 md:mt-8 lg:grid-cols-[minmax(0,1fr)_264px] xl:grid-cols-[minmax(0,1fr)_320px] xl:gap-[120px]">
+      <div className="mt-7 grid grid-cols-1 gap-10 md:mt-8 lg:grid-cols-12 lg:gap-5">
         {/* Main column */}
-        <div className="min-w-0 space-y-8">
+        <div className="min-w-0 space-y-8 lg:col-span-8">
           {item.videoUrl ? <NewsVideo src={item.videoUrl} title={item.title} /> : null}
 
           {pageCover || item.gallery?.length ? (
@@ -184,7 +184,7 @@ function NewsDetailPage() {
         </div>
 
         {/* Sidebar */}
-        <aside className="lg:sticky lg:top-8 lg:self-start">
+        <aside className="lg:sticky lg:top-8 lg:self-start lg:col-span-4">
           <div className="ui-card ring-card-border bg-muted p-6">
             <h2 className="text-sm font-bold tracking-wide text-foreground/80">Читайте также</h2>
             <ul className="mt-5 space-y-5">
