@@ -67,6 +67,7 @@
   --color-primary-hover: var(--primary-hover);
   --color-overlay: var(--overlay);
   --color-modal-overlay: var(--modal-overlay);
+  --color-media-scrim: var(--media-scrim);
   --color-overlay-control: var(--overlay-control);
   --color-overlay-control-hover: var(--overlay-control-hover);
 
@@ -143,6 +144,7 @@
   --primary-hover: color-mix(in oklab, var(--primary) 90%, transparent);
   --overlay: color-mix(in oklab, var(--brand-navy) 95%, transparent);
   --modal-overlay: color-mix(in oklab, var(--brand-navy) 48%, transparent);
+  --media-scrim: color-mix(in oklab, var(--brand-navy) 62%, transparent);
   --overlay-control: color-mix(in oklab, var(--color-white) 10%, transparent);
   --overlay-control-hover: color-mix(in oklab, var(--color-white) 20%, transparent);
 }
