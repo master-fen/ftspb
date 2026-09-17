@@ -25,13 +25,13 @@ type SectionFrameProps = {
  * `display:flex` в направлении `row` и её содержимое встало бы в строку.
  */
 const ASIDE_ALWAYS =
-  "w-full lg:sticky lg:top-6 lg:order-2 lg:col-span-1 lg:flex lg:max-h-[calc(100vh-3rem)] lg:flex-col";
+  "w-full lg:sticky lg:top-6 lg:order-2 lg:col-span-4 lg:flex lg:max-h-[calc(100vh-3rem)] lg:flex-col";
 const ASIDE_TALL =
-  "w-full lg:order-2 lg:col-span-1 lg:tall:sticky lg:tall:top-6 lg:tall:flex lg:tall:max-h-[calc(100vh-3rem)] lg:tall:flex-col";
+  "w-full lg:order-2 lg:col-span-4 lg:tall:sticky lg:tall:top-6 lg:tall:flex lg:tall:max-h-[calc(100vh-3rem)] lg:tall:flex-col";
 
 /**
- * Раскладка страницы раздела: хлебные крошки, сетка трёх равных колонок
- * (содержимое — две колонки слева, `aside` — одна справа; на узких экранах —
+ * Раскладка страницы раздела: хлебные крошки, сетка 12 колонок
+ * (содержимое — 8 колонок слева, `aside` — 4 справа; на узких экранах —
  * столбиком, содержимое первым). Шапку, подвал и полную высоту страницы даёт
  * рама `_site` (src/routes/_site.tsx). Раскладка раздела «Федерация»
  * (src/routes/_site.federation.tsx), страница полного текста Устава
@@ -48,8 +48,8 @@ export function SectionFrame({
     <main className="mx-auto max-w-7xl lg:box-content px-4 pt-6 pb-12 md:px-6 md:pt-8 md:pb-16 lg:px-10">
       <Breadcrumbs items={crumbs} />
 
-      <div className="flex flex-col gap-10 lg:grid lg:grid-cols-3 lg:items-start lg:gap-6">
-        <div className="min-w-0 lg:order-1 lg:col-span-2">{children}</div>
+      <div className="flex flex-col gap-10 lg:grid lg:grid-cols-12 lg:items-start lg:gap-5">
+        <div className="min-w-0 lg:order-1 lg:col-span-8">{children}</div>
         <aside className={stickyAside === "tall" ? ASIDE_TALL : ASIDE_ALWAYS}>{aside}</aside>
       </div>
     </main>
