@@ -44,7 +44,7 @@ function FederationNewsPage() {
           Пока нет новостей в этом разделе
         </p>
       ) : (
-        <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:gap-6">
+        <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:gap-y-6">
           {items.map((item) => (
             <NewsListCard key={item.id} item={item} from="federation" />
           ))}

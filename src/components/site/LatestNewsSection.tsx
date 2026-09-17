@@ -55,7 +55,7 @@ export function LatestNewsSection({ items = latestNews }: LatestNewsSectionProps
       </div>
 
       {/* Desktop/tablet: 3-col grid of news cards */}
-      <div className="mt-6 hidden grid-cols-2 gap-5 md:grid lg:grid-cols-3 lg:gap-6">
+      <div className="mt-6 hidden grid-cols-2 gap-5 md:grid lg:grid-cols-3 lg:gap-y-6">
         {items.map((item) => (
           <NewsListCard key={item.id} item={item} />
         ))}
