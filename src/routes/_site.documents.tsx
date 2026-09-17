@@ -61,35 +61,41 @@ function DocumentsPage() {
     <main className="mx-auto max-w-7xl lg:box-content px-4 pt-6 pb-12 md:px-6 md:pt-8 md:pb-16 lg:px-10">
       <Breadcrumbs items={CRUMBS} />
 
-      <header className="mb-6 md:mb-8">
-        <h1 className="ui-h1">Документы</h1>
-      </header>
+      <div className="lg:grid lg:grid-cols-12 lg:gap-5">
+        <div className="lg:col-span-8">
+          <header className="mb-6 md:mb-8">
+            <h1 className="ui-h1">Документы</h1>
+          </header>
 
-      <CategoryFilterChips active={active} onSelect={select} labels={SECTION_CATEGORY_LABELS} />
+          <CategoryFilterChips active={active} onSelect={select} labels={SECTION_CATEGORY_LABELS} />
 
-      {documents.length === 0 ? (
-        <p className="rounded-xl bg-muted p-8 text-center text-muted-foreground">
-          В этом разделе документов пока нет
-        </p>
-      ) : (
-        <div className="max-w-3xl space-y-2">
-          {documents.map((doc) => {
-            const date = formatIsoDateRu(doc.documentDate);
-            const meta = doc.section ? `${SECTION_CATEGORY_LABELS[doc.section]} · ${date}` : date;
-            return (
-              <DocumentFileRow
-                key={doc.id}
-                badge={documentBadge(doc.mimeType, doc.fileName)}
-                action={doc.title}
-                meta={meta}
-                href={doc.url}
-                external
-                sizeBytes={doc.sizeBytes}
-              />
-            );
-          })}
+          {documents.length === 0 ? (
+            <p className="rounded-xl bg-muted p-8 text-center text-muted-foreground">
+              В этом разделе документов пока нет
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {documents.map((doc) => {
+                const date = formatIsoDateRu(doc.documentDate);
+                const meta = doc.section
+                  ? `${SECTION_CATEGORY_LABELS[doc.section]} · ${date}`
+                  : date;
+                return (
+                  <DocumentFileRow
+                    key={doc.id}
+                    badge={documentBadge(doc.mimeType, doc.fileName)}
+                    action={doc.title}
+                    meta={meta}
+                    href={doc.url}
+                    external
+                    sizeBytes={doc.sizeBytes}
+                  />
+                );
+              })}
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </main>
   );
 }

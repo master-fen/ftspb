@@ -32,7 +32,7 @@ function CharterPage() {
   const documentFile = Route.useLoaderData();
 
   return (
-    <article className="max-w-3xl font-ui text-base leading-[1.6] text-foreground">
+    <article className="font-ui text-base leading-[1.6] text-foreground">
       <h1 className="ui-h1">Устав</h1>
       <FederationMobileNav />
 
