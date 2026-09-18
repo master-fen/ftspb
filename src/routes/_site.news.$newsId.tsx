@@ -1,4 +1,13 @@
-import { createFileRoute, Link, notFound, stripSearchParams } from "@tanstack/react-router";
+import { useCallback, useEffect, useRef } from "react";
+import {
+  createFileRoute,
+  Link,
+  notFound,
+  stripSearchParams,
+  useCanGoBack,
+  useRouter,
+  useRouterState,
+} from "@tanstack/react-router";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
 import { Download, FileText } from "lucide-react";
@@ -9,6 +18,8 @@ import { NewsBody } from "@/components/site/NewsBody";
 import { getNewsBySlug, listNews } from "@/lib/news-server-fn";
 import type { NewsItem } from "@/lib/types/news";
 import { newsMetaLine } from "@/lib/news-meta";
+import { galleryImages } from "@/lib/gallery-layout";
+import { formatPhotoHash, parsePhotoHash } from "@/lib/photo-hash";
 import { NEWS_ORIGINS } from "@/lib/news-origin";
 import { pickRelatedNews } from "@/lib/news-related";
 import { buildNewsArticleJsonLd, serializeJsonLd } from "@/lib/news-jsonld";
@@ -100,6 +111,84 @@ const CRUMBS_FEDERATION: Crumb[] = [
   { label: "Новости Федерации", href: "/federation/news" },
 ];
 
+/**
+ * Открытый кадр лайтбокса — из hash адреса `#photo=N`: один источник истины,
+ * «назад» браузера закрывает лайтбокс, ссылка на кадр переживает F5.
+ *
+ * Открытие — push с маркером `photoLightbox` в state записи; шаг — replace с
+ * сохранением state (`state: true`); закрытие — `history.back()`, если запись
+ * наша и назад есть куда, иначе replace на адрес без hash (прямой заход с
+ * hash, скопированная ссылка). `search: true` обязателен: без него `?from=`
+ * обнулился бы. `resetScroll: false` и `hashScrollIntoView: false` — страница
+ * под оверлеем не двигается, элемента с id `photo=N` нет.
+ *
+ * Неверный hash (`photo=0`, `photo=99`, `razdel-3`) — `null`: лайтбокс закрыт,
+ * адрес не трогается.
+ */
+function usePhotoLightbox(total: number) {
+  const hash = useRouterState({ select: (s) => s.location.hash });
+  const ours = useRouterState({ select: (s) => s.location.state.photoLightbox === true });
+  const canGoBack = useCanGoBack();
+  const router = useRouter();
+  const navigate = Route.useNavigate();
+  const openIndex = parsePhotoHash(hash, total);
+
+  // `history.back()` асинхронен: до popstate запись ещё наша, и второй Esc или
+  // клик по ✕ сделал бы второй back() — с сайта. Пока закрытие идёт, повтор —
+  // no-op; флаг снимается, когда индекс стал null.
+  const closingRef = useRef(false);
+  useEffect(() => {
+    if (openIndex === null) closingRef.current = false;
+  }, [openIndex]);
+
+  const open = useCallback(
+    (index: number) =>
+      void navigate({
+        to: Route.fullPath,
+        params: true,
+        search: true,
+        hash: formatPhotoHash(index),
+        state: { photoLightbox: true },
+        resetScroll: false,
+        hashScrollIntoView: false,
+      }),
+    [navigate],
+  );
+  const step = useCallback(
+    (index: number) =>
+      void navigate({
+        to: Route.fullPath,
+        params: true,
+        search: true,
+        hash: formatPhotoHash(index),
+        state: true,
+        replace: true,
+        resetScroll: false,
+        hashScrollIntoView: false,
+      }),
+    [navigate],
+  );
+  const close = useCallback(() => {
+    if (closingRef.current) return;
+    closingRef.current = true;
+    if (ours && canGoBack) {
+      router.history.back();
+      return;
+    }
+    void navigate({
+      to: Route.fullPath,
+      params: true,
+      search: true,
+      state: {},
+      replace: true,
+      resetScroll: false,
+      hashScrollIntoView: false,
+    });
+  }, [ours, canGoBack, router, navigate]);
+
+  return { openIndex, open, step, close };
+}
+
 function NewsDetailPage() {
   const { item, related } = Route.useLoaderData();
   const { from } = Route.useSearch();
@@ -120,6 +209,9 @@ function NewsDetailPage() {
   const showLead = Boolean(excerptNorm && !(probe.length > 20 && bodyNorm.startsWith(probe)));
   // Флаг news.hide_cover_on_page прячет обложку только здесь; карточки и og:image (head) читают item.cover.
   const pageCover = item.hideCoverOnPage ? undefined : item.cover;
+  const gallery = item.gallery ?? [];
+  // Нумерация #photo=N — по списку фото страницы (без обложки при hideCoverOnPage), как счётчик.
+  const lightbox = usePhotoLightbox(galleryImages(pageCover, gallery).length);
 
   return (
     <main className="mx-auto max-w-7xl lg:box-content px-4 pt-6 pb-14 md:px-6 md:pt-8 md:pb-20 lg:px-10">
@@ -140,8 +232,16 @@ function NewsDetailPage() {
         <div className="min-w-0 space-y-8 lg:col-span-8">
           {item.videoUrl ? <NewsVideo src={item.videoUrl} title={item.title} /> : null}
 
-          {pageCover || item.gallery?.length ? (
-            <NewsGallery cover={pageCover} gallery={item.gallery ?? []} title={item.title} />
+          {pageCover || gallery.length ? (
+            <NewsGallery
+              cover={pageCover}
+              gallery={gallery}
+              title={item.title}
+              openIndex={lightbox.openIndex}
+              onOpen={lightbox.open}
+              onStep={lightbox.step}
+              onClose={lightbox.close}
+            />
           ) : null}
 
           {item.body ? <NewsBody body={item.body} /> : null}

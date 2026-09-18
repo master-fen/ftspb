@@ -2,6 +2,10 @@ import { expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import { NewsGallery } from "@/components/site/NewsGallery";
 
+/** Компонент управляемый: закрытый лайтбокс и пустые колбэки — разметка страницы без оверлея. */
+const noop = () => {};
+const closed = { openIndex: null, onOpen: noop, onStep: noop, onClose: noop } as const;
+
 /*
  * Разметка фотоблока новости: одно большое фото и один ряд миниатюр (три ниже
  * sm, четыре от sm), остальное — только в лайтбоксе. Лайтбокс при
@@ -53,7 +57,7 @@ function heroSrc(html: string): string | null {
 
 test("а) обложка и 10 фото: ряд из четырёх, плашки +7 ниже sm и +6 от sm", () => {
   const html = renderToStaticMarkup(
-    <NewsGallery cover={photo(0)} gallery={gallery(10)} title="Заголовок" />,
+    <NewsGallery cover={photo(0)} gallery={gallery(10)} title="Заголовок" {...closed} />,
   );
   expect(thumbCount(html)).toBe(4);
   expect(heroSrc(html)).toBe(photo(0));
@@ -77,7 +81,7 @@ test("а) обложка и 10 фото: ряд из четырёх, плашк�
 
 test("б) обложка и 3 фото: три миниатюры, ни плашек, ни relative", () => {
   const html = renderToStaticMarkup(
-    <NewsGallery cover={photo(0)} gallery={gallery(3)} title="Заголовок" />,
+    <NewsGallery cover={photo(0)} gallery={gallery(3)} title="Заголовок" {...closed} />,
   );
   expect(thumbCount(html)).toBe(3);
   for (const src of [photo(1), photo(2), photo(3)]) {
@@ -88,7 +92,7 @@ test("б) обложка и 3 фото: три миниатюры, ни плаш
 
 test("в) обложка и 4 фото: плашка +1 только ниже sm, у четвёртой плитки её нет", () => {
   const html = renderToStaticMarkup(
-    <NewsGallery cover={photo(0)} gallery={gallery(4)} title="Заголовок" />,
+    <NewsGallery cover={photo(0)} gallery={gallery(4)} title="Заголовок" {...closed} />,
   );
   expect(thumbCount(html)).toBe(4);
 
@@ -103,7 +107,7 @@ test("в) обложка и 4 фото: плашка +1 только ниже sm
 
 test("г) без обложки, 6 фото: большое — первое из галереи, плашки +2 и +1", () => {
   const list = gallery(6);
-  const html = renderToStaticMarkup(<NewsGallery gallery={list} title="Заголовок" />);
+  const html = renderToStaticMarkup(<NewsGallery gallery={list} title="Заголовок" {...closed} />);
   expect(thumbCount(html)).toBe(4);
   expect(heroSrc(html)).toBe(list[0]);
 

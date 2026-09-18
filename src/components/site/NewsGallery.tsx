@@ -2,12 +2,24 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { NewsImage } from "./NewsImage";
-import { galleryLayout } from "@/lib/gallery-layout";
+import { galleryImages, galleryLayout } from "@/lib/gallery-layout";
 
 type NewsGalleryProps = {
   cover?: string;
   gallery: string[];
   title: string;
+  /**
+   * Индекс открытого кадра (по списку `galleryImages(cover, gallery)`) или
+   * `null` — закрыт. Компонент управляемый: состояние живёт у владельца
+   * (маршрут выводит его из hash адреса), здесь только колбэки.
+   */
+  openIndex: number | null;
+  /** Открыть кадр `index` — клик по hero или миниатюре. */
+  onOpen: (index: number) => void;
+  /** Перейти к кадру `index` при открытом лайтбоксе — полоса, стрелки, клавиши, свайп. */
+  onStep: (index: number) => void;
+  /** Закрыть — ✕, Esc, клик по фону. */
+  onClose: () => void;
 };
 
 /** Колонки ряда миниатюр — те же числа, что в классах сетки ниже. */
@@ -71,27 +83,45 @@ function thumbClass(wideOnly: boolean, plaque: boolean): string {
  * Длину ряда задаёт CSS, а не JS: в разметку уходит ряд широкого экрана, лишняя
  * миниатюра скрыта классом. Ширины окна на сервере нет, и измерение дало бы в
  * SSR одну разметку, а после гидрации другую.
+ *
+ * Открытый кадр компонент не хранит: `openIndex` приходит от владельца, все
+ * действия уходят колбэками. Владелец — страница новости — выводит индекс из
+ * hash адреса `#photo=N` (src/lib/photo-hash.ts), так что «назад» браузера
+ * закрывает лайтбокс, а ссылка на кадр переживает F5.
  */
-export function NewsGallery({ cover, gallery, title }: NewsGalleryProps) {
-  const images = cover ? [cover, ...gallery] : gallery;
+export function NewsGallery({
+  cover,
+  gallery,
+  title,
+  openIndex,
+  onOpen,
+  onStep,
+  onClose,
+}: NewsGalleryProps) {
+  const images = galleryImages(cover, gallery);
   const narrow = galleryLayout(images.length, COLUMNS_NARROW);
   const wide = galleryLayout(images.length, COLUMNS_WIDE);
   const row = images.slice(1, wide.thumbs + 1);
-  const [openIndex, setOpenIndex] = useState<number | null>(null);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   const hasMany = images.length > 1;
 
-  const close = useCallback(() => setOpenIndex(null), []);
+  const close = onClose;
   const step = useCallback(
-    (delta: number) =>
-      setOpenIndex((i) => (i === null ? i : (i + delta + images.length) % images.length)),
-    [images.length],
+    (delta: number) => {
+      if (openIndex === null) return;
+      onStep((openIndex + delta + images.length) % images.length);
+    },
+    [openIndex, images.length, onStep],
   );
 
   useEffect(() => {
     if (openIndex === null) return;
     const onKey = (e: KeyboardEvent) => {
+      // Автоповтор при удержании: каждый шаг — replaceState, а у браузеров есть
+      // предел частоты вызовов History API (Chromium и Firefox — 200 за 10 с,
+      // WebKit — 100 за 10 с); удержание стрелки шлёт десятки событий в секунду.
+      if (e.repeat) return;
       if (e.key === "Escape") close();
       if (e.key === "ArrowRight") step(1);
       if (e.key === "ArrowLeft") step(-1);
@@ -106,17 +136,25 @@ export function NewsGallery({ cover, gallery, title }: NewsGalleryProps) {
   }, [openIndex, close, step]);
 
   const touchX = useRef<number | null>(null);
-  /** Кнопка, которой открыли лайтбокс, — ей возвращается фокус при закрытии. */
+  /**
+   * Кнопка, которой открыли лайтбокс, — ей возвращается фокус при закрытии.
+   * Пуста, если открыли адресом (`#photo=N` при заходе): тогда фокус уходит на
+   * hero-кнопку — якорь фотоблока, которым лайтбокс открывают заново.
+   */
   const openerRef = useRef<HTMLElement | null>(null);
+  const heroRef = useRef<HTMLButtonElement | null>(null);
   const closeRef = useRef<HTMLButtonElement | null>(null);
   const activeRef = useRef<HTMLButtonElement | null>(null);
   const isOpen = openIndex !== null;
+  /** Сторож: возвращать фокус только после закрытия, не при монтировании страницы. */
+  const wasOpenRef = useRef(false);
 
   // Зависимость — только факт открытости: от openIndex фокус прыгал бы на ✕ при
   // каждом перелистывании и отбирал его у кнопки полосы, по которой кликнули.
   useEffect(() => {
     if (isOpen) closeRef.current?.focus();
-    else openerRef.current?.focus();
+    else if (wasOpenRef.current) (openerRef.current ?? heroRef.current)?.focus();
+    wasOpenRef.current = isOpen;
   }, [isOpen]);
 
   // behavior "auto", не "smooth": при открытии плавная прокрутка ехала бы от нуля
@@ -130,10 +168,11 @@ export function NewsGallery({ cover, gallery, title }: NewsGalleryProps) {
       {images.length > 0 ? (
         <figure className="overflow-hidden rounded-2xl bg-muted ring-1 ring-media-border">
           <button
+            ref={heroRef}
             type="button"
             onClick={(e) => {
               openerRef.current = e.currentTarget;
-              setOpenIndex(0);
+              onOpen(0);
             }}
             aria-label="Открыть фотографию"
             className="flex w-full cursor-zoom-in justify-center"
@@ -164,7 +203,7 @@ export function NewsGallery({ cover, gallery, title }: NewsGalleryProps) {
                   type="button"
                   onClick={(e) => {
                     openerRef.current = e.currentTarget;
-                    setOpenIndex(index);
+                    onOpen(index);
                   }}
                   aria-label={`Фото ${index + 1} из ${images.length}`}
                   className={thumbClass(index > narrow.thumbs, hasPlaque)}
@@ -278,7 +317,7 @@ export function NewsGallery({ cover, gallery, title }: NewsGalleryProps) {
                         type="button"
                         aria-label={`Фото ${i + 1}`}
                         aria-current={i === openIndex ? "true" : undefined}
-                        onClick={() => setOpenIndex(i)}
+                        onClick={() => onStep(i)}
                         className={i === openIndex ? STRIP_ITEM_ACTIVE : STRIP_ITEM}
                       >
                         {/* Не NewsImage: его светлый skeleton на тёмном оверлее — россыпь мигающих пятен. */}
