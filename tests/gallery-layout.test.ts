@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { galleryLayout } from "@/lib/gallery-layout";
+import { galleryImages, galleryLayout } from "@/lib/gallery-layout";
 
 // Числа колонок — те же, что в классах сетки NewsGallery:
 // grid-cols-3 ниже sm, sm:grid-cols-4 от sm.
@@ -52,5 +52,16 @@ describe("galleryLayout", () => {
 
   test("columns 3, total 11 → thumbs 3, hidden 7, overlay 3", () => {
     layout(11, NARROW, { thumbs: 3, hiddenCount: 7, overlayIndex: 3 });
+  });
+});
+
+describe("galleryImages", () => {
+  test("с обложкой: обложка первой, затем галерея", () => {
+    expect(galleryImages("/c.jpg", ["/1.jpg", "/2.jpg"])).toEqual(["/c.jpg", "/1.jpg", "/2.jpg"]);
+  });
+
+  test("без обложки: галерея как есть", () => {
+    const list = ["/1.jpg", "/2.jpg"];
+    expect(galleryImages(undefined, list)).toEqual(["/1.jpg", "/2.jpg"]);
   });
 });
