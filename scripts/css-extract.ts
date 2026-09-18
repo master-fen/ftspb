@@ -9,7 +9,8 @@ import process from "node:process";
  *   bun scripts/css-extract.ts ФАЙЛ.css СЕЛЕКТОР… [LAST:СЕЛЕКТОР] [--объявление…]
  *
  * СЕЛЕКТОР — точный текст из CSS (с экранированием), сравнивается с каждой
- * частью списка селекторов через запятую. Аргумент на «--» — поиск объявления
+ * частью списка селекторов через запятую; «\,» и запятая внутри кавычек —
+ * не разделители (splitSelectors). Аргумент на «--» — поиск объявления
  * подстрокой. LAST: — селектор последнего правила файла: контроль самого
  * извлекателя, правило обязано найтись и стоять в конце файла.
  * Разбор: «\» вне и внутри строк — экранирование, строки "…"/'…' — без скобок.
@@ -65,6 +66,39 @@ export function tailAllT2(tail: string): boolean {
   return allT2(tail);
 }
 
+/**
+ * Части списка селекторов через «,». Запятая под «\» — часть имени класса
+ * (Tailwind экранирует её в произвольных значениях: grid-cols-\[minmax\(0\,1fr\)_84px\]),
+ * запятая внутри кавычек — часть атрибутного селектора; ни та ни другая не
+ * делит список. Части не подрезаются — как у прежнего split(",").
+ */
+export function splitSelectors(h: string): string[] {
+  const parts: string[] = [];
+  let instr: string | null = null;
+  let from = 0;
+  for (let i = 0; i < h.length; i++) {
+    const c = h[i];
+    if (c === "\\") {
+      i++;
+      continue;
+    }
+    if (instr !== null) {
+      if (c === instr) instr = null;
+      continue;
+    }
+    if (c === '"' || c === "'") {
+      instr = c;
+      continue;
+    }
+    if (c === ",") {
+      parts.push(h.slice(from, i));
+      from = i + 1;
+    }
+  }
+  parts.push(h.slice(from));
+  return parts;
+}
+
 type Rule = { ctx: string; text: string; end: number };
 
 /** Литерал вывода — в UTF-8. */
@@ -114,7 +148,7 @@ export function extract(css: string, args: string[], file: string): Buffer {
       blocks++;
       if (top) {
         const [h, bs] = top;
-        const parts = new Set(h.split(","));
+        const parts = new Set(splitSelectors(h));
         for (const [s, list] of want)
           if (parts.has(s))
             list.push({
