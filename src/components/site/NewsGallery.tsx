@@ -40,6 +40,15 @@ const PLAQUE =
 const PLAQUE_NARROW =
   "absolute inset-0 flex items-center justify-center bg-media-scrim text-2xl font-semibold tabular-nums text-inverse-foreground sm:hidden";
 
+/*
+ * Кадры полосы превью лайтбокса. Активный — оранжевая рамка без приглушения,
+ * остальные приглушены и проявляются по наведению.
+ */
+const STRIP_ITEM =
+  "h-14 w-20 shrink-0 overflow-hidden rounded-md bg-overlay-control opacity-60 ring-1 ring-overlay-control transition-opacity hover:opacity-100 sm:h-16 sm:w-24";
+const STRIP_ITEM_ACTIVE =
+  "h-14 w-20 shrink-0 overflow-hidden rounded-md bg-overlay-control ring-2 ring-brand-orange sm:h-16 sm:w-24";
+
 function thumbClass(wideOnly: boolean, plaque: boolean): string {
   if (wideOnly) return plaque ? THUMB_WIDE_PLAQUE : THUMB_WIDE;
   return plaque ? THUMB_PLAQUE : THUMB;
@@ -51,6 +60,13 @@ function thumbClass(wideOnly: boolean, plaque: boolean): string {
  * плашка «+N» с числом фото, которые в ряд не поместились; сами эти фото
  * доступны только из лайтбокса. По клику (в том числе по плашке) открывается
  * лайтбокс с навигацией (стрелки, клавиатура, свайп) по всем фото новости.
+ *
+ * Лайтбокс: область кадра, под ней полоса превью со всеми фото, активный кадр
+ * подкручивается в видимую часть полосы. Свайп живёт на области кадра, а не на
+ * корне диалога: полоса прокручивается пальцем по горизонтали, и на корне такой
+ * жест считался бы перелистыванием. Фокус при открытии уходит на ✕, при
+ * закрытии возвращается на кнопку, которой открывали; ловушки фокуса нет —
+ * Tab уходит на страницу.
  *
  * Длину ряда задаёт CSS, а не JS: в разметку уходит ряд широкого экрана, лишняя
  * миниатюра скрыта классом. Ширины окна на сервере нет, и измерение дало бы в
@@ -90,6 +106,24 @@ export function NewsGallery({ cover, gallery, title }: NewsGalleryProps) {
   }, [openIndex, close, step]);
 
   const touchX = useRef<number | null>(null);
+  /** Кнопка, которой открыли лайтбокс, — ей возвращается фокус при закрытии. */
+  const openerRef = useRef<HTMLElement | null>(null);
+  const closeRef = useRef<HTMLButtonElement | null>(null);
+  const activeRef = useRef<HTMLButtonElement | null>(null);
+  const isOpen = openIndex !== null;
+
+  // Зависимость — только факт открытости: от openIndex фокус прыгал бы на ✕ при
+  // каждом перелистывании и отбирал его у кнопки полосы, по которой кликнули.
+  useEffect(() => {
+    if (isOpen) closeRef.current?.focus();
+    else openerRef.current?.focus();
+  }, [isOpen]);
+
+  // behavior "auto", не "smooth": при открытии плавная прокрутка ехала бы от нуля
+  // поверх проявления кадра. block "nearest" — не тянуть предков.
+  useEffect(() => {
+    activeRef.current?.scrollIntoView({ block: "nearest", inline: "center", behavior: "auto" });
+  }, [openIndex]);
 
   return (
     <>
@@ -97,7 +131,10 @@ export function NewsGallery({ cover, gallery, title }: NewsGalleryProps) {
         <figure className="overflow-hidden rounded-2xl bg-muted ring-1 ring-media-border">
           <button
             type="button"
-            onClick={() => setOpenIndex(0)}
+            onClick={(e) => {
+              openerRef.current = e.currentTarget;
+              setOpenIndex(0);
+            }}
             aria-label="Открыть фотографию"
             className="flex w-full cursor-zoom-in justify-center"
           >
@@ -125,7 +162,10 @@ export function NewsGallery({ cover, gallery, title }: NewsGalleryProps) {
                 <button
                   key={src}
                   type="button"
-                  onClick={() => setOpenIndex(index)}
+                  onClick={(e) => {
+                    openerRef.current = e.currentTarget;
+                    setOpenIndex(index);
+                  }}
                   aria-label={`Фото ${index + 1} из ${images.length}`}
                   className={thumbClass(index > narrow.thumbs, hasPlaque)}
                 >
@@ -155,21 +195,13 @@ export function NewsGallery({ cover, gallery, title }: NewsGalleryProps) {
               aria-label={`${title}: фото ${openIndex + 1} из ${images.length}`}
               className="animate-in fade-in-0 fixed inset-0 z-[100] flex h-dvh flex-col bg-overlay duration-200"
               onClick={close}
-              onTouchStart={(e) => {
-                touchX.current = e.touches[0].clientX;
-              }}
-              onTouchEnd={(e) => {
-                if (touchX.current === null) return;
-                const dx = e.changedTouches[0].clientX - touchX.current;
-                if (Math.abs(dx) > 48) step(dx < 0 ? 1 : -1);
-                touchX.current = null;
-              }}
             >
               <div className="flex items-center justify-between px-4 py-3 text-inverse-foreground">
                 <span className="text-sm font-semibold tabular-nums">
                   {openIndex + 1} / {images.length}
                 </span>
                 <button
+                  ref={closeRef}
                   type="button"
                   onClick={close}
                   aria-label="Закрыть"
@@ -179,7 +211,19 @@ export function NewsGallery({ cover, gallery, title }: NewsGalleryProps) {
                 </button>
               </div>
 
-              <div className="relative flex min-h-0 flex-1 items-center justify-center px-3 pb-6">
+              {/* Свайп — здесь, не на корне: полоса ниже прокручивается пальцем. */}
+              <div
+                className="relative flex min-h-0 flex-1 items-center justify-center px-3 pb-3"
+                onTouchStart={(e) => {
+                  touchX.current = e.touches[0].clientX;
+                }}
+                onTouchEnd={(e) => {
+                  if (touchX.current === null) return;
+                  const dx = e.changedTouches[0].clientX - touchX.current;
+                  if (Math.abs(dx) > 48) step(dx < 0 ? 1 : -1);
+                  touchX.current = null;
+                }}
+              >
                 <img
                   key={images[openIndex]}
                   src={images[openIndex]}
@@ -215,6 +259,41 @@ export function NewsGallery({ cover, gallery, title }: NewsGalleryProps) {
                   </>
                 ) : null}
               </div>
+
+              {hasMany ? (
+                // Обёртка отдельная: у элемента, который прячет media-запрос, не
+                // должно быть конкурирующей утилиты display — порядок правил для
+                // произвольного варианта в собранном CSS не доказан. Ниже 480 px
+                // высоты полоса скрыта: кадру не остаётся места.
+                <div className="shrink-0 [@media(max-height:479px)]:hidden">
+                  {/* Клик по полосе не должен доходить до корня — тот закрывает диалог. */}
+                  <div
+                    className="flex gap-2 overflow-x-auto px-3 pb-3"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {images.map((src, i) => (
+                      <button
+                        key={src}
+                        ref={i === openIndex ? activeRef : undefined}
+                        type="button"
+                        aria-label={`Фото ${i + 1}`}
+                        aria-current={i === openIndex ? "true" : undefined}
+                        onClick={() => setOpenIndex(i)}
+                        className={i === openIndex ? STRIP_ITEM_ACTIVE : STRIP_ITEM}
+                      >
+                        {/* Не NewsImage: его светлый skeleton на тёмном оверлее — россыпь мигающих пятен. */}
+                        <img
+                          src={src}
+                          alt=""
+                          loading="lazy"
+                          decoding="async"
+                          className="h-full w-full object-cover"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </div>,
             document.body,
           )
