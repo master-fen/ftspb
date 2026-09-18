@@ -151,6 +151,26 @@ describe("классы символов — таблицы, снятые с Perl
   });
 });
 
+describe("список селекторов: запятая с экранированием и в кавычках — не разделитель", () => {
+  test("17) селектор с «\\,» (реальный из сборки: grid-cols-[minmax(0,1fr)_84px]) находится целиком", () => {
+    // Части списка селекторов делятся по «,», но «\,» — часть имени класса:
+    // Tailwind экранирует запятую произвольного значения. Деление по каждой
+    // запятой давало две половины и «найдено: 0» у настоящего селектора.
+    const sel = ".grid-cols-\\[minmax\\(0\\,1fr\\)_84px\\]";
+    const out = run(`${sel}{grid-template-columns:minmax(0,1fr) 84px}`, sel, "1fr\\)_84px\\]");
+    expect(out).toContain(lit(`== ${sel} — найдено: 1\n`));
+    // Половина после запятой — не селектор, находиться не должна.
+    expect(out).toContain(lit("== 1fr\\)_84px\\] — найдено: 0\n"));
+  });
+
+  test("18) запятая внутри кавычек атрибутного селектора — не разделитель", () => {
+    const sel = '[data-x="a,b"]';
+    const out = run(`${sel}{c:d}`, sel, '[data-x="a');
+    expect(out).toContain(lit(`== ${sel} — найдено: 1\n`));
+    expect(out).toContain(lit('== [data-x="a — найдено: 0\n'));
+  });
+});
+
 describe("«$» без /m и контроль LAST", () => {
   test("14) заголовок, оканчивающийся переводом строки", () => {
     const out = run(".sel \n{a:b}", ".sel");
@@ -173,5 +193,17 @@ describe("«$» без /m и контроль LAST", () => {
     expect(run(".a{b:c}.z{y:x}", "LAST:.a")).toContain(
       lit("== контроль LAST .a — найдено 1, последнее правило файла: НЕТ\n"),
     );
+  });
+});
+
+describe("список селекторов: запятая внутри скобок — не разделитель", () => {
+  test("19) запятая внутри :is()/:where()/:not() (preflight Tailwind: select:is([multiple],[size]))", () => {
+    // Скобки не считались: запятая внутри :is(...) делила список, и селектор
+    // из preflight давал «найдено: 0» при существующем правиле.
+    const sel = ":where(select:is([multiple],[size])) optgroup";
+    const out = run(`${sel}{font-weight:bolder}`, sel, "[size])) optgroup");
+    expect(out).toContain(lit(`== ${sel} — найдено: 1\n`));
+    // Хвост после запятой — не селектор, находиться не должен.
+    expect(out).toContain(lit("== [size])) optgroup — найдено: 0\n"));
   });
 });

@@ -1,4 +1,8 @@
 import { Buffer } from "node:buffer";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import process from "node:process";
 import { describe, expect, test } from "bun:test";
 import { compareDirs, type ReadFile } from "./snapshot-compare";
 
@@ -93,5 +97,64 @@ describe("compareDirs", () => {
     const html = page(manifestLine(ROOT));
     const r = dirs(base(html), { ...base(html), "q.html": html, "q.preloads.txt": PRELOADS });
     expect(r.messages[0]).toBe("состав каталогов различается: 2 против 4");
+  });
+});
+
+// Код выхода процесса: 0 — совпало, 1 — расхождение, 2 — ошибка входа или
+// вызова. Проверяется реальным запуском скрипта, а не возвращаемым значением:
+// именно код процесса читает вызывающий (и раньше отсутствующий каталог давал
+// тот же код 1, что и расхождение, — необработанным исключением).
+describe("код выхода процесса", () => {
+  const root = path.resolve(import.meta.dir, "..");
+  const cli = (...args: string[]) => {
+    const p = Bun.spawnSync([process.execPath, "scripts/snapshot-compare.ts", ...args], {
+      cwd: root,
+    });
+    return { code: p.exitCode, out: p.stdout.toString(), err: p.stderr.toString() };
+  };
+  const snapDir = (files: Record<string, string>) => {
+    const d = fs.mkdtempSync(path.join(os.tmpdir(), "snapcmp-"));
+    for (const [n, t] of Object.entries(files)) fs.writeFileSync(path.join(d, n), t);
+    return d;
+  };
+  const html = page(manifestLine(ROOT));
+
+  test("8) каталоги совпали — код 0", () => {
+    const a = snapDir(base(html));
+    const b = snapDir(base(html));
+    const r = cli(a, b);
+    expect(r.out).toContain("вне строки манифеста побайтно: 1/1");
+    expect(r.code).toBe(0);
+  });
+
+  test("9) расхождение — код 1", () => {
+    const a = snapDir(base(html));
+    const b = snapDir(base(page(manifestLine(ROOT), '<h1 class="text-3xl">Заголовок</h1>')));
+    const r = cli(a, b);
+    expect(r.out).toContain("вне строки манифеста побайтно: 0/1");
+    expect(r.code).toBe(1);
+  });
+
+  test("10) отсутствующий каталог или аргумент — код 2, сообщение без стека", () => {
+    const a = snapDir(base(html));
+    const missing = cli(a, path.join(a, "нет-такого-каталога"));
+    expect(missing.code).toBe(2);
+    expect(missing.err).toContain("нет каталога");
+    expect(missing.err).not.toContain("ENOENT");
+    const noArgs = cli();
+    expect(noArgs.code).toBe(2);
+    expect(noArgs.err).toContain("вызов:");
+  });
+
+  test("11) ни одного .html на любой стороне — код 2, а не «0/0» с кодом 0", () => {
+    // Два пустых каталога совпадают «ни о чём»: сравнивать нечего — это
+    // ошибка входа, а не успех.
+    const empty = snapDir({});
+    const bothEmpty = cli(empty, snapDir({}));
+    expect(bothEmpty.code).toBe(2);
+    expect(bothEmpty.err).toContain("нет ни одного .html");
+    const oneSide = cli(snapDir(base(html)), empty);
+    expect(oneSide.code).toBe(2);
+    expect(oneSide.err).toContain("нет ни одного .html");
   });
 });

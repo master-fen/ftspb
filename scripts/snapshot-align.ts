@@ -24,9 +24,30 @@ import { sortManifestPreloads } from "./ssr-snapshot";
  * это остаток); прочие — «изменён class». Строки A без пары — удаления
  * (обязаны быть 0), строки B без пары — вставки. Изменённые class и вставки
  * обязаны лежать в области.
+ *
+ * Код выхода: 0 — все страницы по ожиданию; 1 — расхождение (в том числе
+ * страница только на одной стороне); 2 — ошибка входа или вызова (нет
+ * аргументов, нет каталога, ни одного .html на какой-либо стороне, нет или
+ * не разобран файл ожиданий). Раньше
+ * отсутствующий вход ронял скрипт необработанным исключением с кодом 1 —
+ * неотличимо от расхождения.
  */
 
 const MANIFEST = '<script class="$tsr" id="$tsr-stream-barrier">';
+
+export const EXIT_OK = 0;
+export const EXIT_DIFF = 1;
+export const EXIT_INPUT = 2;
+const USAGE =
+  "вызов: bun scripts/snapshot-align.ts КАТАЛОГ_A КАТАЛОГ_B ОЖИДАНИЕ.json [НАЧАЛО КОНЕЦ]";
+
+function isDir(p: string): boolean {
+  try {
+    return fs.statSync(p).isDirectory();
+  } catch {
+    return false;
+  }
+}
 const CLASS = / class="(?!\$tsr")[^"]*"/g;
 /** Ключ строки манифеста в LCS: символ, которого в разметке не бывает. */
 const MANIFEST_KEY = String.fromCharCode(0) + "MANIFEST";
@@ -180,11 +201,38 @@ export function parseExpectations(text: string): Expectations {
   return JSON.parse(text) as Expectations;
 }
 
-if (import.meta.main) {
-  const [dirA, dirB, expPath, rs, re] = process.argv.slice(2);
+/** Точка входа: возвращает код процесса (EXIT_OK / EXIT_DIFF / EXIT_INPUT). */
+export function main(argv: string[], out: (line: string) => void, err: (line: string) => void) {
+  const [dirA, dirB, expPath, rs, re] = argv;
+  if (!dirA || !dirB || !expPath || argv.length > 5) {
+    err(USAGE);
+    return EXIT_INPUT;
+  }
+  for (const d of [dirA, dirB])
+    if (!isDir(d)) {
+      err(`нет каталога ${d}`);
+      return EXIT_INPUT;
+    }
+  if (!fs.existsSync(expPath) || fs.statSync(expPath).isDirectory()) {
+    err(`нет файла ожиданий ${expPath}`);
+    return EXIT_INPUT;
+  }
+  let exp: Expectations;
+  try {
+    exp = parseExpectations(fs.readFileSync(expPath, "utf8"));
+  } catch (e) {
+    err(`файл ожиданий не разобран ${expPath}: ${e instanceof Error ? e.message : String(e)}`);
+    return EXIT_INPUT;
+  }
+  // Ноль страниц с любой стороны — сравнивать нечего: «страниц: 0» с кодом 0
+  // было бы совпадением ни о чём.
+  for (const d of [dirA, dirB])
+    if (!fs.readdirSync(d).some((n) => n.endsWith(".html"))) {
+      err(`нет ни одного .html в ${d}`);
+      return EXIT_INPUT;
+    }
   const region: Region = { start: rs || DEFAULT_REGION.start, end: re || DEFAULT_REGION.end };
-  console.log(`область: начало «${region.start}», конец «${region.end}»`);
-  const exp = parseExpectations(fs.readFileSync(expPath, "utf8"));
+  out(`область: начало «${region.start}», конец «${region.end}»`);
   const names = [...new Set([...fs.readdirSync(dirA), ...fs.readdirSync(dirB)])]
     .filter((n) => n.endsWith(".html"))
     .sort();
@@ -198,6 +246,17 @@ if (import.meta.main) {
   const compositions = new Map<string, string[]>();
   for (const n of names) {
     const page = n.replace(/\.html$/, "");
+    // Страница только на одной стороне — расхождение состава, не исключение.
+    const missingSide = !fs.existsSync(path.join(dirA, n))
+      ? "A"
+      : !fs.existsSync(path.join(dirB, n))
+        ? "B"
+        : null;
+    if (missingSide) {
+      bad++;
+      out(`расхождение ${page}: нет файла на стороне ${missingSide}`);
+      continue;
+    }
     const v = compare(
       fs.readFileSync(path.join(dirA, n), "utf8").split("\n"),
       fs.readFileSync(path.join(dirB, n), "utf8").split("\n"),
@@ -217,19 +276,21 @@ if (import.meta.main) {
     if (v.changed === eC && v.inserted === eI && v.deleted === 0 && v.problems.length === 0) good++;
     else {
       bad++;
-      console.log(
+      out(
         `расхождение ${page}: изменено ${v.changed} (ожидалось ${eC}), вставок ${v.inserted} (ожидалось ${eI}), удалений ${v.deleted}`,
       );
-      for (const pr of v.problems.slice(0, 10)) console.log(`  ${pr}`);
+      for (const pr of v.problems.slice(0, 10)) out(`  ${pr}`);
     }
   }
-  console.log(`страницы списка (а), изменено/вставок: ${perPage.join("; ")}`);
+  out(`страницы списка (а), изменено/вставок: ${perPage.join("; ")}`);
   for (const [k, pages] of compositions)
-    console.log(`состав манифеста ${k}: ${pages.length} стр. — ${pages.join(", ")}`);
-  console.log(
+    out(`состав манифеста ${k}: ${pages.length} стр. — ${pages.join(", ")}`);
+  out(
     `страниц: ${names.length}; по ожиданию: ${good}; с расхождением: ${bad}; изменённых class всего: ${totalC}; ` +
       `вставок всего: ${totalI}; удалений всего: ${totalD}; строк манифеста «только порядок»: ${totalOrder}; ` +
       `страниц со сменой состава манифеста: ${[...compositions.values()].flat().length}`,
   );
-  process.exit(bad ? 1 : 0);
+  return bad ? EXIT_DIFF : EXIT_OK;
 }
+
+if (import.meta.main) process.exit(main(process.argv.slice(2), console.log, console.error));
