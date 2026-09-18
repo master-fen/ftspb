@@ -35,3 +35,12 @@ export function galleryLayout(total: number, columns: number): GalleryLayout {
   const hiddenCount = Math.max(rest - columns, 0);
   return { thumbs, hiddenCount, overlayIndex: hiddenCount > 0 ? columns : null };
 }
+
+/**
+ * Список фото страницы: обложка первой, затем галерея; без обложки — галерея
+ * как есть. Одна функция на маршрут и компонент: нумерация `#photo=N` и
+ * счётчик «N / total» считаются по одному и тому же списку.
+ */
+export function galleryImages(cover: string | undefined, gallery: string[]): string[] {
+  return cover ? [cover, ...gallery] : gallery;
+}
