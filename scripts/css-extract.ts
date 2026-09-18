@@ -69,12 +69,15 @@ export function tailAllT2(tail: string): boolean {
 /**
  * Части списка селекторов через «,». Запятая под «\» — часть имени класса
  * (Tailwind экранирует её в произвольных значениях: grid-cols-\[minmax\(0\,1fr\)_84px\]),
- * запятая внутри кавычек — часть атрибутного селектора; ни та ни другая не
- * делит список. Части не подрезаются — как у прежнего split(",").
+ * запятая внутри кавычек — часть атрибутного селектора, запятая внутри
+ * круглых скобок — аргумент :is()/:where()/:not() (preflight Tailwind:
+ * :where(select:is([multiple],[size])) optgroup); ни одна из них не делит
+ * список. Части не подрезаются — как у прежнего split(",").
  */
 export function splitSelectors(h: string): string[] {
   const parts: string[] = [];
   let instr: string | null = null;
+  let depth = 0;
   let from = 0;
   for (let i = 0; i < h.length; i++) {
     const c = h[i];
@@ -90,7 +93,10 @@ export function splitSelectors(h: string): string[] {
       instr = c;
       continue;
     }
-    if (c === ",") {
+    if (c === "(") depth++;
+    else if (c === ")") {
+      if (depth > 0) depth--;
+    } else if (c === "," && depth === 0) {
       parts.push(h.slice(from, i));
       from = i + 1;
     }
