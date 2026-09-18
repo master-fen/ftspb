@@ -146,16 +146,22 @@ export function NewsGallery({
   const closeRef = useRef<HTMLButtonElement | null>(null);
   const activeRef = useRef<HTMLButtonElement | null>(null);
   const isOpen = openIndex !== null;
+  /**
+   * Факт показа, не факт открытости: при заходе по адресу с hash `isOpen`
+   * истинен уже в первом рендере, а портал появляется только после `mounted` —
+   * эффект по `isOpen` отработал бы раньше ✕ и фокус на неё не встал бы.
+   */
+  const showing = isOpen && mounted;
   /** Сторож: возвращать фокус только после закрытия, не при монтировании страницы. */
   const wasOpenRef = useRef(false);
 
-  // Зависимость — только факт открытости: от openIndex фокус прыгал бы на ✕ при
+  // Зависимость — только факт показа: от openIndex фокус прыгал бы на ✕ при
   // каждом перелистывании и отбирал его у кнопки полосы, по которой кликнули.
   useEffect(() => {
-    if (isOpen) closeRef.current?.focus();
+    if (showing) closeRef.current?.focus();
     else if (wasOpenRef.current) (openerRef.current ?? heroRef.current)?.focus();
-    wasOpenRef.current = isOpen;
-  }, [isOpen]);
+    wasOpenRef.current = showing;
+  }, [showing]);
 
   // behavior "auto", не "smooth": при открытии плавная прокрутка ехала бы от нуля
   // поверх проявления кадра. block "nearest" — не тянуть предков.
@@ -226,7 +232,7 @@ export function NewsGallery({
         </>
       ) : null}
 
-      {openIndex !== null && mounted
+      {showing && openIndex !== null
         ? createPortal(
             <div
               role="dialog"
