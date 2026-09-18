@@ -1,3 +1,7 @@
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import process from "node:process";
 import { describe, expect, test } from "bun:test";
 import { compare, DEFAULT_REGION, type Region } from "./snapshot-align";
 
@@ -138,5 +142,57 @@ describe("compare", () => {
     expect(v.problems[0].startsWith("маркер области не найден")).toBe(true);
     expect(v.problems[0]).toContain(end);
     expect(v.problems.some((x) => x.startsWith("изменён class вне области"))).toBe(false);
+  });
+});
+
+// Код выхода процесса: 0 — по ожиданию, 1 — расхождение, 2 — ошибка входа или
+// вызова. Проверяется реальным запуском скрипта: раньше отсутствующий каталог
+// или файл ожиданий давал тот же код 1, что и расхождение, — необработанным
+// исключением.
+describe("код выхода процесса", () => {
+  const root = path.resolve(import.meta.dir, "..");
+  const cli = (...args: string[]) => {
+    const p = Bun.spawnSync([process.execPath, "scripts/snapshot-align.ts", ...args], {
+      cwd: root,
+    });
+    return { code: p.exitCode, out: p.stdout.toString(), err: p.stderr.toString() };
+  };
+  const tmp = (name: string) => fs.mkdtempSync(path.join(os.tmpdir(), `snapalign-${name}-`));
+  const snapDir = (lines: string[]) => {
+    const d = tmp("dir");
+    fs.writeFileSync(path.join(d, "p.html"), lines.join("\n"));
+    return d;
+  };
+  const expFile = (json: string) => {
+    const f = path.join(tmp("exp"), "exp.json");
+    fs.writeFileSync(f, json);
+    return f;
+  };
+  const PAGE = [DEFAULT_REGION.start, '<p class="x">т</p>', DEFAULT_REGION.end];
+
+  test("7) страницы по ожиданию — код 0", () => {
+    const r = cli(snapDir(PAGE), snapDir(PAGE), expFile("{}"));
+    expect(r.out).toContain("с расхождением: 0");
+    expect(r.code).toBe(0);
+  });
+
+  test("8) вставка вне области при пустом ожидании — код 1", () => {
+    const r = cli(snapDir(PAGE), snapDir(["<nav>лишнее</nav>", ...PAGE]), expFile("{}"));
+    expect(r.out).toContain("с расхождением: 1");
+    expect(r.code).toBe(1);
+  });
+
+  test("9) нет каталога, нет файла ожиданий, нет аргументов — код 2, без стека", () => {
+    const a = snapDir(PAGE);
+    const noDir = cli(a, path.join(a, "нет-такого"), expFile("{}"));
+    expect(noDir.code).toBe(2);
+    expect(noDir.err).toContain("нет каталога");
+    expect(noDir.err).not.toContain("ENOENT");
+    const noExp = cli(a, snapDir(PAGE), path.join(a, "нет.json"));
+    expect(noExp.code).toBe(2);
+    expect(noExp.err).toContain("нет файла ожиданий");
+    const noArgs = cli();
+    expect(noArgs.code).toBe(2);
+    expect(noArgs.err).toContain("вызов:");
   });
 });
