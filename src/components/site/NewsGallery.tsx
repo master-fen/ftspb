@@ -157,9 +157,12 @@ export function NewsGallery({
 
   // Зависимость — только факт показа: от openIndex фокус прыгал бы на ✕ при
   // каждом перелистывании и отбирал его у кнопки полосы, по которой кликнули.
+  // preventScroll при возврате: focus() доскролливает срезанную кнопку в кадр,
+  // и страница под закрытым лайтбоксом уезжала (300 → 398 при срезанной hero).
   useEffect(() => {
     if (showing) closeRef.current?.focus();
-    else if (wasOpenRef.current) (openerRef.current ?? heroRef.current)?.focus();
+    else if (wasOpenRef.current)
+      (openerRef.current ?? heroRef.current)?.focus({ preventScroll: true });
     wasOpenRef.current = showing;
   }, [showing]);
 
@@ -312,8 +315,11 @@ export function NewsGallery({
                 // высоты полоса скрыта: кадру не остаётся места.
                 <div className="shrink-0 [@media(max-height:479px)]:hidden">
                   {/* Клик по полосе не должен доходить до корня — тот закрывает диалог. */}
+                  {/* pt-1: ring-2 активного кадра — тень на 2 px снаружи кнопки, а overflow-x-auto
+                      обрезает и по вертикали (вторая ось перестаёт быть visible); снизу и по бокам
+                      место дают pb-3 и px-3, сверху без отступа обводка срезалась. */}
                   <div
-                    className="flex gap-2 overflow-x-auto px-3 pb-3"
+                    className="flex gap-2 overflow-x-auto px-3 pt-1 pb-3"
                     onClick={(e) => e.stopPropagation()}
                   >
                     {images.map((src, i) => (
