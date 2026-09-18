@@ -195,4 +195,14 @@ describe("код выхода процесса", () => {
     expect(noArgs.code).toBe(2);
     expect(noArgs.err).toContain("вызов:");
   });
+
+  test("10) ни одного .html на любой стороне — код 2, а не «страниц: 0» с кодом 0", () => {
+    const empty = tmp("empty");
+    const bothEmpty = cli(empty, tmp("empty"), expFile("{}"));
+    expect(bothEmpty.code).toBe(2);
+    expect(bothEmpty.err).toContain("нет ни одного .html");
+    const oneSide = cli(snapDir(PAGE), empty, expFile("{}"));
+    expect(oneSide.code).toBe(2);
+    expect(oneSide.err).toContain("нет ни одного .html");
+  });
 });

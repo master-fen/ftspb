@@ -145,4 +145,16 @@ describe("код выхода процесса", () => {
     expect(noArgs.code).toBe(2);
     expect(noArgs.err).toContain("вызов:");
   });
+
+  test("11) ни одного .html на любой стороне — код 2, а не «0/0» с кодом 0", () => {
+    // Два пустых каталога совпадают «ни о чём»: сравнивать нечего — это
+    // ошибка входа, а не успех.
+    const empty = snapDir({});
+    const bothEmpty = cli(empty, snapDir({}));
+    expect(bothEmpty.code).toBe(2);
+    expect(bothEmpty.err).toContain("нет ни одного .html");
+    const oneSide = cli(snapDir(base(html)), empty);
+    expect(oneSide.code).toBe(2);
+    expect(oneSide.err).toContain("нет ни одного .html");
+  });
 });
