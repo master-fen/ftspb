@@ -195,3 +195,15 @@ describe("«$» без /m и контроль LAST", () => {
     );
   });
 });
+
+describe("список селекторов: запятая внутри скобок — не разделитель", () => {
+  test("19) запятая внутри :is()/:where()/:not() (preflight Tailwind: select:is([multiple],[size]))", () => {
+    // Скобки не считались: запятая внутри :is(...) делила список, и селектор
+    // из preflight давал «найдено: 0» при существующем правиле.
+    const sel = ":where(select:is([multiple],[size])) optgroup";
+    const out = run(`${sel}{font-weight:bolder}`, sel, "[size])) optgroup");
+    expect(out).toContain(lit(`== ${sel} — найдено: 1\n`));
+    // Хвост после запятой — не селектор, находиться не должен.
+    expect(out).toContain(lit("== [size])) optgroup — найдено: 0\n"));
+  });
+});
