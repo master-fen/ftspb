@@ -12,11 +12,29 @@ import { sortManifestPreloads } from "./ssr-snapshot";
  *
  * Три числа: .html, совпавшие вне строки манифеста побайтно; .html, у которых
  * строка манифеста совпала после sortManifestPreloads; .preloads.txt, совпавшие
- * побайтно. Каждое расхождение — отдельной строкой. Код выхода 0 — все три
- * числа полные.
+ * побайтно. Каждое расхождение — отдельной строкой. Файлы, которые есть только
+ * на одной стороне, — расхождение состава, не ошибка входа.
+ *
+ * Код выхода: 0 — все три числа полные и состав совпал; 1 — расхождение;
+ * 2 — ошибка входа или вызова (нет аргументов, нет каталога). Раньше
+ * отсутствующий каталог ронял скрипт необработанным исключением с кодом 1 —
+ * неотличимо от расхождения.
  */
 
 const MANIFEST = '<script class="$tsr" id="$tsr-stream-barrier">';
+
+export const EXIT_OK = 0;
+export const EXIT_DIFF = 1;
+export const EXIT_INPUT = 2;
+const USAGE = "вызов: bun scripts/snapshot-compare.ts КАТАЛОГ_A КАТАЛОГ_B";
+
+function isDir(p: string): boolean {
+  try {
+    return fs.statSync(p).isDirectory();
+  } catch {
+    return false;
+  }
+}
 
 export type HtmlPair = {
   /** Номер строки манифеста в A и B, от нуля; −1 — строки нет. */
@@ -55,10 +73,19 @@ export type Report = { messages: string[]; summary: string; ok: boolean };
 
 export function compareDirs(namesA: string[], namesB: string[], read: ReadFile): Report {
   const messages: string[] = [];
-  if (namesA.join("\n") !== namesB.join("\n"))
+  const sameNames = namesA.join("\n") === namesB.join("\n");
+  if (!sameNames) {
     messages.push(`состав каталогов различается: ${namesA.length} против ${namesB.length}`);
-  const html = namesA.filter((n) => n.endsWith(".html"));
-  const pre = namesA.filter((n) => n.endsWith(".preloads.txt"));
+    const setA = new Set(namesA);
+    const setB = new Set(namesB);
+    for (const n of namesA) if (!setB.has(n)) messages.push(`${n}: только в A`);
+    for (const n of namesB) if (!setA.has(n)) messages.push(`${n}: только в B`);
+  }
+  // Сравниваются только пары, присутствующие с обеих сторон: чтение файла,
+  // которого нет на одной стороне, было бы исключением, а не вердиктом.
+  const both = new Set(namesB);
+  const html = namesA.filter((n) => n.endsWith(".html") && both.has(n));
+  const pre = namesA.filter((n) => n.endsWith(".preloads.txt") && both.has(n));
   let outside = 0;
   let manifest = 0;
   let manifestBytes = 0;
@@ -84,18 +111,30 @@ export function compareDirs(namesA: string[], namesB: string[], read: ReadFile):
     summary:
       `вне строки манифеста побайтно: ${outside}/${html.length}; манифест после сортировки: ${manifest}/${html.length} ` +
       `(из них побайтно ${manifestBytes}); .preloads.txt побайтно: ${preSame}/${pre.length}`,
-    ok: outside === html.length && manifest === html.length && preSame === pre.length,
+    ok: sameNames && outside === html.length && manifest === html.length && preSame === pre.length,
   };
 }
 
-if (import.meta.main) {
-  const [dirA, dirB] = process.argv.slice(2);
+/** Точка входа: возвращает код процесса (EXIT_OK / EXIT_DIFF / EXIT_INPUT). */
+export function main(argv: string[], out: (line: string) => void, err: (line: string) => void) {
+  const [dirA, dirB] = argv;
+  if (argv.length !== 2 || !dirA || !dirB) {
+    err(USAGE);
+    return EXIT_INPUT;
+  }
+  for (const d of [dirA, dirB])
+    if (!isDir(d)) {
+      err(`нет каталога ${d}`);
+      return EXIT_INPUT;
+    }
   const namesA = fs.readdirSync(dirA).sort();
   const namesB = fs.readdirSync(dirB).sort();
   const read: ReadFile = (side, name) =>
     fs.readFileSync(path.join(side === "a" ? dirA : dirB, name));
   const report = compareDirs(namesA, namesB, read);
-  for (const m of report.messages) console.log(m);
-  console.log(report.summary);
-  process.exit(report.ok ? 0 : 1);
+  for (const m of report.messages) out(m);
+  out(report.summary);
+  return report.ok ? EXIT_OK : EXIT_DIFF;
 }
+
+if (import.meta.main) process.exit(main(process.argv.slice(2), console.log, console.error));
