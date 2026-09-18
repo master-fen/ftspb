@@ -16,7 +16,8 @@ import { sortManifestPreloads } from "./ssr-snapshot";
  * на одной стороне, — расхождение состава, не ошибка входа.
  *
  * Код выхода: 0 — все три числа полные и состав совпал; 1 — расхождение;
- * 2 — ошибка входа или вызова (нет аргументов, нет каталога). Раньше
+ * 2 — ошибка входа или вызова (нет аргументов, нет каталога, ни одного .html
+ * на какой-либо стороне). Раньше
  * отсутствующий каталог ронял скрипт необработанным исключением с кодом 1 —
  * неотличимо от расхождения.
  */
@@ -129,6 +130,16 @@ export function main(argv: string[], out: (line: string) => void, err: (line: st
     }
   const namesA = fs.readdirSync(dirA).sort();
   const namesB = fs.readdirSync(dirB).sort();
+  // Ноль страниц с любой стороны — сравнивать нечего: «0/0» с кодом 0 было бы
+  // совпадением ни о чём (в #83 так «прошла» сверка на пустых каталогах).
+  for (const [d, names] of [
+    [dirA, namesA],
+    [dirB, namesB],
+  ] as const)
+    if (!names.some((n) => n.endsWith(".html"))) {
+      err(`нет ни одного .html в ${d}`);
+      return EXIT_INPUT;
+    }
   const read: ReadFile = (side, name) =>
     fs.readFileSync(path.join(side === "a" ? dirA : dirB, name));
   const report = compareDirs(namesA, namesB, read);

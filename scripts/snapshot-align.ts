@@ -27,7 +27,8 @@ import { sortManifestPreloads } from "./ssr-snapshot";
  *
  * Код выхода: 0 — все страницы по ожиданию; 1 — расхождение (в том числе
  * страница только на одной стороне); 2 — ошибка входа или вызова (нет
- * аргументов, нет каталога, нет или не разобран файл ожиданий). Раньше
+ * аргументов, нет каталога, ни одного .html на какой-либо стороне, нет или
+ * не разобран файл ожиданий). Раньше
  * отсутствующий вход ронял скрипт необработанным исключением с кодом 1 —
  * неотличимо от расхождения.
  */
@@ -223,6 +224,13 @@ export function main(argv: string[], out: (line: string) => void, err: (line: st
     err(`файл ожиданий не разобран ${expPath}: ${e instanceof Error ? e.message : String(e)}`);
     return EXIT_INPUT;
   }
+  // Ноль страниц с любой стороны — сравнивать нечего: «страниц: 0» с кодом 0
+  // было бы совпадением ни о чём.
+  for (const d of [dirA, dirB])
+    if (!fs.readdirSync(d).some((n) => n.endsWith(".html"))) {
+      err(`нет ни одного .html в ${d}`);
+      return EXIT_INPUT;
+    }
   const region: Region = { start: rs || DEFAULT_REGION.start, end: re || DEFAULT_REGION.end };
   out(`область: начало «${region.start}», конец «${region.end}»`);
   const names = [...new Set([...fs.readdirSync(dirA), ...fs.readdirSync(dirB)])]
