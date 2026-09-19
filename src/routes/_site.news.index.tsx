@@ -5,6 +5,7 @@ import { Breadcrumbs, type Crumb } from "@/components/site/Breadcrumbs";
 import { CategoryFilterChips } from "@/components/site/CategoryFilterChips";
 import { listNewsPage } from "@/lib/news-server-fn";
 import { NewsListCard } from "@/components/site/NewsListCard";
+import { NewsPagination } from "@/components/site/NewsPagination";
 import { pageSearchField } from "@/lib/news-paging";
 import {
   DEFAULT_SECTION_CATEGORY,
@@ -57,7 +58,7 @@ export const Route = createFileRoute("/_site/news/")({
 });
 
 function NewsPage() {
-  const { items } = Route.useLoaderData();
+  const { items, page, pageCount } = Route.useLoaderData();
   const { category } = Route.useSearch();
   const navigate = useNavigate({ from: "/news/" });
   const active: SectionCategory = category;
@@ -87,6 +88,8 @@ function NewsPage() {
           ))}
         </div>
       )}
+
+      <NewsPagination page={page} pageCount={pageCount} />
     </main>
   );
 }

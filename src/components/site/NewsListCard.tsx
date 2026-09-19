@@ -31,9 +31,12 @@ export function NewsListCard({ item, from }: { item: NewsCardItem; from?: NewsOr
 
       <div className="flex flex-1 flex-col gap-2 p-5 md:p-6">
         <div className="ui-caption">{newsMetaLine(item.category, item.date)}</div>
-        <h3 className="ui-card-title">{item.title}</h3>
+        {/* Страховка по высоте: заголовок и анонс не длиннее трёх строк, лишнее — многоточием. */}
+        <h3 className="line-clamp-3 ui-card-title">{item.title}</h3>
         {item.excerpt ? (
-          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{item.excerpt}</p>
+          <p className="mt-1 line-clamp-3 text-sm leading-relaxed text-muted-foreground">
+            {item.excerpt}
+          </p>
         ) : null}
       </div>
     </Link>

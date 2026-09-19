@@ -3,6 +3,7 @@ import { zodValidator } from "@tanstack/zod-adapter";
 import { z } from "zod";
 import { FederationMobileNav } from "@/components/site/FederationMobileNav";
 import { NewsListCard } from "@/components/site/NewsListCard";
+import { NewsPagination } from "@/components/site/NewsPagination";
 import { listNewsPage } from "@/lib/news-server-fn";
 import { pageSearchField } from "@/lib/news-paging";
 
@@ -38,7 +39,7 @@ export const Route = createFileRoute("/_site/federation/news")({
  * (src/routes/_site.federation.tsx) — здесь только содержимое колонки.
  */
 function FederationNewsPage() {
-  const { items } = Route.useLoaderData();
+  const { items, page, pageCount } = Route.useLoaderData();
 
   return (
     <article>
@@ -56,6 +57,8 @@ function FederationNewsPage() {
           ))}
         </div>
       )}
+
+      <NewsPagination page={page} pageCount={pageCount} />
     </article>
   );
 }
