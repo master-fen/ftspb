@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import type { NewsItem } from "@/lib/types/news";
+import type { NewsCardItem } from "@/lib/types/news";
 import type { NewsOrigin } from "@/lib/news-origin";
 import { NewsCoverPlaceholder } from "./NewsCoverPlaceholder";
 import { NewsImage } from "./NewsImage";
@@ -9,7 +9,7 @@ import { newsMetaLine } from "@/lib/news-meta";
  * `from` — откуда ведёт ссылка (лента раздела): попадает в `?from=` и задаёт
  * хлебные крошки на странице новости. Без пропа ссылка прежняя, без параметра.
  */
-export function NewsListCard({ item, from }: { item: NewsItem; from?: NewsOrigin }) {
+export function NewsListCard({ item, from }: { item: NewsCardItem; from?: NewsOrigin }) {
   return (
     <Link
       to="/news/$newsId"

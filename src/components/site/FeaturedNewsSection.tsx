@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { featuredNews } from "@/data/mock";
-import type { NewsItem } from "@/lib/types/news";
+import type { NewsCardItem } from "@/lib/types/news";
 import { NewsCard } from "./NewsCard";
 import { SectionHeading } from "./SectionHeading";
 
 type FeaturedNewsSectionProps = {
-  items?: NewsItem[];
+  items?: NewsCardItem[];
 };
 
 export function FeaturedNewsSection({ items = featuredNews }: FeaturedNewsSectionProps) {

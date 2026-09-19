@@ -15,13 +15,12 @@ import { Breadcrumbs, type Crumb } from "@/components/site/Breadcrumbs";
 import { NewsGallery } from "@/components/site/NewsGallery";
 import { NewsVideo } from "@/components/site/NewsVideo";
 import { NewsBody } from "@/components/site/NewsBody";
-import { getNewsBySlug, listNews } from "@/lib/news-server-fn";
-import type { NewsItem } from "@/lib/types/news";
+import { getNewsArticle } from "@/lib/news-server-fn";
+import type { NewsCardItem, NewsItem } from "@/lib/types/news";
 import { newsMetaLine } from "@/lib/news-meta";
 import { galleryImages } from "@/lib/gallery-layout";
 import { formatPhotoHash, parsePhotoHash } from "@/lib/photo-hash";
 import { NEWS_ORIGINS } from "@/lib/news-origin";
-import { pickRelatedNews } from "@/lib/news-related";
 import { buildNewsArticleJsonLd, serializeJsonLd } from "@/lib/news-jsonld";
 import { OG_IMAGE_URL, SITE_NAME, SITE_URL, toAbsoluteUrl } from "@/lib/site";
 
@@ -39,12 +38,12 @@ export const Route = createFileRoute("/_site/news/$newsId")({
   search: {
     middlewares: [stripSearchParams({ from: undefined })],
   },
+  // Один вызов: новость, «Читайте также» и описание считает сервер —
+  // список карточек на клиент не переносится.
   loader: async ({ params }) => {
-    const item = await getNewsBySlug({ data: params.newsId });
-    if (!item) throw notFound();
-    const all = await listNews();
-    const related = pickRelatedNews(all, item);
-    return { item, related };
+    const article = await getNewsArticle({ data: params.newsId });
+    if (!article) throw notFound();
+    return article;
   },
   head: ({ loaderData }) => {
     if (!loaderData) {
@@ -55,8 +54,9 @@ export const Route = createFileRoute("/_site/news/$newsId")({
         ],
       };
     }
-    const { item } = loaderData;
-    const desc = item.excerpt ?? item.title;
+    // description — по правилу анонса с порогом 200 (src/lib/news-excerpt.ts),
+    // сырой анонс бывает длиной 2900 знаков.
+    const { item, description: desc } = loaderData;
     const image = toAbsoluteUrl(item.cover) ?? OG_IMAGE_URL;
     const url = `${SITE_URL}/news/${item.id}`;
     // Машиночитаемые даты — только при наличии (мок-фикстуры без БД их не имеют).
@@ -288,7 +288,7 @@ function NewsDetailPage() {
           <div className="ui-card ring-card-border bg-muted p-6">
             <h2 className="text-sm font-bold tracking-wide text-foreground/80">Читайте также</h2>
             <ul className="mt-5 space-y-5">
-              {related.map((r: NewsItem) => (
+              {related.map((r: NewsCardItem) => (
                 <RelatedItem key={r.id} item={r} />
               ))}
             </ul>
@@ -307,7 +307,7 @@ function NewsDetailPage() {
   );
 }
 
-function RelatedItem({ item }: { item: NewsItem }) {
+function RelatedItem({ item }: { item: NewsCardItem }) {
   return (
     <li>
       <Link

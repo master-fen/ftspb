@@ -1,34 +1,40 @@
-import { useMemo } from "react";
 import { createFileRoute, useNavigate, stripSearchParams } from "@tanstack/react-router";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
 import { Breadcrumbs, type Crumb } from "@/components/site/Breadcrumbs";
 import { CategoryFilterChips } from "@/components/site/CategoryFilterChips";
-import { listNews } from "@/lib/news-server-fn";
+import { listNewsPage } from "@/lib/news-server-fn";
 import { NewsListCard } from "@/components/site/NewsListCard";
-import { sortNewsByDateDesc } from "@/lib/news-date";
+import { pageSearchField } from "@/lib/news-paging";
 import {
   DEFAULT_SECTION_CATEGORY,
   SECTION_CATEGORIES,
   SECTION_CATEGORY_LABELS,
   type SectionCategory,
 } from "@/lib/section-category";
-import type { NewsSection } from "@/lib/types/news";
 
 const DEFAULT_FILTER: SectionCategory = DEFAULT_SECTION_CATEGORY;
 
 const CRUMBS: Crumb[] = [{ label: "Главная", href: "/" }, { label: "Новости" }];
 
+/**
+ * `?category=` и `?page=`: мусор → умолчание, умолчание вычищается из адреса
+ * (fallback + stripSearchParams). Фильтр и номер страницы работают вместе:
+ * лоадер зависит от обоих (loaderDeps). Смена фильтра ведёт на адрес без
+ * `page` — объект `search` в navigate заменяет всё, и страница снова первая.
+ */
 const searchSchema = z.object({
   category: fallback(z.enum(SECTION_CATEGORIES), DEFAULT_FILTER).default(DEFAULT_FILTER),
+  page: pageSearchField,
 });
 
 export const Route = createFileRoute("/_site/news/")({
   validateSearch: zodValidator(searchSchema),
   search: {
-    middlewares: [stripSearchParams({ category: DEFAULT_FILTER })],
+    middlewares: [stripSearchParams({ category: DEFAULT_FILTER, page: 1 })],
   },
-  loader: () => listNews(),
+  loaderDeps: ({ search }) => ({ category: search.category, page: search.page }),
+  loader: ({ deps }) => listNewsPage({ data: deps }),
   head: () => ({
     meta: [
       { title: "Новости — Федерация тенниса Санкт-Петербурга" },
@@ -51,19 +57,10 @@ export const Route = createFileRoute("/_site/news/")({
 });
 
 function NewsPage() {
-  const news = Route.useLoaderData();
+  const { items } = Route.useLoaderData();
   const { category } = Route.useSearch();
   const navigate = useNavigate({ from: "/news/" });
   const active: SectionCategory = category;
-
-  const items = useMemo(() => {
-    const sorted = sortNewsByDateDesc(news);
-    if (active === "all") return sorted;
-    // Сравниваем машинный раздел, а не русскую подпись category.
-    // «Общее» — новости без раздела (section === null).
-    const wanted: NewsSection | null = active === "general" ? null : active;
-    return sorted.filter((n) => (n.section ?? null) === wanted);
-  }, [news, active]);
 
   const select = (value: SectionCategory) => {
     navigate({ search: { category: value }, resetScroll: false });

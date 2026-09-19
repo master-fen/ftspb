@@ -1,10 +1,14 @@
-import type { NewsItem } from "@/lib/types/news";
+import type { NewsCardItem } from "@/lib/types/news";
 
 export type NewsCache = {
-  items: NewsItem[];
+  /**
+   * Карточки всех опубликованных новостей в порядке выборки
+   * (`published_at desc, created_at desc, id desc`). Тел, галерей, видео и
+   * вложений здесь нет — их читает деталка отдельным запросом по слагу.
+   */
+  items: NewsCardItem[];
+  /** slug → featured_order у главных новостей; в карточке порядка нет. */
   featuredOrderById: Map<string, number>;
-  /** slug → video_url как в колонке; в `items` не кладётся, чтобы списки его не отдавали. */
-  videoUrlBySlug: Map<string, string | null>;
   expiresAt: number;
 };
 

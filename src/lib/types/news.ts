@@ -23,7 +23,7 @@ export type NewsItem = {
   date: string; // dd.mm.yy
   title: string;
   excerpt?: string;
-  /** HTML string: p / strong / ul / ol / h2 / h3 / blockquote / a */
+  /** HTML string: p / strong / ul / ol / h2 / h3 / blockquote / a / table (см. src/server/sanitize.ts) */
   body?: string;
   attachments?: NewsAttachment[];
   /** Отсутствует, если у новости нет изображения — в списках показывается заглушка. */
@@ -53,3 +53,25 @@ export type NewsItem = {
   /** `news.updated_at`, полный ISO-8601 (`toISOString()`). Необязательно из-за мок-фикстур. */
   updatedAtIso?: string;
 };
+
+/**
+ * Карточка списка — то, что рисуют ленты, главная и «Читайте также».
+ * `excerpt` здесь — уже готовый анонс по правилу карточки (`cardExcerpt`,
+ * src/lib/news-excerpt.ts: свой анонс, иначе начало тела, порог 150), а не
+ * значение колонки. Тела, галереи, видео и вложений в карточке нет — их
+ * читает только деталка (`NewsItem`, `getNewsBySlug`). `featured` и
+ * `updatedAtIso` необязательны из-за мок-фикстур; `src/server/news.ts`
+ * заполняет их всегда. Порядок главных — отдельно, в кэше.
+ */
+export type NewsCardItem = Pick<
+  NewsItem,
+  | "id"
+  | "category"
+  | "section"
+  | "date"
+  | "title"
+  | "excerpt"
+  | "cover"
+  | "featured"
+  | "updatedAtIso"
+>;

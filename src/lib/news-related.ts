@@ -12,11 +12,11 @@ import type { NewsItem } from "@/lib/types/news";
  * с добивкой. Повторы невозможны по построению — списки не пересекаются.
  * Результат не длиннее `limit`.
  */
-export function pickRelatedNews(
-  all: readonly NewsItem[],
+export function pickRelatedNews<T extends Pick<NewsItem, "id" | "section" | "date">>(
+  all: readonly T[],
   current: Pick<NewsItem, "id" | "section">,
   limit = 3,
-): NewsItem[] {
+): T[] {
   const currentSection = current.section ?? null;
   const others = all.filter((n) => n.id !== current.id);
 
