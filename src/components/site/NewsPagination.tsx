@@ -19,8 +19,10 @@ const DISABLED = "text-sm font-medium text-muted-foreground";
  * (stripSearchParams в маршруте). Номера абсолютные, от приведённой сервером
  * страницы: при `?page=99` лента показывает первую, и «Вперёд» ведёт на
  * вторую. `resetScroll` не задаётся: роутер сам ставит окно в начало страницы
- * (docs/decisions.md, правило про scrollRestoration). При одной странице
- * управление не рисуется.
+ * (docs/decisions.md, правило про scrollRestoration). `exact` в
+ * activeOptions: без него ссылка «Назад» на `/news` со второй страницы
+ * считалась бы активной (частичное совпадение search) и получала бы
+ * `aria-current="page"`. При одной странице управление не рисуется.
  */
 export function NewsPagination({ page, pageCount }: NewsPaginationProps) {
   if (pageCount <= 1) return null;
@@ -33,7 +35,12 @@ export function NewsPagination({ page, pageCount }: NewsPaginationProps) {
           <span aria-hidden>←</span> Назад
         </span>
       ) : (
-        <Link to="." search={(current) => ({ ...current, page: prev })} className={LINK}>
+        <Link
+          to="."
+          search={(current) => ({ ...current, page: prev })}
+          activeOptions={{ exact: true }}
+          className={LINK}
+        >
           <span aria-hidden>←</span> Назад
         </Link>
       )}
@@ -43,7 +50,12 @@ export function NewsPagination({ page, pageCount }: NewsPaginationProps) {
           Вперёд <span aria-hidden>→</span>
         </span>
       ) : (
-        <Link to="." search={(current) => ({ ...current, page: next })} className={LINK}>
+        <Link
+          to="."
+          search={(current) => ({ ...current, page: next })}
+          activeOptions={{ exact: true }}
+          className={LINK}
+        >
           Вперёд <span aria-hidden>→</span>
         </Link>
       )}
