@@ -20,9 +20,6 @@ Lovable не используется с 08.09.2026. Claude Code правит в
 - `src/lib/lovable-error-reporting.ts`, `src/lib/error-capture.ts`,
   `src/lib/error-page.ts`, `src/routes/README.md` — руками не трогать.
 
-Каталога `.workspace/skills/`, о котором правило говорило раньше, в клоне нет —
-строка убрана.
-
 ## Где что лежит
 
 - `docs/process.md` — как ведётся работа: режимы, цикл задания, уровни
