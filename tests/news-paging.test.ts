@@ -1,12 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { z } from "zod";
-import {
-  NEWS_PAGE_SIZE,
-  clampPage,
-  pageCountFor,
-  pageSearchField,
-  paginationState,
-} from "@/lib/news-paging";
+import { pageSearchField } from "@/lib/news-page-search";
+import { NEWS_PAGE_SIZE, clampPage, pageCountFor, paginationState } from "@/lib/news-paging";
 
 const schema = z.object({ page: pageSearchField });
 

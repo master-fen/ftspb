@@ -1,17 +1,12 @@
-import { fallback } from "@tanstack/zod-adapter";
-import { z } from "zod";
+/**
+ * Чистые помощники постраничной ленты — без зависимостей: модуль тянут и
+ * маршруты, и ленивый чанк NewsPagination. Поле схемы поиска `?page=` (zod)
+ * живёт отдельно в `news-page-search.ts`, чтобы zod-adapter не попадал в
+ * общий чанк и в preload каждой страницы.
+ */
 
 /** Карточек на странице ленты. */
 export const NEWS_PAGE_SIZE = 24;
-
-/**
- * Поле `?page=` схемы поиска: целое ≥ 1, иначе 1 (мусор, «0», «-3»);
- * отсутствует — 1. Парсер адреса роутера отдаёт числовые строки числами
- * (JSON.parse), нечисловые — строками; `fallback` ловит и то и другое, как
- * `?category=` на той же странице. Значение 1 вычищается из адреса
- * `stripSearchParams({ page: 1 })` в маршруте.
- */
-export const pageSearchField = fallback(z.number().int().min(1), 1).default(1);
 
 /** Число страниц; 0 при пустом списке. */
 export function pageCountFor(total: number, pageSize = NEWS_PAGE_SIZE): number {

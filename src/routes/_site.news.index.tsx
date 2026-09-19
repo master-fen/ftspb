@@ -6,7 +6,7 @@ import { CategoryFilterChips } from "@/components/site/CategoryFilterChips";
 import { listNewsPage } from "@/lib/news-server-fn";
 import { NewsListCard } from "@/components/site/NewsListCard";
 import { NewsPagination } from "@/components/site/NewsPagination";
-import { pageSearchField } from "@/lib/news-paging";
+import { pageSearchField } from "@/lib/news-page-search";
 import {
   DEFAULT_SECTION_CATEGORY,
   SECTION_CATEGORIES,

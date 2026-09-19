@@ -5,7 +5,7 @@ import { FederationMobileNav } from "@/components/site/FederationMobileNav";
 import { NewsListCard } from "@/components/site/NewsListCard";
 import { NewsPagination } from "@/components/site/NewsPagination";
 import { listNewsPage } from "@/lib/news-server-fn";
-import { pageSearchField } from "@/lib/news-paging";
+import { pageSearchField } from "@/lib/news-page-search";
 
 const TITLE = "Новости Федерации — Федерация тенниса Санкт-Петербурга";
 const DESCRIPTION =
