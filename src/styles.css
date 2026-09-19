@@ -238,6 +238,38 @@
     color: var(--muted-foreground);
     font-style: italic;
   }
+  /* Таблицы результатов в тексте новости. Обёртку .news-table ставит NewsBody
+     (src/lib/news-tables.ts): на узком экране прокручивается она, а не
+     страница. Ширина таблицы — по содержимому; числа, как и текст, по левому
+     краю; шапка на приглушённой поверхности (роль «Шапка таблицы в тексте
+     новости» — токен muted, docs/style-rules.md). */
+  .news-prose .news-table {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  .news-prose table {
+    width: auto;
+    border-collapse: collapse;
+  }
+  .news-prose th,
+  .news-prose td {
+    border: 1px solid var(--border);
+    padding: 0.4em 0.75em;
+    text-align: left;
+    vertical-align: top;
+  }
+  .news-prose th {
+    background: var(--muted);
+    color: var(--brand-navy);
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .news-prose caption {
+    caption-side: top;
+    padding-bottom: 0.5em;
+    text-align: left;
+    color: var(--muted-foreground);
+  }
 }
 
 /* Scrollbar: desktop styled, mobile hidden */
