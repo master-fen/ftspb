@@ -47,7 +47,8 @@ export const Route = createFileRoute("/admin/_authed/news/$id")({
   component: AdminNewsEdit,
 });
 
-const ALLOWED_TAGS_HINT = "p, strong, em, u, a, ul, ol, li, h2, h3, blockquote";
+const ALLOWED_TAGS_HINT =
+  "p, strong, em, u, a, ul, ol, li, h2, h3, blockquote, table, caption, thead, tbody, tfoot, tr, th, td";
 
 const formSchema = z.object({
   title: z.string().min(1, "Введите заголовок"),

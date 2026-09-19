@@ -15,6 +15,17 @@ const ALLOWED_TAGS = [
   "h2",
   "h3",
   "blockquote",
+  // Таблицы результатов (архив, /news/СЛАГ): без расширения списка правка
+  // архивной новости через админку молча уничтожала бы таблицу. Оформление —
+  // `.news-prose` в src/styles.css, обёртка прокрутки — NewsBody.
+  "table",
+  "caption",
+  "thead",
+  "tbody",
+  "tfoot",
+  "tr",
+  "th",
+  "td",
 ];
 
 /**
@@ -28,7 +39,12 @@ const NON_TEXT_TAGS = ["script", "style", "textarea", "option", "iframe", "objec
 export function sanitizeBody(html: string): string {
   return sanitizeHtmlLib(html, {
     allowedTags: ALLOWED_TAGS,
-    allowedAttributes: { a: ["href", "title", "target", "rel"] },
+    allowedAttributes: {
+      a: ["href", "title", "target", "rel"],
+      // У ячеек — только объединение; style и обработчики событий вырезаются.
+      th: ["colspan", "rowspan"],
+      td: ["colspan", "rowspan"],
+    },
     allowedSchemes: ["http", "https", "mailto"],
     nonTextTags: NON_TEXT_TAGS,
     transformTags: {
