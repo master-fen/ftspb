@@ -10,6 +10,11 @@
  *   дефектов д1–д5, детерминированная выборка для проверки глазами);
  *   --profile-control=ПОДСТРОКА — каждая запись с подстрокой в заголовке
  *   обязана дать ≥1 сигнал детектора д3, иначе exit 1.
+ *   Инвентаризация перед миграцией (19.09.2026): смежные ленты
+ *   (plt_news/pobeda/festvest/150), детекторы д6–д8, признаки одиночных
+ *   картинок, примерка правила анонса (excerpt-preview.md в той же папке),
+ *   заголовки, записи 2026 года, сводка по годам и раздел «Контроли» —
+ *   любой контроль с вердиктом НЕТ даёт exit 1 после записи файлов.
  *
  * Работает на node 24 без сборки (erasable-syntax TS), только встроенные
  * модули; вся разметка архива — windows-1251, читается строго через
@@ -258,7 +263,14 @@ type ProfCapture = {
   foreignYear: boolean;
   feedFragment: string; // feedBody после удаления датного спана/дубля заголовка схемы A
   feedUrl: string;
-  absorbed: Array<{ relFile: string; url: string; bodyHtml: string; layout: "C" | "D" | null }>;
+  absorbed: Array<{
+    relFile: string;
+    url: string;
+    bodyHtml: string;
+    layout: "C" | "D" | null;
+    /** Дата страницы, по которой боевой путь считал правило 60 дней (ArticlePage.date). */
+    date: string | null;
+  }>;
   teaserRelFile: string | null;
   teaserUrl: string | null;
   teaserBodyHtml: string | null;
@@ -1119,6 +1131,7 @@ function buildRecord(item: FeedItem): OutputRecord | null {
         url: l.page.url,
         bodyHtml: l.page.bodyHtml,
         layout: l.page.layout,
+        date: l.page.date,
       });
     }
     if (teaser && teaser.page) {
@@ -2050,6 +2063,338 @@ const D3V_TRIGGERS: Array<{ id: string; test: (s: string) => boolean }> = [
   { id: "читайте", test: (s) => /читайте/i.test(s) },
 ];
 
+// ───────────────────────── профиль: инвентаризация перед миграцией (д6–д8, картинки, анонс, ленты) ─────────────────────────
+
+/** д6: бакет дельты в днях между датой записи и датой поглощённой страницы. */
+function profD6Bucket(delta: number): string {
+  return delta === 0
+    ? "0"
+    : delta <= 7
+      ? "1–7"
+      : delta <= 30
+        ? "8–30"
+        : delta <= 60
+          ? "31–60"
+          : "61+";
+}
+
+type D6 = {
+  /** Главная поглощённая страница: тизер, иначе первая поглощённая по порядку ссылок. */
+  страница: string | null;
+  датаСтраницы: string | null;
+  дельта: number | null;
+  флаг: boolean;
+  /** Дельта по каждой поглощённой странице записи (для распределения по страницам). */
+  поСтраницам: Array<{ relFile: string; дельта: number | null }>;
+};
+
+/**
+ * д6 — дата ленты ≠ дата article: дата записи сравнивается с датой главной
+ * поглощённой страницы (тизер, иначе первая поглощённая). Дата страницы —
+ * та же, что использовал боевой путь для правила 60 дней (ArticlePage.date:
+ * «Опубликовано …», иначе имя файла); дельта — модуль разницы в днях, как в
+ * daysBetween. Записи без поглощения — страница null, флаг false.
+ */
+function profD6(
+  absorbed: Array<{ relFile: string; date: string | null }>,
+  teaserRelFile: string | null,
+  recordDate: string,
+): D6 {
+  const поСтраницам = absorbed.map((a) => ({
+    relFile: a.relFile,
+    дельта: a.date === null ? null : Math.round(daysBetween(a.date, recordDate)),
+  }));
+  const primary =
+    (teaserRelFile ? absorbed.find((a) => a.relFile === teaserRelFile) : undefined) ?? absorbed[0];
+  if (!primary)
+    return { страница: null, датаСтраницы: null, дельта: null, флаг: false, поСтраницам };
+  const дельта = primary.date === null ? null : Math.round(daysBetween(primary.date, recordDate));
+  return {
+    страница: primary.relFile,
+    датаСтраницы: primary.date,
+    дельта,
+    флаг: дельта !== null && дельта > 0,
+    поСтраницам,
+  };
+}
+
+/** д7: порог длины плоского текста поглощённой страницы (знаков, включительно). */
+const D7_THRESHOLD = 500;
+
+type D7 = {
+  страниц: number;
+  суммаДлин: number;
+  страницы: Array<{ relFile: string; длина: number }>;
+};
+
+/**
+ * д7 — поглощена страница с собственным текстом. Телом записи становится
+ * только первая ссылка с кейсом «тизер»; все остальные поглощённые страницы
+ * (и с кейсом «галерея», и с кейсом «тизер», не ставшие первой) отдают лишь
+ * фото и документы, их текст пропадает. Для каждой такой страницы — длина
+ * плоского текста после санитайзера в silent (то, что стало бы телом
+ * отдельной записи); страница считается, если длина ≥ D7_THRESHOLD.
+ */
+function profD7(
+  absorbed: Array<{ relFile: string; url: string; bodyHtml: string }>,
+  teaserRelFile: string | null,
+): D7 {
+  const страницы: D7["страницы"] = [];
+  for (const a of absorbed) {
+    if (a.relFile === teaserRelFile) continue;
+    const длина = plainProf(sanitizeBody(a.bodyHtml, { baseUrl: a.url, silent: true })).length;
+    if (длина >= D7_THRESHOLD) страницы.push({ relFile: a.relFile, длина });
+  }
+  return {
+    страниц: страницы.length,
+    суммаДлин: страницы.reduce((s, p) => s + p.длина, 0),
+    страницы,
+  };
+}
+
+/**
+ * д8: известные префиксы плоского тела тизерной записи, снимаемые перед
+ * сравнением с заголовком: остаток Dreamweaver-комментария (д2) и сквозной
+ * баннер шаблона «ФЕСТИВАЛЬ ТЕННИСНЫХ ГОРОДОВ» (в нормализованном виде).
+ */
+const D8_JUNK_PREFIXES = ["instancebegineditable name edit02", "фестиваль теннисных городов"];
+/** д8(б): строка «Опубликовано ДД месяц ГГГГ г.» — буквально по ТЗ. */
+const D8_PUBLISHED_RE = /Опубликовано \d+ [а-я]+ \d{4} г\./;
+/** д8(а): голова заголовка — слова до накопления этого числа знаков. */
+const D8_HEAD_MIN = 20;
+
+/** Нормализация д8: нижний регистр, ё→е, всё кроме букв и цифр — один пробел. */
+function profD8Norm(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/ё/g, "е")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+}
+
+/** Голова заголовка: слова до накопления ≥ D8_HEAD_MIN знаков; короткий заголовок — целиком. */
+function profTitleHead(normTitle: string): string {
+  if (normTitle.length <= D8_HEAD_MIN) return normTitle;
+  let head = "";
+  for (const w of normTitle.split(" ")) {
+    head = head ? `${head} ${w}` : w;
+    if (head.length >= D8_HEAD_MIN) break;
+  }
+  return head;
+}
+
+/** text начинается словами prefix (по границе слова). */
+const startsWithWords = (text: string, prefix: string): boolean =>
+  prefix !== "" && (text === prefix || text.startsWith(`${prefix} `));
+
+type D8 = { а: boolean; аСтрого: boolean; б: boolean };
+
+/**
+ * д8 — шапка article в теле тизерной записи, два флага по отдельности:
+ * (а) плоское тело — после снятия D8_JUNK_PREFIXES — начинается с головы
+ * заголовка записи либо заголовка article-страницы (<title>); аСтрого —
+ * с заголовка целиком (справочно); (б) тело содержит строку
+ * «Опубликовано ДД месяц ГГГГ г.».
+ */
+function profD8(bodyPlain: string, titles: string[]): D8 {
+  let b = profD8Norm(bodyPlain);
+  for (const junk of D8_JUNK_PREFIXES) {
+    if (startsWithWords(b, junk)) b = b.slice(junk.length).trim();
+  }
+  const norms = titles.map(profD8Norm).filter((t) => t !== "");
+  return {
+    а: norms.some((t) => startsWithWords(b, profTitleHead(t))),
+    аСтрого: norms.some((t) => startsWithWords(b, t)),
+    б: D8_PUBLISHED_RE.test(bodyPlain),
+  };
+}
+
+/** <title> article-страницы — читается из файла архива (только чтение, кэш по relFile). */
+const articleTitleCache = new Map<string, string | null>();
+
+function profArticleTitle(relFile: string): string | null {
+  const cached = articleTitleCache.get(relFile);
+  if (cached !== undefined) return cached;
+  const fullPath = join(ARCHIVE, "download", relFile.split("/").join("\\"));
+  let title: string | null = null;
+  if (existsSync(fullPath)) {
+    const m = readCp1251(fullPath).match(/<title>([\s\S]*?)<\/title>/i);
+    if (m) title = plainProf(m[1]);
+  }
+  articleTitleCache.set(relFile, title);
+  return title;
+}
+
+/** Повторяющийся src: ключ src встречается одиночным не менее чем в minRecords записях. */
+function profRepeatedSrcKeys(perRecord: string[][], minRecords = 3): Set<string> {
+  const recs = new Map<string, number>();
+  for (const srcs of perRecord) {
+    for (const key of new Set(srcs.map(imgSrcKey))) recs.set(key, (recs.get(key) ?? 0) + 1);
+  }
+  return new Set(
+    [...recs]
+      .filter(([, n]) => n >= minRecords)
+      .map(([k]) => k)
+      .sort(),
+  );
+}
+
+/** Логотип по пути: ключ src содержит сегмент «logos/». */
+const isLogoSrc = (src: string): boolean => imgSrcKey(src).includes("logos/");
+
+/**
+ * Граница предложения для правила анонса: знак конца (. ! ? …) с возможными
+ * закрывающими кавычками/скобками, затем пробел. Сокращения («г.», «ул.»)
+ * рвут предложение — это свойство самого правила, а не измерения.
+ */
+const SENTENCE_SPLIT_RE = /(?<=[.!?…][»”"')\]]*)\s+/u;
+/** Пороги примерки правила анонса (знаков). */
+const EXCERPT_THRESHOLDS = [150, 200, 250, 300];
+
+/**
+ * Правило анонса (примерка, для решения Антона): при пустом анонсе карточка
+ * берёт начало плоского тела до n знаков по границе предложения; если первое
+ * предложение длиннее n — по границе слова с многоточием (итог ≤ n). Пустое
+ * тело → пустая строка. Тело короче n — целиком.
+ */
+function excerptFromBody(plain: string, n: number): { текст: string; поСлову: boolean } {
+  const text = plain.trim();
+  if (text === "") return { текст: "", поСлову: false };
+  if (text.length <= n) return { текст: text, поСлову: false };
+  let out = "";
+  for (const s of text.split(SENTENCE_SPLIT_RE)) {
+    const candidate = out ? `${out} ${s}` : s;
+    if (candidate.length > n) break;
+    out = candidate;
+  }
+  if (out !== "") return { текст: out, поСлову: false };
+  const head = text.slice(0, n - 1);
+  const cut = head.lastIndexOf(" ");
+  const words = (cut > 0 ? head.slice(0, cut) : head).replace(/[\s,;:—–-]+$/u, "");
+  return { текст: `${words}…`, поСлову: true };
+}
+
+/** Заголовок целиком в верхнем регистре: есть буквы и нет ни одной строчной. */
+const isUpperTitle = (t: string): boolean => /\p{L}/u.test(t) && !/\p{Ll}/u.test(t);
+
+/** Смежные ленты легаси (файлы download/), считаются по регулярным выражениям. */
+const ADJACENT_FEEDS = ["plt_news.html", "pobeda.html", "festvest.html", "150.html"];
+
+type AdjacentLink = { relFile: string; класс: "а" | "б" | "в"; записи: string[] };
+
+type AdjacentFeed = {
+  file: string;
+  есть: boolean;
+  /** Вхождений строки «Опубликовано:» после снятия комментариев / в сыром html. */
+  опубликовано: number;
+  опубликованоСырое: number;
+  /** ISO-даты, распознанные из «Опубликовано: дд.мм.гггг». */
+  даты: string[];
+  /** Уникальные ссылки на страницы /ГГГГ/ММДД (с суффиксами), по классам. */
+  ссылки: AdjacentLink[];
+  /** Обратная связь: записи экспорта со ссылкой на ленту. */
+  записиВТеле: string[];
+  вхожденийВТеле: number;
+  изЛенты: { записей: number; вхождений: number };
+  изТизера: { записей: number; вхождений: number };
+  изПрочихПоглощённых: { записей: number; страниц: number; вхождений: number };
+};
+
+/** Число <a href> фрагмента, ведущих на страницу /file легаси (любая форма хоста и схемы). */
+function profCountLinksTo(html: string, baseUrl: string, file: string): number {
+  let n = 0;
+  for (const m of html.matchAll(/<a\b[^>]*href\s*=\s*["']?([^"'\s>]+)/gi)) {
+    const abs = absolutize(m[1], baseUrl);
+    if (abs && isTennisfed(abs) && new URL(abs).pathname.toLowerCase() === `/${file.toLowerCase()}`)
+      n += 1;
+  }
+  return n;
+}
+
+/**
+ * Одна смежная лента: счёт «Опубликовано:», даты, уникальные article-ссылки
+ * с разбивкой (а) страница — article-страница записи экспорта (по ссылкам
+ * записей, любой кейс), (б) файл есть в архиве, записью не стал, (в) файла
+ * в архиве нет; обратная связь — ссылки на ленту из записей по источникам.
+ */
+function profAdjacentFeed(
+  file: string,
+  referenced: Map<string, string[]>,
+  items: Array<{ key: string; rec: OutputRecord; cap: ProfCapture }>,
+): AdjacentFeed {
+  const out: AdjacentFeed = {
+    file,
+    есть: false,
+    опубликовано: 0,
+    опубликованоСырое: 0,
+    даты: [],
+    ссылки: [],
+    записиВТеле: [],
+    вхожденийВТеле: 0,
+    изЛенты: { записей: 0, вхождений: 0 },
+    изТизера: { записей: 0, вхождений: 0 },
+    изПрочихПоглощённых: { записей: 0, страниц: 0, вхождений: 0 },
+  };
+  const fullPath = join(ARCHIVE, "download", file);
+  if (!existsSync(fullPath)) return out;
+  out.есть = true;
+  const raw = readCp1251(fullPath);
+  const html = blankComments(raw);
+  const baseUrl = `${SITE}/${file}`;
+  out.опубликованоСырое = (raw.match(/Опубликовано:/g) ?? []).length;
+  out.опубликовано = (html.match(/Опубликовано:/g) ?? []).length;
+  out.даты = [...html.matchAll(/Опубликовано:\s*(\d{1,2})\.(\d{1,2})\.(\d{4})/g)].map(
+    (m) => toIsoFixed(Number(m[1]), Number(m[2]), Number(m[3])).iso,
+  );
+  const rels = new Set<string>();
+  for (const m of html.matchAll(/href\s*=\s*["']?([^"'\s>]+)/gi)) {
+    const abs = absolutize(m[1], baseUrl);
+    const rel = abs ? articleRelFile(abs) : null;
+    if (rel) rels.add(rel);
+  }
+  out.ссылки = [...rels].sort().map((rel) => {
+    const recs = referenced.get(rel);
+    if (recs) return { relFile: rel, класс: "а" as const, записи: recs };
+    const onDisk = existsSync(join(ARCHIVE, "download", rel.split("/").join("\\")));
+    return { relFile: rel, класс: onDisk ? ("б" as const) : ("в" as const), записи: [] };
+  });
+  for (const { key, rec, cap } of items) {
+    const inBody = profCountLinksTo(rec["ТекстHTML"], cap.feedUrl, file);
+    if (inBody > 0) {
+      out.записиВТеле.push(key);
+      out.вхожденийВТеле += inBody;
+    }
+    const inFeed = profCountLinksTo(cap.feedFragment, cap.feedUrl, file);
+    if (inFeed > 0) {
+      out.изЛенты.записей += 1;
+      out.изЛенты.вхождений += inFeed;
+    }
+    if (cap.teaserBodyHtml !== null && cap.teaserUrl !== null) {
+      const inTeaser = profCountLinksTo(cap.teaserBodyHtml, cap.teaserUrl, file);
+      if (inTeaser > 0) {
+        out.изТизера.записей += 1;
+        out.изТизера.вхождений += inTeaser;
+      }
+    }
+    let pages = 0;
+    let occ = 0;
+    for (const a of cap.absorbed) {
+      if (a.relFile === cap.teaserRelFile) continue;
+      const n = profCountLinksTo(a.bodyHtml, a.url, file);
+      if (n > 0) {
+        pages += 1;
+        occ += n;
+      }
+    }
+    if (pages > 0) {
+      out.изПрочихПоглощённых.записей += 1;
+      out.изПрочихПоглощённых.страниц += pages;
+      out.изПрочихПоглощённых.вхождений += occ;
+    }
+  }
+  return out;
+}
+
 // ───────────────────────── профиль: сборка записи профиля ─────────────────────────
 
 type ProfileKey = {
@@ -2117,6 +2462,12 @@ type Detectors = {
   д3: { а: boolean | null; б: boolean; в: string[]; г: boolean | null; любое: boolean };
   д4: boolean;
   д5: boolean;
+  /** д6 — дата ленты ≠ дата главной поглощённой article-страницы; см. profD6. */
+  д6: D6;
+  /** д7 — поглощена страница с собственным текстом (не ставшая телом); см. profD7. */
+  д7: D7;
+  /** д8 — шапка article в теле; только у тизерных записей, иначе null; см. profD8. */
+  д8: D8 | null;
 };
 
 type ProfileRecord = {
@@ -2255,12 +2606,22 @@ function profDetectors(rec: OutputRecord, cap: ProfCapture): Detectors {
   const г = rec["Анонс"] !== undefined ? profHasCommonRun120(plainProf(rec["Анонс"]), pBody) : null;
   const д3 = { а, б, в, г, любое: а === true || б || в.length > 0 || г === true };
 
+  // д8 — только у тизерных записей: заголовок записи и <title> article-страницы.
+  let д8: D8 | null = null;
+  if (cap.teaserRelFile !== null) {
+    const artTitle = profArticleTitle(cap.teaserRelFile);
+    д8 = profD8(pBody, artTitle === null ? [rec["Заголовок"]] : [rec["Заголовок"], artTitle]);
+  }
+
   return {
     д1,
     д2,
     д3,
     д4: pBody.length < 30,
     д5: rec["Анонс"] !== undefined && pBody === plainProf(rec["Анонс"]),
+    д6: profD6(cap.absorbed, cap.teaserRelFile, rec["Дата"]),
+    д7: profD7(cap.absorbed, cap.teaserRelFile),
+    д8,
   };
 }
 
@@ -2870,6 +3231,62 @@ function singleImgInventorySection(L: string[], profs: ProfileRecord[]): void {
     `Из них в бакете фото=1 (обложка карточки декоративна с высокой вероятностью): ${flagged.filter((p) => p.результат.бакетФото === "1").length}.`,
   );
   L.push("");
+
+  // (д)/(е): повторяющийся src (одиночным в ≥3 записях) и путь с «logos/».
+  const perRecord = profs.map((p) => p.источник.сумма.фотоРазметка.одиночные.map((i) => i.src));
+  const repeated = profRepeatedSrcKeys(perRecord, 3);
+  const flagStats = (pred: (src: string) => boolean) => {
+    let картинок = 0;
+    const записи = new Set<number>();
+    profs.forEach((p, idx) => {
+      for (const i of p.источник.сумма.фотоРазметка.одиночные) {
+        if (pred(i.src)) {
+          картинок += 1;
+          записи.add(idx);
+        }
+      }
+    });
+    const декор = [...записи].filter((idx) => profs[idx].трансформация.декорОбложка).length;
+    return { картинок, записей: записи.size, декорОбложка: декор, записи };
+  };
+  const rep = flagStats((src) => repeated.has(imgSrcKey(src)));
+  const logo = flagStats(isLogoSrc);
+  const both = flagStats((src) => repeated.has(imgSrcKey(src)) && isLogoSrc(src));
+
+  L.push("### (д) Повторяющийся src (одиночным в трёх и более записях)");
+  L.push("");
+  L.push(
+    `- уникальных src: ${repeated.size}; картинок: ${rep.картинок}; записей: ${rep.записей}; из них с флагом декорОбложка: ${rep.декорОбложка}`,
+  );
+  L.push("");
+  L.push("Топ-20 повторяющихся src (по числу записей, затем вхождений):");
+  L.push("");
+  L.push("| src | записей | вхождений |");
+  L.push("|---|---|---|");
+  const repTop = [...bySrc.entries()]
+    .filter(([src]) => repeated.has(src))
+    .sort(
+      ([sa, a], [sb, b]) =>
+        b.записи.size - a.записи.size || b.вхождений - a.вхождений || (sa < sb ? -1 : 1),
+    )
+    .slice(0, 20);
+  for (const [src, agg] of repTop)
+    L.push(`| ${mdEsc(src)} | ${agg.записи.size} | ${agg.вхождений} |`);
+  if (repTop.length === 0) L.push("| _нет_ | | |");
+  L.push("");
+
+  L.push("### (е) Путь содержит `logos/`");
+  L.push("");
+  L.push(
+    `- картинок: ${logo.картинок}; записей: ${logo.записей}; из них с флагом декорОбложка: ${logo.декорОбложка}`,
+  );
+  L.push(
+    `- пересечение с (д): картинок ${both.картинок}, записей ${both.записей}, из них декорОбложка ${both.декорОбложка}`,
+  );
+  const logoKeys = [...bySrc.keys()].filter((k) => isLogoSrc(k)).sort();
+  L.push(`- уникальных src с logos/: ${logoKeys.length}`);
+  for (const k of logoKeys) L.push(`  - ${mdEsc(k)} (записей ${bySrc.get(k)!.записи.size})`);
+  L.push("");
 }
 
 function detectorSection(
@@ -2887,11 +3304,175 @@ function detectorSection(
   return hits.length;
 }
 
+/** Ключ ProfileRecord для списков инвентаризации (без заголовка). */
+const profKeyShort = (p: ProfileRecord): string => `${p.ключ.файл}#${p.ключ.номер}`;
+
+type ExcerptStats = {
+  безАнонса: number;
+  сАнонсом: number;
+  пустыхТел: number;
+  /** По порогам: бакет длины → записей; поСлову — обрезано по границе слова. */
+  поПорогам: Array<{ порог: number; бакеты: Map<string, number>; поСлову: number; пустых: number }>;
+  анонсБакеты: Map<string, number>;
+};
+
+const EXCERPT_LEN_BUCKETS = ["0", "1–50", "51–100", "101–150", "151–200", "201–250", "251–300"];
+const excerptLenBucket = (n: number): string =>
+  n === 0
+    ? "0"
+    : n <= 50
+      ? "1–50"
+      : n <= 100
+        ? "51–100"
+        : n <= 150
+          ? "101–150"
+          : n <= 200
+            ? "151–200"
+            : n <= 250
+              ? "201–250"
+              : n <= 300
+                ? "251–300"
+                : "301+";
+const ANONS_LEN_BUCKETS = ["0–200", "201–500", "501–1000", "1001+"];
+const anonsLenBucket = (n: number): string =>
+  n <= 200 ? "0–200" : n <= 500 ? "201–500" : n <= 1000 ? "501–1000" : "1001+";
+
+/** Примерка правила анонса по всем записям без собственного анонса. */
+function profExcerptStats(profs: ProfileRecord[], records: OutputRecord[]): ExcerptStats {
+  const stats: ExcerptStats = {
+    безАнонса: 0,
+    сАнонсом: 0,
+    пустыхТел: 0,
+    поПорогам: EXCERPT_THRESHOLDS.map((порог) => ({
+      порог,
+      бакеты: new Map<string, number>(),
+      поСлову: 0,
+      пустых: 0,
+    })),
+    анонсБакеты: new Map<string, number>(),
+  };
+  profs.forEach((p, idx) => {
+    const rec = records[idx];
+    if (rec["Анонс"] !== undefined) {
+      stats.сАнонсом += 1;
+      const b = anonsLenBucket(plainProf(rec["Анонс"]).length);
+      stats.анонсБакеты.set(b, (stats.анонсБакеты.get(b) ?? 0) + 1);
+      return;
+    }
+    stats.безАнонса += 1;
+    const plain = plainProf(rec["ТекстHTML"]);
+    if (plain === "") stats.пустыхТел += 1;
+    for (const t of stats.поПорогам) {
+      const r = excerptFromBody(plain, t.порог);
+      const b = excerptLenBucket(r.текст.length);
+      t.бакеты.set(b, (t.бакеты.get(b) ?? 0) + 1);
+      if (r.поСлову) t.поСлову += 1;
+      if (r.текст === "") t.пустых += 1;
+    }
+  });
+  return stats;
+}
+
+/** Seed выборки excerpt-preview.md (10 случайных записей без анонса). */
+const EXCERPT_PREVIEW_SEED = 30;
+
+/**
+ * Отбор 30 записей для excerpt-preview.md: 10 с самыми длинными собственными
+ * анонсами, 10 с самым длинным plain-телом без анонса, 10 случайных без
+ * анонса (mulberry32, seed EXCERPT_PREVIEW_SEED, пул — порядок экспорта без
+ * уже отобранных). Равенства — по порядку экспорта; состав детерминирован.
+ */
+function selectExcerptPreview(
+  profs: ProfileRecord[],
+  records: OutputRecord[],
+): Array<{ idx: number; группа: string }> {
+  const idxAll = profs.map((_, i) => i);
+  const withAnons = idxAll.filter((i) => records[i]["Анонс"] !== undefined);
+  const noAnons = idxAll.filter((i) => records[i]["Анонс"] === undefined);
+  const anonsLen = (i: number) => plainProf(records[i]["Анонс"] ?? "").length;
+  const bodyLen = (i: number) => profs[i].результат.длинаPlainТела;
+  const longestAnons = [...withAnons]
+    .sort((a, b) => anonsLen(b) - anonsLen(a) || a - b)
+    .slice(0, 10);
+  const longestBody = [...noAnons].sort((a, b) => bodyLen(b) - bodyLen(a) || a - b).slice(0, 10);
+  const taken = new Set([...longestAnons, ...longestBody]);
+  const pool = noAnons.filter((i) => !taken.has(i));
+  const rand = mulberry32(EXCERPT_PREVIEW_SEED);
+  const random: number[] = [];
+  for (let k = 0; k < 10 && pool.length > 0; k++) {
+    random.push(pool.splice(Math.floor(rand() * pool.length), 1)[0]);
+  }
+  return [
+    ...longestAnons.map((idx) => ({ idx, группа: "10 самых длинных собственных анонсов" })),
+    ...longestBody.map((idx) => ({ idx, группа: "10 самых длинных тел без анонса" })),
+    ...random.map((idx) => ({
+      idx,
+      группа: `10 случайных без анонса (mulberry32, seed ${EXCERPT_PREVIEW_SEED})`,
+    })),
+  ];
+}
+
+function renderExcerptPreview(
+  profs: ProfileRecord[],
+  records: OutputRecord[],
+  picks: Array<{ idx: number; группа: string }>,
+): string {
+  const L: string[] = [];
+  L.push("# excerpt-preview — примерка правила анонса (этап 8, --profile)");
+  L.push("");
+  L.push(
+    "Правило: при пустом анонсе карточка берёт начало плоского тела до N знаков по границе " +
+      "предложения; если первое предложение длиннее N — по границе слова с многоточием. " +
+      `Пороги: ${EXCERPT_THRESHOLDS.join(", ")}. У записей с собственным анонсом правило не ` +
+      "применится — варианты показаны справочно.",
+  );
+  L.push("");
+  let группа = "";
+  for (const { idx, группа: g } of picks) {
+    if (g !== группа) {
+      группа = g;
+      L.push(`## ${g}`);
+      L.push("");
+    }
+    const p = profs[idx];
+    const rec = records[idx];
+    const plain = plainProf(rec["ТекстHTML"]);
+    L.push(`### ${profKeyShort(p)} — ${p.ключ.дата} — ${mdEsc(p.ключ.заголовок)}`);
+    L.push("");
+    if (rec["Анонс"] !== undefined) {
+      L.push(`- собственный анонс: ${plainProf(rec["Анонс"]).length} знаков`);
+    }
+    L.push(`- длина plain-тела: ${plain.length}`);
+    for (const n of EXCERPT_THRESHOLDS) {
+      const r = excerptFromBody(plain, n);
+      L.push(
+        `- ${n}${r.поСлову ? " (по границе слова)" : ""} [${r.текст.length}]: ${r.текст === "" ? "_пусто_" : mdEsc(r.текст)}`,
+      );
+    }
+    L.push("");
+  }
+  L.push(`Записей: ${picks.length}.`);
+  L.push("");
+  return L.join("\n") + "\n";
+}
+
+type Control = { текст: string; ок: boolean; факт: string };
+
+type InventoryExtras = {
+  feeds: AdjacentFeed[];
+  unreferenced: string[];
+  excerpt: ExcerptStats;
+  previewSize: number;
+  records: OutputRecord[];
+  controls: Control[];
+};
+
 function renderProfileReport(
   profs: ProfileRecord[],
   extremes: ExtremeList[],
   sampleSize: number,
   d3aCalibration: number,
+  inv: InventoryExtras,
 ): string {
   const L: string[] = [];
   L.push("# profile-report — профиль экспорта архива (этап 8, --profile)");
@@ -3079,6 +3660,131 @@ function renderProfileReport(
   detectorSection(L, "д4 — plain-тело пустое или короче 30", profs, (p) => p.детекторы.д4);
   detectorSection(L, "д5 — plain(тело) = plain(Анонс)", profs, (p) => p.детекторы.д5);
 
+  // ── д6 ──
+  const absorbedRecs = profs.filter((p) => p.детекторы.д6.страница !== null);
+  const d6hits = profs.filter((p) => p.детекторы.д6.флаг);
+  L.push(`### д6 — дата ленты ≠ дата article (по главной поглощённой странице): ${d6hits.length}`);
+  L.push("");
+  L.push(
+    `Записей с поглощёнными страницами: ${absorbedRecs.length}. Главная страница — тизер, иначе ` +
+      "первая поглощённая; дата страницы — та же, что в правиле 60 дней боевого пути " +
+      "(«Опубликовано …», иначе имя файла); дельта — модуль разницы в днях.",
+  );
+  L.push("");
+  const d6RecBuckets = new Map<string, number>();
+  for (const p of absorbedRecs) {
+    const b =
+      p.детекторы.д6.дельта === null ? "дата не установлена" : profD6Bucket(p.детекторы.д6.дельта);
+    d6RecBuckets.set(b, (d6RecBuckets.get(b) ?? 0) + 1);
+  }
+  const d6PageBuckets = new Map<string, number>();
+  let d6Pages = 0;
+  for (const p of profs) {
+    for (const s of p.детекторы.д6.поСтраницам) {
+      d6Pages += 1;
+      const b = s.дельта === null ? "дата не установлена" : profD6Bucket(s.дельта);
+      d6PageBuckets.set(b, (d6PageBuckets.get(b) ?? 0) + 1);
+    }
+  }
+  const D6_ORDER = ["0", "1–7", "8–30", "31–60", "61+", "дата не установлена"];
+  L.push(
+    `| дельта, дней | записей (по главной странице, из ${absorbedRecs.length}) | поглощённых страниц (из ${d6Pages}) |`,
+  );
+  L.push("|---|---|---|");
+  for (const b of D6_ORDER) {
+    if (!d6RecBuckets.has(b) && !d6PageBuckets.has(b)) continue;
+    L.push(`| ${b} | ${d6RecBuckets.get(b) ?? 0} | ${d6PageBuckets.get(b) ?? 0} |`);
+  }
+  L.push("");
+  L.push("10 наибольших дельт (ключ, Δ, дата ленты, дата страницы, страница):");
+  L.push("");
+  const d6top = [...d6hits]
+    .map((p, i) => ({ p, i }))
+    .sort((a, b) => b.p.детекторы.д6.дельта! - a.p.детекторы.д6.дельта! || a.i - b.i)
+    .slice(0, 10);
+  for (const { p } of d6top) {
+    const d = p.детекторы.д6;
+    L.push(
+      `- ${profKeyStr(p)} — Δ=${d.дельта} дн., лента ${p.ключ.дата}, страница ${d.датаСтраницы === null ? "?" : ddmmyyyy(d.датаСтраницы)}, ${d.страница}`,
+    );
+  }
+  if (d6top.length === 0) L.push("_нет_");
+  L.push("");
+
+  // ── д7 ──
+  const d7parents = profs.filter((p) => p.детекторы.д7.страниц > 0);
+  const d7pages = profs.reduce((s, p) => s + p.детекторы.д7.страниц, 0);
+  const d7total = profs.reduce((s, p) => s + p.детекторы.д7.суммаДлин, 0);
+  L.push(
+    `### д7 — поглощена страница с собственным текстом (≥${D7_THRESHOLD} знаков после санитайзера): страниц ${d7pages}, записей-родителей ${d7parents.length}`,
+  );
+  L.push("");
+  L.push(
+    "Телом записи становится только первая ссылка с кейсом «тизер»; остальные поглощённые " +
+      "страницы (кейс «галерея» и последующие «тизер») отдают лишь фото и документы — их текст " +
+      "теряется. Длина — плоский текст страницы после санитайзера (silent): то, что стало бы " +
+      "телом отдельной записи; остаток Dreamweaver и баннер шаблона в длину входят.",
+  );
+  L.push("");
+  L.push(`Суммарная длина потерянного текста по всему экспорту: ${d7total} знаков.`);
+  L.push("");
+  L.push("10 родителей с наибольшим числом таких страниц (ключ, страниц, суммарная длина):");
+  L.push("");
+  const d7top = d7parents
+    .map((p, i) => ({ p, i }))
+    .sort(
+      (a, b) =>
+        b.p.детекторы.д7.страниц - a.p.детекторы.д7.страниц ||
+        b.p.детекторы.д7.суммаДлин - a.p.детекторы.д7.суммаДлин ||
+        a.i - b.i,
+    )
+    .slice(0, 10);
+  for (const { p } of d7top) {
+    L.push(
+      `- ${profKeyStr(p)} — страниц ${p.детекторы.д7.страниц}, ${p.детекторы.д7.суммаДлин} знаков`,
+    );
+  }
+  if (d7top.length === 0) L.push("_нет_");
+  L.push("");
+
+  // ── д8 ──
+  const teasers = profs.filter((p) => p.детекторы.д8 !== null);
+  const d8a = teasers.filter((p) => p.детекторы.д8!.а);
+  const d8aStrict = teasers.filter((p) => p.детекторы.д8!.аСтрого);
+  const d8b = teasers.filter((p) => p.детекторы.д8!.б);
+  const d8both = teasers.filter((p) => p.детекторы.д8!.а && p.детекторы.д8!.б);
+  L.push(`### д8 — шапка article в теле (тизерных записей: ${teasers.length})`);
+  L.push("");
+  L.push(
+    "Перед сравнением с заголовком с начала плоского тела снимаются известные префиксы: " +
+      "остаток Dreamweaver-комментария (д2) и сквозной баннер шаблона «ФЕСТИВАЛЬ ТЕННИСНЫХ " +
+      "ГОРОДОВ». Нормализация: нижний регистр, ё→е, только буквы и цифры.",
+  );
+  L.push("");
+  L.push(
+    `- (а) тело начинается с заголовка записи или <title> article-страницы (голова заголовка ≥${D8_HEAD_MIN} знаков по границе слова): ${d8a.length}; строго с заголовка целиком: ${d8aStrict.length}`,
+  );
+  L.push(`- (б) тело содержит строку «Опубликовано ДД месяц ГГГГ г.»: ${d8b.length}`);
+  L.push(`- оба флага: ${d8both.length}`);
+  L.push("");
+  L.push("До 10 ключей (а):");
+  L.push("");
+  for (const p of d8a.slice(0, 10)) L.push(`- ${profKeyStr(p)}`);
+  if (d8a.length === 0) L.push("_нет_");
+  L.push("");
+  L.push("До 10 ключей (б):");
+  L.push("");
+  for (const p of d8b.slice(0, 10)) L.push(`- ${profKeyStr(p)}`);
+  if (d8b.length === 0) L.push("_нет_");
+  L.push("");
+  L.push("Тизерные записи без флага (а) или без флага (б):");
+  L.push("");
+  const d8miss = teasers.filter((p) => !(p.детекторы.д8!.а && p.детекторы.д8!.б));
+  for (const p of d8miss)
+    L.push(`- ${profKeyStr(p)} — а=${p.детекторы.д8!.а} б=${p.детекторы.д8!.б}`);
+  if (d8miss.length === 0) L.push("_нет_");
+  L.push("");
+
   L.push("## Крайние");
   L.push("");
   for (const ex of extremes) {
@@ -3092,7 +3798,267 @@ function renderProfileReport(
   L.push("");
   L.push(`Размер выборки для проверки глазами (sample.md): ${sampleSize}.`);
   L.push("");
+
+  renderAdjacentFeeds(L, inv.feeds, inv.unreferenced);
+  renderExcerptStats(L, inv.excerpt, inv.previewSize);
+  renderTitles(L, profs);
+  renderCandidates2026(L, profs);
+  renderYearSummary(L, profs);
+
+  L.push("## Контроли");
+  L.push("");
+  for (const c of inv.controls) L.push(`- ${c.ок ? "ДА" : "НЕТ"} — ${c.текст}: ${c.факт}`);
+  L.push("");
   return L.join("\n") + "\n";
+}
+
+function renderAdjacentFeeds(L: string[], feeds: AdjacentFeed[], unreferenced: string[]): void {
+  L.push("## Смежные ленты");
+  L.push("");
+  L.push(
+    "Файлы `download/plt_news.html`, `pobeda.html`, `festvest.html`, `150.html`. Только счёт по " +
+      "регулярным выражениям и сверка множеств путей; вёрстка не разбиралась. Ссылка — " +
+      "`href` на страницу вида `/ГГГГ/ММДД` (с суффиксами), приведённая к относительному " +
+      "файлу article; классы: (а) страница — article-страница записи экспорта (по ссылкам " +
+      "записей, любой кейс), (б) файл есть в архиве, записью не стал, (в) файла в архиве нет.",
+  );
+  L.push("");
+  L.push(
+    "| лента | файл на месте | «Опубликовано:» | дат распознано | диапазон дат | уникальных ссылок | (а) | (б) | (в) |",
+  );
+  L.push("|---|---|---|---|---|---|---|---|---|");
+  for (const f of feeds) {
+    const dates = [...f.даты].sort();
+    const range = dates.length
+      ? `${ddmmyyyy(dates[0])} – ${ddmmyyyy(dates[dates.length - 1])}`
+      : "—";
+    const cls = (k: "а" | "б" | "в") => f.ссылки.filter((l) => l.класс === k).length;
+    L.push(
+      `| ${f.file} | ${f.есть ? "да" : "**НЕТ — файла нет**"} | ${f.опубликовано}${f.опубликованоСырое !== f.опубликовано ? ` (в сыром html ${f.опубликованоСырое})` : ""} | ${f.даты.length} | ${range} | ${f.ссылки.length} | ${cls("а")} | ${cls("б")} | ${cls("в")} |`,
+    );
+  }
+  L.push("");
+  for (const f of feeds) {
+    L.push(`### ${f.file}`);
+    L.push("");
+    if (!f.есть) {
+      L.push("_файла нет в download/_");
+      L.push("");
+      continue;
+    }
+    const byYear = new Map<string, number>();
+    for (const d of f.даты) byYear.set(d.slice(0, 4), (byYear.get(d.slice(0, 4)) ?? 0) + 1);
+    L.push(
+      `- «Опубликовано:» по годам: ${
+        [...byYear.keys()]
+          .sort()
+          .map((y) => `${y} — ${byYear.get(y)}`)
+          .join(", ") || "нет"
+      }`,
+    );
+    for (const k of ["а", "б", "в"] as const) {
+      const rows = f.ссылки.filter((l) => l.класс === k);
+      const title =
+        k === "а"
+          ? "(а) article-страница записи экспорта"
+          : k === "б"
+            ? "(б) есть в архиве, записью не стала"
+            : "(в) в архиве нет";
+      L.push(`- ${title}: ${rows.length}`);
+      for (const l of rows) {
+        L.push(`  - ${l.relFile}${k === "а" ? ` → ${l.записи.join("; ")}` : ""}`);
+      }
+    }
+    L.push("");
+  }
+
+  L.push("### Пересечение (б) со списком «Article-файлы без ссылок с лент» из parse-report.md");
+  L.push("");
+  const unionB = new Set<string>();
+  for (const f of feeds) for (const l of f.ссылки) if (l.класс === "б") unionB.add(l.relFile);
+  const unrefSet = new Set(unreferenced);
+  const explained = unreferenced.filter((r) => unionB.has(r));
+  const unexplained = unreferenced.filter((r) => !unionB.has(r));
+  const onlyInB = [...unionB].filter((r) => !unrefSet.has(r));
+  L.push(`- в parse-report.md «без ссылок с лент»: ${unreferenced.length}`);
+  L.push(`- объединение (б) по четырём лентам: ${unionB.size}`);
+  L.push(
+    `- калибровка: в (б), но не в списке parse-report — ${onlyInB.length} (обязан быть 0; иначе множества считаны по-разному)${onlyInB.length ? ": " + onlyInB.join(", ") : ""}`,
+  );
+  L.push(`- объясняются смежными лентами: ${explained.length}`);
+  L.push(`- остаются необъяснёнными: ${unexplained.length}`);
+  for (const r of unexplained.slice(0, 50)) L.push(`  - ${r}`);
+  if (unexplained.length > 50) L.push(`  - … и ещё ${unexplained.length - 50}`);
+  L.push("");
+
+  L.push("## Обратная связь: ссылки на смежные ленты из записей");
+  L.push("");
+  L.push(
+    "Пометка: на article-страницах есть сквозной баннер шаблона «ФЕСТИВАЛЬ ТЕННИСНЫХ ГОРОДОВ» " +
+      "со ссылкой на `festvest.html` — ссылка на эту ленту в теле, пришедшая с article-страницы, " +
+      "не означает осмысленную связь. Поэтому источники разведены: ленточный фрагмент записи; " +
+      "тело тизерной страницы (оно и становится ТекстHTML); прочие поглощённые страницы (их " +
+      "текст в ТекстHTML не попадает).",
+  );
+  L.push("");
+  L.push(
+    "| лента | записей со ссылкой в ТекстHTML | вхождений | из ленточного фрагмента: записей / вхождений | из тела тизерной страницы: записей / вхождений | с прочих поглощённых страниц: записей / страниц / вхождений |",
+  );
+  L.push("|---|---|---|---|---|---|");
+  for (const f of feeds) {
+    L.push(
+      `| ${f.file} | ${f.записиВТеле.length} | ${f.вхожденийВТеле} | ${f.изЛенты.записей} / ${f.изЛенты.вхождений} | ${f.изТизера.записей} / ${f.изТизера.вхождений} | ${f.изПрочихПоглощённых.записей} / ${f.изПрочихПоглощённых.страниц} / ${f.изПрочихПоглощённых.вхождений} |`,
+    );
+  }
+  L.push("");
+  for (const f of feeds) {
+    L.push(`### ${f.file}: ключи записей со ссылкой в ТекстHTML (${f.записиВТеле.length})`);
+    L.push("");
+    for (const k of f.записиВТеле) L.push(`- ${k}`);
+    if (f.записиВТеле.length === 0) L.push("_нет_");
+    L.push("");
+  }
+}
+
+function renderExcerptStats(L: string[], s: ExcerptStats, previewSize: number): void {
+  L.push("## Примерка анонса");
+  L.push("");
+  L.push(
+    "Правило (для решения Антона): при пустом анонсе карточка берёт начало плоского тела до N " +
+      "знаков, обрезая по границе предложения; если первое предложение длиннее N — по границе " +
+      "слова с многоточием (итог ≤ N). Граница предложения — знак конца (. ! ? …) с возможными " +
+      "закрывающими кавычками, затем пробел; сокращения («г.», «ул.») рвут предложение.",
+  );
+  L.push("");
+  L.push(`- записей без собственного анонса (правило применится): ${s.безАнонса}`);
+  L.push(`- записей с собственным анонсом (правило не применится): ${s.сАнонсом}`);
+  L.push(`- пустых тел среди записей без анонса (пустой результат): ${s.пустыхТел}`);
+  L.push("");
+  L.push("### Распределение длин результата по порогам (записи без анонса)");
+  L.push("");
+  L.push(`| порог | ${EXCERPT_LEN_BUCKETS.join(" | ")} | по границе слова | пустой результат |`);
+  L.push(`|---|${EXCERPT_LEN_BUCKETS.map(() => "---").join("|")}|---|---|`);
+  for (const t of s.поПорогам) {
+    L.push(
+      `| ${t.порог} | ${EXCERPT_LEN_BUCKETS.map((b) => t.бакеты.get(b) ?? 0).join(" | ")} | ${t.поСлову} | ${t.пустых} |`,
+    );
+  }
+  L.push("");
+  L.push("### Длины собственных анонсов");
+  L.push("");
+  L.push("| бакет | записей |");
+  L.push("|---|---|");
+  for (const b of ANONS_LEN_BUCKETS) L.push(`| ${b} | ${s.анонсБакеты.get(b) ?? 0} |`);
+  L.push("");
+  L.push(
+    `Файл excerpt-preview.md в папке профиля: ${previewSize} записей (10 самых длинных собственных анонсов, 10 самых длинных тел без анонса, 10 случайных без анонса, mulberry32 seed ${EXCERPT_PREVIEW_SEED}).`,
+  );
+  L.push("");
+}
+
+function renderTitles(L: string[], profs: ProfileRecord[]): void {
+  L.push("## Заголовки");
+  L.push("");
+  const upper = profs.filter((p) => isUpperTitle(p.ключ.заголовок));
+  L.push(
+    `### Целиком в верхнем регистре: ${upper.length} из ${profs.length} (${((100 * upper.length) / profs.length).toFixed(1)} %)`,
+  );
+  L.push("");
+  for (const p of upper) L.push(`- ${profKeyStr(p)}`);
+  if (upper.length === 0) L.push("_нет_");
+  L.push("");
+  const long = profs.filter((p) => p.результат.длинаЗаголовка > 80);
+  L.push(`### Длиннее 80 знаков: ${long.length} (до 20 примеров)`);
+  L.push("");
+  for (const p of long.slice(0, 20)) L.push(`- [${p.результат.длинаЗаголовка}] ${profKeyStr(p)}`);
+  if (long.length === 0) L.push("_нет_");
+  L.push("");
+  const ent = profs.filter((p) => p.детекторы.д1.заголовок);
+  L.push(`### С HTML-сущностями (д1 в заголовке): ${ent.length}`);
+  L.push("");
+  for (const p of ent) L.push(`- ${profKeyStr(p)}`);
+  if (ent.length === 0) L.push("_нет_");
+  L.push("");
+}
+
+function renderCandidates2026(L: string[], profs: ProfileRecord[]): void {
+  const rows = profs.filter((p) => p.ключ.датаISO >= "2026-01-01");
+  L.push(`## Кандидаты на пересечение с новым сайтом (записи с 2026-01-01): ${rows.length}`);
+  L.push("");
+  L.push("Список для сверки глазами с базой нового сайта; в БД прибор не ходит.");
+  L.push("");
+  L.push("| ключ | дата | заголовок |");
+  L.push("|---|---|---|");
+  for (const p of rows)
+    L.push(`| ${profKeyShort(p)} | ${p.ключ.дата} | ${mdEsc(p.ключ.заголовок)} |`);
+  if (rows.length === 0) L.push("| _нет_ | | |");
+  L.push("");
+}
+
+function renderYearSummary(L: string[], profs: ProfileRecord[]): void {
+  L.push("## Сводка по годам");
+  L.push("");
+  L.push(
+    "Год — по дате записи. Фото — обложка + галерея; длина тела — plain. д6/д7/д8 — записей с " +
+      "флагом; «поглощение» — записей хотя бы с одной поглощённой страницей (тизер или галерея).",
+  );
+  L.push("");
+  L.push(
+    "| год | записей | фото | документов | ср. длина тела | макс. длина тела | д1 | д2 | д6 | д7 | д8 | поглощение |",
+  );
+  L.push("|---|---|---|---|---|---|---|---|---|---|---|---|");
+  type Row = {
+    записей: number;
+    фото: number;
+    документов: number;
+    сумма: number;
+    макс: number;
+    д1: number;
+    д2: number;
+    д6: number;
+    д7: number;
+    д8: number;
+    поглощение: number;
+  };
+  const rows = new Map<string, Row>();
+  const zero = (): Row => ({
+    записей: 0,
+    фото: 0,
+    документов: 0,
+    сумма: 0,
+    макс: 0,
+    д1: 0,
+    д2: 0,
+    д6: 0,
+    д7: 0,
+    д8: 0,
+    поглощение: 0,
+  });
+  const total = zero();
+  const add = (r: Row, p: ProfileRecord) => {
+    r.записей += 1;
+    r.фото += p.результат.фотоВсего;
+    r.документов += p.результат.документов;
+    r.сумма += p.результат.длинаPlainТела;
+    r.макс = Math.max(r.макс, p.результат.длинаPlainТела);
+    if (p.детекторы.д1.любое) r.д1 += 1;
+    if (p.детекторы.д2.любое) r.д2 += 1;
+    if (p.детекторы.д6.флаг) r.д6 += 1;
+    if (p.детекторы.д7.страниц > 0) r.д7 += 1;
+    if (p.детекторы.д8 !== null && (p.детекторы.д8.а || p.детекторы.д8.б)) r.д8 += 1;
+    if (p.детекторы.д6.страница !== null) r.поглощение += 1;
+  };
+  for (const p of profs) {
+    const y = p.ключ.датаISO.slice(0, 4);
+    if (!rows.has(y)) rows.set(y, zero());
+    add(rows.get(y)!, p);
+    add(total, p);
+  }
+  const line = (name: string, r: Row) =>
+    `| ${name} | ${r.записей} | ${r.фото} | ${r.документов} | ${r.записей ? Math.round(r.сумма / r.записей) : 0} | ${r.макс} | ${r.д1} | ${r.д2} | ${r.д6} | ${r.д7} | ${r.д8} | ${r.поглощение} |`;
+  for (const y of [...rows.keys()].sort()) L.push(line(y, rows.get(y)!));
+  L.push(line("**итого**", total));
+  L.push("");
 }
 
 function renderSample(profs: ProfileRecord[], entries: SampleEntry[]): string {
@@ -3161,20 +4127,109 @@ function runProfile(records: OutputRecord[]): void {
   const extremes = buildExtremes(profs);
   const { entries } = selectSample(profs, extremes);
 
+  // ── инвентаризация: смежные ленты, примерка анонса, контроли ──
+  const referenced = new Map<string, string[]>();
+  profs.forEach((p) => {
+    for (const l of p.трансформация.ссылкиArticle) {
+      const arr = referenced.get(l.relFile) ?? [];
+      arr.push(`${profKeyShort(p)} (${l.kase})`);
+      referenced.set(l.relFile, arr);
+    }
+  });
+  const feedItems = records.map((rec, i) => ({
+    key: profKeyShort(profs[i]),
+    rec,
+    cap: profByRecord.get(rec)!,
+  }));
+  const feeds = ADJACENT_FEEDS.map((f) => profAdjacentFeed(f, referenced, feedItems));
+  const excerpt = profExcerptStats(profs, records);
+  const previewPicks = selectExcerptPreview(profs, records);
+
+  const p66 = profs.find((p) => p.ключ.файл === "newsarch_2023.html" && p.ключ.номер === 66);
+  const d6of66 = p66?.детекторы.д6;
+  const anonsCount = profs.filter((p) => p.результат.естьАнонс).length;
+  const controls: Control[] = [
+    {
+      текст: "newsarch_2023.html#66 в д6 с дельтой 31 день (лента 26.05.2023, статья 26.06.2023)",
+      ок:
+        d6of66 !== undefined &&
+        d6of66.флаг &&
+        d6of66.дельта === 31 &&
+        p66!.ключ.дата === "26.05.2023" &&
+        d6of66.датаСтраницы === "2023-06-26",
+      факт: p66
+        ? `флаг=${d6of66!.флаг}, Δ=${d6of66!.дельта}, лента ${p66.ключ.дата}, страница ${d6of66!.датаСтраницы ?? "?"} (${d6of66!.страница ?? "—"})`
+        : "запись не найдена",
+    },
+    {
+      текст: "у newsarch_2023.html#66 не менее восьми страниц в д7",
+      ок: p66 !== undefined && p66.детекторы.д7.страниц >= 8,
+      факт: p66
+        ? `страниц ${p66.детекторы.д7.страниц} (${p66.детекторы.д7.страницы.map((s) => `${s.relFile}:${s.длина}`).join(", ")})`
+        : "запись не найдена",
+    },
+    {
+      текст: "у newsarch_2023.html#66 оба флага д8 истинны",
+      ок:
+        p66 !== undefined && p66.детекторы.д8 !== null && p66.детекторы.д8.а && p66.детекторы.д8.б,
+      факт: p66
+        ? p66.детекторы.д8 === null
+          ? "запись не тизерная"
+          : `а=${p66.детекторы.д8.а} (строго ${p66.детекторы.д8.аСтрого}), б=${p66.детекторы.д8.б}`
+        : "запись не найдена",
+    },
+    {
+      текст: "записей в экспорте 1882",
+      ок: profs.length === 1882,
+      факт: `${profs.length}`,
+    },
+    {
+      текст: "записей с собственным анонсом не более 60 (ожидание 56)",
+      ок: anonsCount <= 60,
+      факт: `${anonsCount}`,
+    },
+    {
+      текст: "все четыре смежные ленты на месте в download/",
+      ок: feeds.every((f) => f.есть),
+      факт: feeds.map((f) => `${f.file}: ${f.есть ? "есть" : "НЕТ"}`).join(", "),
+    },
+  ];
+
   mkdirSync(PROFILE_DIR, { recursive: true });
   const json = JSON.stringify(profs, null, 2) + "\n";
   writeFileSync(join(PROFILE_DIR, "profile.json"), json, "utf-8");
   writeFileSync(
     join(PROFILE_DIR, "profile-report.md"),
-    renderProfileReport(profs, extremes, entries.length, d3aCalibration),
+    renderProfileReport(profs, extremes, entries.length, d3aCalibration, {
+      feeds,
+      unreferenced: report.unreferencedArticles,
+      excerpt,
+      previewSize: previewPicks.length,
+      records,
+      controls,
+    }),
     "utf-8",
   );
   writeFileSync(join(PROFILE_DIR, "sample.md"), renderSample(profs, entries), "utf-8");
+  writeFileSync(
+    join(PROFILE_DIR, "excerpt-preview.md"),
+    renderExcerptPreview(profs, records, previewPicks),
+    "utf-8",
+  );
 
   console.log(`Профиль: ${join(PROFILE_DIR, "profile.json")} (${json.length} байт)`);
   console.log(`Профиль-отчёт: ${join(PROFILE_DIR, "profile-report.md")}`);
   console.log(`Выборка: ${join(PROFILE_DIR, "sample.md")} (записей: ${entries.length})`);
+  console.log(
+    `Примерка анонса: ${join(PROFILE_DIR, "excerpt-preview.md")} (записей: ${previewPicks.length})`,
+  );
   console.log(`Калибровка д3(а) без article/склейки: ${d3aCalibration}`);
+  for (const c of controls) console.log(`контроль: ${c.ок ? "ДА" : "НЕТ"} — ${c.текст}: ${c.факт}`);
+  const failedControls = controls.filter((c) => !c.ок).length;
+  if (failedControls > 0) {
+    console.error(`Контроли: ${failedControls} с вердиктом НЕТ — выход с кодом 1`);
+    process.exit(1);
+  }
 
   // Контроль детектора д3 по подстроке заголовка (--profile-control) — после
   // записи файлов, чтобы при провале артефакты оставались для разбора.
@@ -3361,7 +4416,157 @@ function runSelfTest(): number {
     console.log(`  выход: ${c.output}`);
   }
 
-  const total = cases.length + profCases.length;
+  // ── кейсы инвентаризации (д6–д8, признаки картинок, правило анонса) — буквальный вход и выход ──
+  const d6Absorbed = [
+    { relFile: "2023/0626.html", date: "2023-06-26" },
+    { relFile: "2023/0630.html", date: "2023-06-30" },
+  ];
+  const d7Teaser = `<p>Текст тизерной страницы, который становится телом записи.</p>`;
+  const d7Text = `<p>${"Самостоятельная страница с собственным текстом длиннее порога. ".repeat(10)}</p>`;
+  const d7Photos = `<p><a href="javascript:window.open('bg/1.jpg')"><img src="sm/1.jpg"></a>Кликните на фото для увеличения</p>`;
+  const d7Absorbed = [
+    { relFile: "2023/0626.html", url: `${SITE}/2023/0626`, bodyHtml: d7Teaser },
+    { relFile: "2023/0630.html", url: `${SITE}/2023/0630`, bodyHtml: d7Text },
+    { relFile: "2023/0625.html", url: `${SITE}/2023/0625`, bodyHtml: d7Photos },
+  ];
+  const d8Body =
+    `InstanceBeginEditable name="Edit02" --> ФЕСТИВАЛЬ ТЕННИСНЫХ ГОРОДОВ "Фестиваль Теннисных ` +
+    `Городов" (Санкт-Петербург, 23-25 июня 2023 г.) успешно завершён! Опубликовано 26 июня 2023 г. ` +
+    `"Фестиваль Теннисных Городов" проходил в Санкт-Петербурге.`;
+  const d8Titles = [
+    `"Фестиваль Теннисных Городов"-23 успешно завершён!`,
+    `"Фестиваль теннисных городов" успешно завершён!`,
+  ];
+  const d8Plain = "Обычная новость о турнире выходного дня. Опубликовано: 20.03.2022";
+  const repeatedInput = [["a.jpg", "b.jpg"], ["a.jpg"], ["a.jpg?x=1", "c.jpg"], ["b.jpg"]];
+  const excerptSentences = "Первое предложение. Второе предложение здесь. Третье.";
+  const excerptLongFirst =
+    "Очень длинное первое предложение без единой точки внутри которое не помещается";
+
+  const invCases: Array<{ name: string; input: string; output: string; ok: boolean }> = [
+    (() => {
+      const out = profD6(d6Absorbed, "2023/0626.html", "2023-05-26");
+      return {
+        name: "инвентаризация: д6 — лента 26.05.2023, тизер 26.06.2023 → Δ=31, бакет 31–60; галерейная 30.06 → 35",
+        input: JSON.stringify({
+          absorbed: d6Absorbed,
+          teaser: "2023/0626.html",
+          date: "2023-05-26",
+        }),
+        output: JSON.stringify(out) + ` бакет=${profD6Bucket(out.дельта ?? -1)}`,
+        ok:
+          out.страница === "2023/0626.html" &&
+          out.датаСтраницы === "2023-06-26" &&
+          out.дельта === 31 &&
+          out.флаг &&
+          profD6Bucket(31) === "31–60" &&
+          out.поСтраницам[1].дельта === 35,
+      };
+    })(),
+    (() => {
+      const out = profD6(d6Absorbed, "2023/0626.html", "2023-06-26");
+      return {
+        name: "инвентаризация: д6 — даты совпадают → Δ=0, флаг false",
+        input: JSON.stringify({
+          absorbed: d6Absorbed,
+          teaser: "2023/0626.html",
+          date: "2023-06-26",
+        }),
+        output: JSON.stringify(out),
+        ok: out.дельта === 0 && !out.флаг && profD6Bucket(0) === "0",
+      };
+    })(),
+    (() => {
+      const out = profD7(d7Absorbed, "2023/0626.html");
+      return {
+        name: "инвентаризация: д7 — тизер исключён, страница с текстом ≥500 считается, фото-страница нет",
+        input: JSON.stringify(
+          d7Absorbed.map((a) => ({ relFile: a.relFile, len: a.bodyHtml.length })),
+        ),
+        output: JSON.stringify(out),
+        ok:
+          out.страниц === 1 &&
+          out.страницы[0].relFile === "2023/0630.html" &&
+          out.страницы[0].длина >= D7_THRESHOLD &&
+          out.суммаДлин === out.страницы[0].длина,
+      };
+    })(),
+    (() => {
+      const out = profD8(d8Body, d8Titles);
+      return {
+        name: "инвентаризация: д8 — остаток Dreamweaver и баннер сняты, голова заголовка совпала (а), строго нет, «Опубликовано … г.» есть (б)",
+        input: `тело: ${d8Body} | заголовки: ${d8Titles.join(" || ")}`,
+        output: JSON.stringify(out),
+        ok: out.а && !out.аСтрого && out.б,
+      };
+    })(),
+    (() => {
+      const out = profD8(d8Plain, ["Турнир выходного дня"]);
+      return {
+        name: "инвентаризация: д8 — обычное тело: (а) false, «Опубликовано: дд.мм.гггг» не считается (б)",
+        input: `тело: ${d8Plain} | заголовки: Турнир выходного дня`,
+        output: JSON.stringify(out),
+        ok: !out.а && !out.аСтрого && !out.б,
+      };
+    })(),
+    (() => {
+      const out = profRepeatedSrcKeys(repeatedInput, 3);
+      return {
+        name: "инвентаризация: повторяющийся src — a.jpg в трёх записях (query отброшен), b.jpg в двух — нет",
+        input: JSON.stringify(repeatedInput),
+        output: JSON.stringify([...out]),
+        ok: out.size === 1 && out.has("a.jpg"),
+      };
+    })(),
+    {
+      name: "инвентаризация: признак logos/ — по пути src",
+      input: `http://tennisfed.spb.ru/logos/spb.gif | news/2010/foto.jpg | http://x/Logos/a.png`,
+      output: JSON.stringify([
+        isLogoSrc("http://tennisfed.spb.ru/logos/spb.gif"),
+        isLogoSrc("news/2010/foto.jpg"),
+        isLogoSrc("http://x/Logos/a.png"),
+      ]),
+      ok:
+        isLogoSrc("http://tennisfed.spb.ru/logos/spb.gif") &&
+        !isLogoSrc("news/2010/foto.jpg") &&
+        !isLogoSrc("http://x/Logos/a.png"),
+    },
+    (() => {
+      const out = excerptFromBody(excerptSentences, 50);
+      return {
+        name: "инвентаризация: анонс по границе предложения — два предложения в 50 знаков, третье не влезло",
+        input: `${excerptSentences} | N=50`,
+        output: JSON.stringify(out),
+        ok: out.текст === "Первое предложение. Второе предложение здесь." && !out.поСлову,
+      };
+    })(),
+    (() => {
+      const out = excerptFromBody(excerptLongFirst, 30);
+      return {
+        name: "инвентаризация: анонс — первое предложение длиннее порога → по границе слова с многоточием, итог ≤ N",
+        input: `${excerptLongFirst} | N=30`,
+        output: JSON.stringify(out),
+        ok: out.текст === "Очень длинное первое…" && out.поСлову && out.текст.length <= 30,
+      };
+    })(),
+    (() => {
+      const out = excerptFromBody("   ", 150);
+      return {
+        name: "инвентаризация: анонс — пустое тело → пустая строка",
+        input: `"   " | N=150`,
+        output: JSON.stringify(out),
+        ok: out.текст === "" && !out.поСлову,
+      };
+    })(),
+  ];
+  for (const c of invCases) {
+    if (!c.ok) failed += 1;
+    console.log(`[${c.ok ? "OK" : "FAIL"}] ${c.name}`);
+    console.log(`  вход:  ${c.input}`);
+    console.log(`  выход: ${c.output}`);
+  }
+
+  const total = cases.length + profCases.length + invCases.length;
   console.log(`\nСамотест: ${total - failed}/${total} прошло`);
   return failed === 0 ? 0 : 1;
 }
