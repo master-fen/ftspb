@@ -5,7 +5,7 @@ import { FederationMobileNav } from "@/components/site/FederationMobileNav";
 import { NewsListCard } from "@/components/site/NewsListCard";
 import { NewsPagination } from "@/components/site/NewsPagination";
 import { listNewsPage } from "@/lib/news-server-fn";
-import { pageSearchField } from "@/lib/news-page-search";
+import { parsePageParam } from "@/lib/news-paging";
 
 const TITLE = "Новости Федерации — Федерация тенниса Санкт-Петербурга";
 const DESCRIPTION =
@@ -13,7 +13,8 @@ const DESCRIPTION =
 
 /** `?page=` — как на /news; раздел здесь задан страницей, фильтра нет. */
 const searchSchema = z.object({
-  page: pageSearchField,
+  // Не fallback из zod-adapter — почему, см. parsePageParam.
+  page: z.unknown().transform(parsePageParam),
 });
 
 export const Route = createFileRoute("/_site/federation/news")({

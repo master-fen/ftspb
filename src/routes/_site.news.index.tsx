@@ -6,7 +6,7 @@ import { CategoryFilterChips } from "@/components/site/CategoryFilterChips";
 import { listNewsPage } from "@/lib/news-server-fn";
 import { NewsListCard } from "@/components/site/NewsListCard";
 import { NewsPagination } from "@/components/site/NewsPagination";
-import { pageSearchField } from "@/lib/news-page-search";
+import { parsePageParam } from "@/lib/news-paging";
 import {
   DEFAULT_SECTION_CATEGORY,
   SECTION_CATEGORIES,
@@ -26,7 +26,8 @@ const CRUMBS: Crumb[] = [{ label: "Главная", href: "/" }, { label: "Но�
  */
 const searchSchema = z.object({
   category: fallback(z.enum(SECTION_CATEGORIES), DEFAULT_FILTER).default(DEFAULT_FILTER),
-  page: pageSearchField,
+  // Не fallback из zod-adapter — почему, см. parsePageParam.
+  page: z.unknown().transform(parsePageParam),
 });
 
 export const Route = createFileRoute("/_site/news/")({

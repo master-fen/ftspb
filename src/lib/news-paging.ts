@@ -1,12 +1,31 @@
 /**
  * Чистые помощники постраничной ленты — без зависимостей: модуль тянут и
- * маршруты, и ленивый чанк NewsPagination. Поле схемы поиска `?page=` (zod)
- * живёт отдельно в `news-page-search.ts`, чтобы zod-adapter не попадал в
- * общий чанк и в preload каждой страницы.
+ * маршруты (eager-часть), и ленивый чанк NewsPagination.
  */
 
 /** Карточек на странице ленты. */
 export const NEWS_PAGE_SIZE = 24;
+
+/**
+ * Разбор `?page=`: целое ≥ 1 (число или строка из цифр) — само число, всё
+ * остальное — 1: отсутствие, «0», «-3», «abc», дробное. Парсер адреса роутера
+ * отдаёт числовые строки числами (JSON.parse), строка здесь — редкость, но
+ * разбирается тоже. Маршруты применяют его через `z.unknown().transform`, а
+ * не через `fallback` из zod-adapter, как у `?category=`: импорт zod-adapter
+ * из модуля проекта выносил пакет в общий чанк esm.js с preload на каждой
+ * странице сайта (проверено сборкой 20.09.2026), прямой импорт в файле
+ * маршрута плагин роутера из ленивой части выбрасывает. Значение 1
+ * вычищается из адреса `stripSearchParams({ page: 1 })` в маршруте.
+ */
+export function parsePageParam(raw: unknown): number {
+  const n =
+    typeof raw === "number"
+      ? raw
+      : typeof raw === "string" && /^\d+$/.test(raw)
+        ? Number(raw)
+        : NaN;
+  return Number.isInteger(n) && n >= 1 ? n : 1;
+}
 
 /** Число страниц; 0 при пустом списке. */
 export function pageCountFor(total: number, pageSize = NEWS_PAGE_SIZE): number {

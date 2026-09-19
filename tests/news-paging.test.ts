@@ -1,32 +1,43 @@
 import { describe, expect, test } from "bun:test";
 import { z } from "zod";
-import { pageSearchField } from "@/lib/news-page-search";
-import { NEWS_PAGE_SIZE, clampPage, pageCountFor, paginationState } from "@/lib/news-paging";
+import {
+  NEWS_PAGE_SIZE,
+  clampPage,
+  pageCountFor,
+  paginationState,
+  parsePageParam,
+} from "@/lib/news-paging";
 
-const schema = z.object({ page: pageSearchField });
-
-describe("pageSearchField — разбор ?page=", () => {
+describe("parsePageParam — разбор ?page=", () => {
   test("отсутствует → 1", () => {
-    expect(schema.parse({})).toEqual({ page: 1 });
+    expect(parsePageParam(undefined)).toBe(1);
   });
 
   test("«0» → 1 (числом, как отдаёт парсер адреса, и строкой)", () => {
-    expect(schema.parse({ page: 0 })).toEqual({ page: 1 });
-    expect(schema.parse({ page: "0" })).toEqual({ page: 1 });
+    expect(parsePageParam(0)).toBe(1);
+    expect(parsePageParam("0")).toBe(1);
   });
 
   test("«-3» → 1", () => {
-    expect(schema.parse({ page: -3 })).toEqual({ page: 1 });
-    expect(schema.parse({ page: "-3" })).toEqual({ page: 1 });
+    expect(parsePageParam(-3)).toBe(1);
+    expect(parsePageParam("-3")).toBe(1);
   });
 
   test("«abc» → 1", () => {
-    expect(schema.parse({ page: "abc" })).toEqual({ page: 1 });
+    expect(parsePageParam("abc")).toBe(1);
   });
 
-  test("дробное 1.5 → 1, целое 2 → 2", () => {
-    expect(schema.parse({ page: 1.5 })).toEqual({ page: 1 });
-    expect(schema.parse({ page: 2 })).toEqual({ page: 2 });
+  test("дробное 1.5 → 1, целое 2 → 2, строка «2» → 2", () => {
+    expect(parsePageParam(1.5)).toBe(1);
+    expect(parsePageParam(2)).toBe(2);
+    expect(parsePageParam("2")).toBe(2);
+  });
+
+  test("в схеме поиска маршрута: пропущенный ключ и мусор дают 1", () => {
+    const schema = z.object({ page: z.unknown().transform(parsePageParam) });
+    expect(schema.parse({})).toEqual({ page: 1 });
+    expect(schema.parse({ page: "abc" })).toEqual({ page: 1 });
+    expect(schema.parse({ page: 3 })).toEqual({ page: 3 });
   });
 });
 
