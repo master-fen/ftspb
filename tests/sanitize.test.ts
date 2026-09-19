@@ -109,3 +109,28 @@ describe("sanitizeBody — rel на ссылках", () => {
     expect(result).not.toContain("nofollow");
   });
 });
+
+describe("sanitizeBody — таблицы", () => {
+  const TABLE =
+    "<table><caption>Итоги</caption>" +
+    '<thead><tr><th colspan="2">Участник</th><th>Очки</th></tr></thead>' +
+    '<tbody><tr><td rowspan="2">1</td><td>Иванов</td><td>10</td></tr>' +
+    "<tr><td>Петров</td><td>8</td></tr></tbody>" +
+    "<tfoot><tr><td>Итого</td><td></td><td>18</td></tr></tfoot></table>";
+
+  test("таблица с caption, thead, tbody, tfoot, colspan и rowspan проходит целиком", () => {
+    expect(sanitizeBody(TABLE)).toBe(TABLE);
+  });
+
+  test("обработчик события на ячейке вырезается, ячейка остаётся", () => {
+    expect(sanitizeBody('<table><tr><td onclick="alert(1)">1</td></tr></table>')).toBe(
+      "<table><tr><td>1</td></tr></table>",
+    );
+  });
+
+  test("style на ячейке вырезается", () => {
+    expect(sanitizeBody('<table><tr><th style="color:red">Место</th></tr></table>')).toBe(
+      "<table><tr><th>Место</th></tr></table>",
+    );
+  });
+});
