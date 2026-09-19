@@ -1,31 +1,89 @@
 # CLAUDE.md — правила для Claude Code в этом репозитории
 
-Репозиторий синхронизируется с Lovable. Соседний файл — `AGENTS.md` (полностью обёрнут маркерами `<!-- LOVABLE:BEGIN --> … <!-- LOVABLE:END -->`, редактируется только снаружи маркеров).
+## Кто правит репозиторий
+
+Lovable не используется с 08.09.2026. Claude Code правит весь репозиторий —
+публичные страницы, компоненты, админку, серверный слой, скрипты и документы.
+Разделения зон между агентами больше нет; правила того периода — дословно в
+`docs/history/lovable-coworking.md` (не действуют, хранятся как история).
+
+Технические остатки Lovable, которые продолжают действовать (проверено по
+клону 19.09.2026):
+
+- `@lovable.dev/vite-tanstack-config` в `package.json` — конфиг сборки. Версию
+  не менять и не пиннить: пакет обновляется самим Lovable.
+- `vite.config.ts` — плагинов не добавлять, все они внутри конфига сборки
+  (список — в комментарии самого файла). Смена nitro preset — по согласованию.
+- `AGENTS.md` — обёрнут маркерами `<!-- LOVABLE:BEGIN --> … <!-- LOVABLE:END -->`,
+  редактируется только снаружи маркеров.
+- `.lovable/` — служебный каталог, руками не трогать.
+- `src/lib/lovable-error-reporting.ts`, `src/lib/error-capture.ts`,
+  `src/lib/error-page.ts`, `src/routes/README.md` — руками не трогать.
+
+## Где что лежит
+
+- `docs/process.md` — как ведётся работа: режимы, цикл задания, уровни
+  проверки, ритуал операций над данными, ритуал миграции БД. Читать перед
+  новым заданием.
+- `docs/environment.md` — локальная среда, факты о сборке, приёмы браузерных
+  проверок, особенности Windows и Git Bash. Читать, когда что-то «не
+  запускается» или надо снять замер.
+- `docs/tools.md` — что лежит в `scripts/`, какие `bun run` есть и что каждая
+  проверка означает. Читать перед запуском инструмента.
+- `docs/backlog.md` — очередь работ с отметкой, подтверждён ли пункт по коду.
+  Читать, когда выбирается следующая задача.
+- `docs/decisions.md` — «сознательно не сделано» и «сделано так, потому что».
+  Читать, когда код выглядит ошибкой и хочется починить.
+- `docs/lessons.md` — уроки прошлых итераций одной строкой. Читать перед
+  планированием проверки.
+- `docs/probes.md` — тексты проб из прошлых заданий. Читать, когда нужна проба
+  на похожее поведение.
+- `docs/archive-notes.md` — архив легаси и мигратор новостей. Читать только при
+  возврате к архивной задаче.
+- `docs/history/lovable-coworking.md` — правила совместной работы с Lovable, не
+  действуют.
+- `docs/style-rules.md` — правила оформления, раскладки и раздел «Проверка
+  правок оформления». Читать перед любой правкой вида.
+- `docs/style-inventory.md` — замороженный снимок инвентаря классов, ссылки
+  устарели (см. `docs/backlog.md`).
+- `docs/ux-ui-problems.md` — список замеченных глазами дефектов вида.
+- `docs/schema.md`, `docs/schema-stage2.md` — модель данных.
+- `docs/charter/README.md` — выгрузка текстового слоя Устава и её
+  воспроизводимость.
 
 ## Стек
 
-- TanStack Start 1.168 (`@tanstack/react-start`, `@tanstack/react-router` 1.170)
+- TanStack Start (`@tanstack/react-start`, `@tanstack/react-router`)
 - React 19
-- Vite **8.0.16**
+- Vite
 - Tailwind 4
-- Bun **1.3.14** (единственный менеджер пакетов; единственный lock — `bun.lock`)
+- Bun — единственный менеджер пакетов; единственный lock — `bun.lock`
 - Nitro preset: `node-server` (деплой на обычный Node.js)
-- Конфиг сборки: `@lovable.dev/vite-tanstack-config` 2.7.7 (все плагины внутри — не добавлять свои в `vite.config.ts`)
+- Конфиг сборки — `@lovable.dev/vite-tanstack-config`
 
-Команды: `bun install`, `bun run dev`, `bun run build`, `bun run build:dev`, `bun run lint`, `bun run format`, `bunx tsc --noEmit`, `bunx prettier --check .`. Никогда не использовать `npm`, `pnpm`, `yarn`.
+Точные версии здесь не дублируются, а читаются из `package.json`: список
+расходился с фактом — у конфига сборки стояло «2.7.7» при фактических 2.13.1.
+Сознательно закреплена одна версия — bun в CI, `1.3.14`
+(`.github/workflows/ci.yml`, все пять job-ов).
 
-## Топология Git (Topology A)
+Команды: `bun install`, `bun run dev`, `bun run build`, `bun run build:dev`,
+`bun run lint`, `bun run format`, `bun run typecheck`, `bunx prettier --check .`.
+Никогда не использовать `npm`, `pnpm`, `yarn`.
 
-- Lovable пушит прямо в `main`. **Никаких «Lovable-веток» нет.**
+## Топология Git
+
 - Claude Code работает в ветках `claude/<feature>` и вливает через PR в `main`.
-- `main` **не защищаем** (branch protection). Иначе прямые пуши Lovable упрутся в защиту.
+- `main` не защищаем (branch protection). Иначе PR потребует стороннего
+  апрува, а второго человека с правами на репозиторий нет.
 - Свои PR не апрувить — GitHub всё равно заблокирует.
+- Синхронизация ветки с `main` — только `git merge origin/main` (обычный
+  merge-коммит).
 
 ### Запреты
 
-Никаких `git rebase`, `git push --force`, `git commit --amend`, `git merge --squash` над уже запушенной историей. Это ломает синхронизацию с Lovable.
-
-Синхронизация с `main` — только `git merge origin/main` (обычный merge-коммит).
+Никаких `git rebase`, `git push --force`, `git commit --amend`,
+`git merge --squash` над уже запушенной историей: опубликованная история не
+переписывается — по ней читают диффы и сверяют мержи.
 
 ### Первичная настройка клона (один раз)
 
@@ -33,9 +91,10 @@
 git config merge.ours.driver true
 ```
 
-Это объявляет драйвер `ours`, на который ссылается `.gitattributes` (встроенных драйверов у git всего три — `text`, `binary`, `union`; `ours` объявляется локально). Конфиг не коммитится и на стороне Lovable/CI не действует. Поэтому:
-
-**После каждого мерджа с `main` обязательно:**
+Это объявляет драйвер `ours`, на который ссылается `.gitattributes` (встроенных
+драйверов у git всего три — `text`, `binary`, `union`; `ours` объявляется
+локально). Конфиг не коммитится и на стороне CI не действует. Поэтому
+**после каждого мерджа с `main` обязательно**:
 
 ```bash
 bun run build:dev
@@ -49,197 +108,53 @@ git commit -m "chore: regenerate routeTree.gen.ts"
 
 ```bash
 bun run lint
-bunx tsc --noEmit
+bun run typecheck
 bunx prettier --check .
 bun run build
+bun test
 ```
 
-`tsc`, не `tsgo` — `tsgo` в devDependencies нет.
+`bun run typecheck` — это `tsc --noEmit` из `package.json`. Отдельной формы
+`bunx tsc --noEmit` в правилах нет: одна команда, один способ запуска.
 
-## Зоны ответственности
+## Импорт содержимого `src/server` из route-файлов
 
-### Lovable
-
-- `src/routes/*` — **только JSX / разметка / стили внутри маршрута**
-- `src/components/**` — **кроме** согласованного точечного исключения ниже
-- `src/styles.css`
-- `src/assets/**`
-- `src/data/mock.ts` (пока моки живы)
-- `vite.config.ts`
-
-**Исключение (согласовано 04.08.2026, PR B этапа 3):**
-`src/components/site/FeaturedNewsSection.tsx` и `LatestNewsSection.tsx`
-получают данные через проп `items?: NewsItem[]` (значение по умолчанию —
-`featuredNews`/`latestNews` из `@/data/mock`, как раньше) — заполняет его
-`loader` главной страницы (`src/routes/index.tsx`) через
-`createServerFn`-обёртки в `src/lib/news-server-fn.ts`. Тронута только строка
-источника данных, JSX/вёрстка/классы — нет. Прямой импорт `@/data/mock`
-внутри этих двух файлов оставлен исключительно как дефолт пропса (превью
-Lovable без loader'а и как safety-net при случайном откате) — **не
-восстанавливать его как основной источник данных**. Дальше эти два файла — не
-Lovable-зона без повторного согласования.
-
-**Исключение (согласовано 07.08.2026, этап 5, обложка новости):**
-`src/components/site/NewsGallery.tsx` и JSX страницы новости
-(`src/routes/news.$newsId.tsx`) получают обложку и галерею раздельно из
-`loader` — пропсы `cover?: string` и `gallery: string[]` (было: один плоский
-список `images`, первый элемент которого рисовался как обложка). Источник —
-`item.cover`/`item.gallery` из `src/server/news.ts`, где обложка теперь
-определяется по `cover_photo_id`, а не по позиции в списке. Плоский список
-`images = item.gallery?.length ? item.gallery : [item.cover]` — не
-восстанавливать: это и был баг (обложка задваивалась миниатюрой). Дальше
-`NewsGallery.tsx` и JSX этого route — не Lovable-зона без повторного
-согласования.
-
-**Исключение (согласовано 08.08.2026, защита от нехватки featured):**
-`src/components/site/FeaturedNewsSection.tsx` — десктопная раскладка
-hero/second/third обёрнута условным рендером по наличию элемента
-(`items[0..2]` могут быть `undefined`, если featured-новостей меньше трёх —
-блок теперь показывает ровно столько карточек, сколько отмечено, без
-добора чем-либо ещё). Вёрстка/классы не менялись, добавлены только условия
-рендера и guard от `NaN` в автопрокрутке при пустом массиве. Дальше этот
-файл — по-прежнему не Lovable-зона без повторного согласования сверх этого
-точечного изменения.
-
-**Исключение (согласовано 09.08.2026, этап 6, документы на странице
-новости):** JSX `src/routes/news.$newsId.tsx`, блок «Прикреплённые файлы» —
-у одного `<a>` заменён атрибут `href="#"` на `href={att.url ?? "#"}` и
-добавлены `target="_blank" rel="noreferrer"`. `att.url` — реальная ссылка на
-файл, которую теперь формирует `src/server/news.ts` через
-`getPublishedDocumentsForNews` (`src/server/documents.ts`), вместо всегда
-пустой заглушки. Остальная разметка блока (иконки, бейдж `kind`, `title`,
-`size`) не менялась — все три поля уже отрисовывались в вёрстке, не хватало
-только рабочей ссылки. `url` в `NewsAttachment` (`src/lib/types/news.ts`) —
-опциональный: у мок-фикстур `src/data/news-archive.ts` (Lovable-превью без
-БД) его нет и не будет, `href` в этом случае остаётся заглушкой `"#"`, как и
-раньше. Дальше `src/routes/news.$newsId.tsx` — по-прежнему не Lovable-зона
-без повторного согласования сверх этого точечного изменения.
-
-**Исключение (согласовано 10.08.2026, этап 6, разгрузка `src/assets/news`):**
-`src/data/news-archive.ts` нигде выше в этом списке поимённо не назван (в
-отличие от `mock.ts`), но `git log --format=%an` по нему даёт 100%
-`gpt-engineer-app[bot]` с момента создания файла — ни одного коммита от
-Claude Code, и сам этот документ называет его «мок-фикстур... (Lovable-превью
-без БД)» абзацем выше. Это Lovable-файл на практике. В нём (и только в нём —
-единственный импортёр `src/assets/news/**` во всём репозитории) разрешена
-точечная правка Claude Code: удаление и правка импортов картинок из
-`src/assets/news/**`, а также полей `cover` и `gallery` у существующих
-элементов массива `archiveNews` — включая удаление самого файла-картинки из
-`src/assets/news/**`, если на него после правки больше никто не ссылается.
-Запрещено: `title`, `excerpt`, `body`, `date`, `category`, а также
-добавление или удаление элементов массива `archiveNews` (без фиксации
-конкретного числа — Lovable может пополнить превью новостями, и
-зафиксированное здесь число со временем разойдётся с фактом). Причина
-исключения: превью Lovable должно меняться по картинкам (сокращение объёма
-сборки, устранение задвоения обложки в `gallery` — на пути с БД его нет,
-`src/server/news.ts` фильтрует `photos` по `cover_photo_id`), но не по
-содержанию новостей. Дальше `src/data/news-archive.ts` — по-прежнему не
-Claude-Code-зона без повторного согласования сверх этого точечного
-изменения.
-
-**Исключение (согласовано 05.09.2026, лента Федерации и фильтр по
-`section`):** `src/routes/news.index.tsx` — фильтр по разделам сравнивает
-`item.section` (машинное значение `"federation" | "referees" | null`,
-`null` = «Общее»), а не `item.category` с русской подписью; константа
-`VALUE_TO_CATEGORY` удалена, локальный `parseDate` заменён импортом
-`sortNewsByDateDesc` из `src/lib/news-date.ts`. Значения `?category=`,
-подписи кнопок, JSX и классы не менялись (две строки JSX хлебных крошек
-свернул `prettier` — файл на `main` не проходил `prettier --check`).
-`src/routes/federation.news.tsx` — заглушка `SectionPagePlaceholder`
-заменена лентой: `loader` (`listNews` из `@/lib/news-server-fn`), `head()`
-без `noindex`, компонент с карточками `NewsListCard` для новостей с
-`section === "federation"`. Поле `NewsItem.section` опционально только
-из-за мок-фикстур `src/data/news-archive.ts` — всё, что отдаёт
-`src/server/news.ts`, заполняет его всегда (мок-путь — обратной функцией
-`categoryToSection`); фильтровать по `section`, `category` — только для
-отображения. Дальше оба route-файла — по-прежнему не Claude-Code-зона
-(кроме `loader`/`head()`) без повторного согласования сверх этого
-точечного изменения.
-
-**Исключение (согласовано 05.09.2026, навигация по новостям, PR после
-#32):** `src/routes/news.index.tsx` — `DEFAULT_FILTER` `"general"` →
-`"all"`, больше ничего. `src/components/site/NewsListCard.tsx` —
-необязательный проп `from?: NewsOrigin` (`src/lib/news-origin.ts`): при
-наличии ссылка карточки получает `?from=…`, без него — прежняя; вызовы без
-пропа не менялись. `src/routes/federation.news.tsx` — карточкам передаётся
-`from="federation"`. `src/routes/news.$newsId.tsx` — `validateSearch`
-(`?from=`, zod + `fallback`, `stripSearchParams`) и `loader`
-(`pickRelatedNews` из `src/lib/news-related.ts`) — зона Claude Code; в
-JSX крошки стали данными (`CRUMBS_DEFAULT`/`CRUMBS_FEDERATION`) внутри
-прежней `<nav>` со своей разметкой (общий `Breadcrumbs` там не
-использовался и не внедрён). Крошки отражают путь, которым пришли
-(`?from=`), а не раздел новости. Дальше эти файлы — по-прежнему не
-Claude-Code-зона (кроме `loader`/`head()`/`validateSearch`) без повторного
-согласования сверх этого точечного изменения.
-
-**Исключение (согласовано 05.09.2026, «Руководство» из БД):**
-`src/routes/federation.leadership.tsx` — статический `LEADERSHIP_MOCK`
-удалён, компонент рисует `Route.useLoaderData()` (loader —
-`listPublishedPersons` из `@/lib/federation-person-server-fn`, зона Claude
-Code) через прежний `LeadershipCard` без `photo`/`links`; пустой список —
-«Раздел заполняется» в стиле пустого состояния `federation.news.tsx`.
-Заголовок, подзаголовок, классы — прежние. Источник данных — таблица
-`federation_person` (`src/db/schema.ts`, `src/server/federation-person.ts`,
-админка `/admin/persons`); публичная функция отдаёт явный список колонок
-без `photo_s3_key`/`status`/служебных дат. Дополнение (согласовано
-05.09.2026, фото человека): в JSX добавлен единственный проп
-`photo={person.photoUrl ?? undefined}` — `photoUrl` считает сервер через
-`buildImageUrl`, ключ S3 наружу по-прежнему не уходит. Дальше JSX этого
-файла — по-прежнему не Claude-Code-зона без повторного согласования сверх
-этого точечного изменения. `LeadershipCard.tsx` и
-`PersonPhotoPlaceholder.tsx` не менялись.
-
-**Исключение (согласовано 07.09.2026, скрытие разделов-заглушек из
-навигации):** `src/data/mock.ts` — массив разделов стал локальным
-`ALL_SECTIONS`, у шести разделов верхнего уровня («Коллегия судей», «Сборные
-команды», «Турниры», «Корты», «Документы», «Контакты») проставлен
-`hidden: true`, а экспорт `navSections` — `ALL_SECTIONS.filter((s) =>
-!s.hidden)`. Записи, подписи, `href`, `children` «Федерации», `siteMeta`,
-`allNews`/`featuredNews`/`latestNews` не менялись. `SiteHeader.tsx` и
-`SiteFooter.tsx` не тронуты: они читают уже отфильтрованный `navSections`.
-Поле `hidden?: boolean` в `src/lib/types/nav.ts` — зона Claude Code. Скрыто
-до наполнения раздела: чтобы вернуть раздел, снять флаг вместе с `noindex`
-страницы и вернуть запись в `src/routes/sitemap[.]xml.ts`. Дальше
-`src/data/mock.ts` — по-прежнему не Claude-Code-зона без повторного
-согласования сверх этого точечного изменения.
-
-**С 10.09.2026:** Claude Code вправе править файлы Lovable-зоны без отдельного согласования. Отдельный коммит и пометка «Lovable-зона» в сообщении для таких правок не требуются: обе меры нужны были, чтобы при одновременной работе двух агентов было видно, кто что трогал, а Lovable не запускается с 08.09.2026. Правило «`loader`/`head()` — отдельным коммитом `chore(loader):`» (разделы «Claude Code» и «Правила PR») действует без изменений. Правило о невозможности одновременной работы (пока жива ветка `claude/*` — Lovable не запускать, и наоборот) действует без изменений; при возврате Lovable ничего переписывать не нужно. История точечных исключений до этой даты — в `git log CLAUDE.md`.
-
-**С 12.09.2026:** правило об отдельном коммите `chore(loader):` для `loader`/`head()` отменено; `loader` и `head()` правятся в обычных коммитах вместе с остальной правкой. Правило вводилось 23.07.2026 для совладения с Lovable: route-файлы были зоной Lovable, `loader`/`head()` в них — зоной Claude Code, отдельный коммит держал эту границу видимой и страховал от случайного отката со стороны Lovable. Lovable не запускается с 08.09.2026, пометки зоны отменены 10.09.2026 (#59) — оба основания исчезли. Фраза записи «С 10.09.2026» о том, что это правило действует, этой записью отменяется.
-
-### Claude Code
-
-- `src/lib/**` — в т.ч. `src/lib/types/**` и `src/lib/news-server-fn.ts`
-- **`loader` и `head()` внутри route-файлов** — отдельным коммитом с префиксом `chore(loader):`. `head()` читает `loaderData`, разрывать их по владельцам вредно. **Отдельный коммит `chore(loader):` отменён с 12.09.2026** — см. запись «С 12.09.2026» выше.
-- `public/robots.txt`, `public/sitemap.xml`
-- `.github/workflows/**`
-- `CLAUDE.md`, `.gitattributes`
-- Deploy-артефакты: `Dockerfile`, systemd-юниты, скрипт запуска `node .output/server/index.mjs`
-
-**Важно про импорт содержимого `src/server` из route-файлов.** TanStack
-Start собирает route-модули и в клиентский, и в серверный бандл — прямой
-импорт чего-либо из `src/server` в файле из `src/routes` падает на сборке
-(плагин `tanstack-start-core:import-protection` запрещает любой импорт из
-директории `server` в клиентском окружении). Обход — `createServerFn` из
+TanStack Start собирает route-модули и в клиентский, и в серверный бандл —
+прямой импорт чего-либо из `src/server` в файле из `src/routes` падает на
+сборке (плагин `tanstack-start-core:import-protection` запрещает любой импорт
+из директории `server` в клиентском окружении). Обход — `createServerFn` из
 `@tanstack/react-start` в файле вне `src/server` (например,
 `src/lib/news-server-fn.ts`): тело `.handler()` компилируется только в
 серверный чанк, на клиенте остаётся RPC-заглушка. Route-файлы импортируют
 такие обёртки, а не модули `src/server` напрямую.
 
-**Уточнение (этап 5, PR фото, проверено сборкой).** Это ограничение не
-действует для роутов, у которых есть только `server.handlers` и нет
-`component`/`loader` (`src/routes/sitemap[.]xml.ts`, `src/routes/api/admin/upload.ts`)
-— такие файлы никогда не попадают в клиентский бандл целиком, router-plugin
-режет их на серверный чанк раньше import-protection. Проверено: пробный
-роут с прямым импортом `src/server/storage.ts` внутри `server.handlers.GET`
-собрался чисто (`bun run build:dev`, exit 0), а `grep` по `.output/public`
-на признаки серверного кода (`aws-sdk`, имена функций) не дал совпадений.
+**Уточнение (проверено сборкой).** Ограничение не действует для роутов, у
+которых есть только `server.handlers` и нет `component`/`loader`
+(`src/routes/sitemap[.]xml.ts`, `src/routes/api/admin/upload.ts`) — такие файлы
+никогда не попадают в клиентский бандл целиком, router-plugin режет их на
+серверный чанк раньше import-protection. Проверено: пробный роут с прямым
+импортом `src/server/storage.ts` внутри `server.handlers.GET` собрался чисто
+(`bun run build:dev`, exit 0), а `grep` по `.output/public` на признаки
+серверного кода (`aws-sdk`, имена функций) не дал совпадений.
 `src/routes/api/admin/upload.ts` импортирует `src/server/auth.ts` и
-`src/server/news-admin.ts` напрямую — обёртка `createServerFn` тут не
-нужна и не нужна каждый раз, когда роут — чистый `server.handlers` без
-`component`. Правило абзацем выше остаётся в силе для роутов с
-`component`/`loader` (`index.tsx`, `news.$id.tsx` и т.п.) — там прямой
-импорт `src/server` по-прежнему падает на сборке.
+`src/server/news-admin.ts` напрямую — обёртка `createServerFn` тут не нужна и
+не нужна каждый раз, когда роут — чистый `server.handlers` без `component`.
+Правило абзацем выше остаётся в силе для роутов с `component`/`loader`
+(`src/routes/_site.index.tsx`, `src/routes/_site.news.$newsId.tsx` и т. п.) —
+там прямой импорт `src/server` по-прежнему падает на сборке.
+
+## Данные: моки только при пустом `DATABASE_URL`
+
+**Fallback на моки при недоступном API не делаем.** Подмена данных скроет
+аварию. При ошибке (БД настроена, но недоступна) — падать, не глотать ошибку в
+try/catch. **Исключение** — `DATABASE_URL` не задан вовсе: тогда
+`src/server/news.ts` явной проверкой (`db === null` из `src/db/client.ts`, не
+try/catch) отдаёт `src/data/mock.ts` как есть, без обращения к БД. Режим
+остался от превью Lovable и продолжает работать как дешёвый способ поднять
+сайт без базы.
+
+`navSections` и `siteMeta` из `@/data/mock` в БД не переехали — это по-прежнему
+единственный источник навигации и мета-данных сайта.
 
 ## Локальная разработка, боевая база и S3
 
@@ -272,7 +187,7 @@ TLS не восстановит ни сервер, ни ошибка — сое�
   подключений к боевому кластеру ни агент, ни скрипты не открывают.
 - `db:refresh` по построению не может развернуть дамп в удалённую базу: если
   `DATABASE_URL` указывает не на `localhost`/`127.0.0.1` — отказ с кодом
-  выхода 1 до любых действий.
+  выхода 1 до любых действий (`scripts/db-refresh.ts`, функция `validate`).
 - Любая операция **записи** в боевую базу выполняется человеком вручную, с
   явной подстановкой боевой строки подключения в командной строке. Агент
   боевую строку в `DATABASE_URL` не подставляет.
@@ -289,6 +204,8 @@ TLS не восстановит ни сервер, ни ошибка — сое�
   **запрещены** — в частности `scripts/dedupe-cover.ts` без `--dry-run`.
   Локальная база и содержимое бакета живут независимо: удаление объекта по
   локальной копии данных сломает боевой сайт.
+- Перезапись ключа — это сразу прод: черновой площадки нет. Ритуал операции
+  над данными в S3 — `docs/process.md`.
 
 ### Локальная среда не эквивалентна боевой побайтово
 
@@ -297,66 +214,78 @@ TLS не восстановит ни сервер, ни ошибка — сое�
 текстовым колонкам локально и на проде может различаться. Поведение,
 зависящее от сортировки строк, локальным тестом не подтверждается.
 
-### Язык PR
-
-Заголовок и описание pull request — на русском языке.
-
 ## Правила PR
 
-- Один PR — одна зона.
-- Префиксы сообщений: `feat:`, `fix:`, `chore(deploy):`, `chore(ci):`.
-- PR, добавляющий класс с долей (`/NN`) в публичную зону, обязан либо обойтись токеном, либо обновить заморозку в `tests/style-fractions.test.ts` тем же PR. Красный `style-fractions` — не повод править список «чтобы позеленело», а повод проверить, нет ли для значения роли (`docs/style-rules.md`, «Поверхности»).
-
-## Стратегия миграции `src/data/mock.ts`
-
-1. ✅ **Сделано (Lovable).** Типы вынесены из `src/data/mock.ts`:
-   - `NewsItem`, `NewsCategory`, `NewsAttachment` → `src/lib/types/news.ts`
-   - `NavSection`, `NavChild` → `src/lib/types/nav.ts`
-2. ✅ **Сделано (Lovable).** Импорты типов во всех компонентах и route-файлах переведены на `@/lib/types/*`; из `@/data/mock` импортируются только данные (`allNews`, `featuredNews`, `latestNews`, `navSections`, `siteMeta`).
-3. ✅ **Сделано (Claude Code, PR B этапа 3, новости).** Не `src/lib/api.ts` —
-   вместо REST/fetch-слоя `src/server/news.ts` (прямой доступ к БД через
-   drizzle) читается loader'ами route-файлов через `createServerFn`-обёртки в
-   `src/lib/news-server-fn.ts` (см. «Важно про импорт `src/server/**`» выше).
-   Так короче цепочка (SSR-loader → БД, без лишнего HTTP-хопа) и креды
-   БД/S3 физически не могут попасть в клиентский бандл. Для остальных типов
-   данных (`navSections`, `siteMeta`) шаг 3 ещё не сделан — они по-прежнему
-   из `@/data/mock`.
-4. **Fallback на моки при недоступном API не делаем.** Подмена данных скроет
-   аварию. При ошибке (БД настроена, но недоступна) — падать, не глотать
-   ошибку в try/catch. **Исключение** — `DATABASE_URL` не задан вовсе (штатный
-   режим превью Lovable, не авария): тогда `src/server/news.ts` явной
-   проверкой (`db === null` из `src/db/client.ts`, не try/catch) отдаёт
-   `mock.ts` как есть, без обращения к БД.
-
-Исключение из зон: файлы `src/lib/types/**` уже созданы Lovable как часть шагов 1–2; дальше они в зоне Claude Code.
+- Заголовок и описание pull request — на русском языке.
+- Префиксы сообщений: `feat:`, `fix:`, `docs:`, `chore(deploy):`,
+  `chore(ci):`.
+- PR, добавляющий класс с долей (`/NN`) в публичную зону, обязан либо обойтись
+  токеном, либо обновить заморозку в `tests/style-fractions.test.ts` тем же PR.
+  Красный `style-fractions` — не повод править список «чтобы позеленело», а
+  повод проверить, нет ли для значения роли (`docs/style-rules.md`,
+  «Поверхности»).
+- `gh` допустим для `gh pr create`, `gh pr view`, `gh pr status`,
+  `gh pr merge`. Claude Code мержит собственный PR сам при одновременном
+  соблюдении условий: все проверки задания зелёные (typecheck, test, lint
+  совпадает с базой, prettier, build); ни одно стоп-условие задания не
+  сработало; в PR нет файлов `drizzle/**` и правок `src/db/schema.ts`. Команда
+  — строго `gh pr merge N --merge --delete-branch`: merge-коммит, как в
+  веб-интерфейсе; squash и rebase переписывают историю ветки. После мержа —
+  `git checkout main`, `git pull --ff-only`, `git log -1 --format="%h %p %s"`,
+  вывод с двумя родителями в доклад.
+- **PR с миграцией** — любой файл в `drizzle/**` или правка
+  `src/db/schema.ts`. Агент только создаёт PR и ставит в начало заголовка
+  префикс `[миграция]`. Мержит Антон, после применения миграции к схемам `dev`
+  и `public` прода по ритуалу (`docs/process.md`). Агент не мержит такой PR ни
+  при каких условиях, даже если все проверки зелёные.
 
 ## CI
 
-`.github/workflows/ci.yml` — **информационный, не блокирующий**. Запускается на `push` в `main` и на все `pull_request`. Прогоняет `lint`, `prettier --check`, `tsc --noEmit`, `build`, `bun test` (job `test`).
+`.github/workflows/ci.yml` — **информационный, не блокирующий**. Запускается на
+`push` в `main` и на все `pull_request`. Пять job-ов: `lint`, `format`
+(`bunx prettier --check .`), `typecheck`, `build`, `test` (`bun run test`).
 
-Блокирующим CI становится только через branch protection / required status checks, которые здесь не включаем (см. «Топология Git»).
+Блокирующим CI становится только через branch protection / required status
+checks, которые здесь не включаем (см. «Топология Git»).
 
-Версия bun в CI зафиксирована (`1.3.14`) — плавающий `bun-version: latest` однажды разойдётся с форматом `bun.lock` и уронит `--frozen-lockfile`.
+Версия bun в CI зафиксирована (`1.3.14`) — плавающий `bun-version: latest`
+однажды разойдётся с форматом `bun.lock` и уронит `--frozen-lockfile`.
 
 ## Не трогать руками
 
-- `src/routeTree.gen.ts` — автогенерация TanStack Router.
-- `.lovable/`, `.workspace/skills/` (последнее сбрасывается на каждое сообщение Lovable).
-- `AGENTS.md` — только вне маркеров `<!-- LOVABLE:BEGIN --> … <!-- LOVABLE:END -->`.
+- `src/routeTree.gen.ts` — автогенерация TanStack Router; регенерируется
+  `bun run build:dev`.
+- `.lovable/`.
+- `AGENTS.md` — только вне маркеров
+  `<!-- LOVABLE:BEGIN --> … <!-- LOVABLE:END -->`.
 - `src/routes/README.md`.
-- `src/lib/lovable-error-reporting.ts`, `src/lib/error-capture.ts`, `src/lib/error-page.ts`.
+- `src/lib/lovable-error-reporting.ts`, `src/lib/error-capture.ts`,
+  `src/lib/error-page.ts`.
 - `bun.lock` — только через `bun install` / `bun add`.
-- `vite.config.ts` — не добавлять плагины (всё внутри `@lovable.dev/vite-tanstack-config`); смена nitro preset — только по согласованию.
+- `vite.config.ts` — не добавлять плагины (всё внутри
+  `@lovable.dev/vite-tanstack-config`); смена nitro preset — только по
+  согласованию.
+- `docs/charter/ustav.lines.json` — выгрузка защищена SHA256
+  (`docs/charter/README.md`), стоит в `.prettierignore`.
 
-## Зоны владения
+## Границы и ответственность
 
-- **Lovable**: публичные страницы и компоненты.
-- **Claude Code**: `/admin`, `src/server/**`, `src/db/**`, `drizzle/**`, `scripts/**`, `tests/**`, `src/start.ts`.
-- **Lovable не изменяет**: `src/routes/admin/**`, `src/server/**`, `src/db/**`, `drizzle/**`, `scripts/**`, `src/data/**`, `tests/**`, `src/start.ts`.
-- `src/start.ts` — серверный жизненный цикл запроса TanStack Start (`requestMiddleware`): здесь `errorMiddleware` (перехват необработанных ошибок, страница 500) и мидлварь 308-редиректа с `www.` на канонический домен. Файл создан шаблоном Lovable, но с этого момента — зона Claude Code; Lovable его не трогает. Ограничение редиректа: раздача статики из `.output/public` в Nitro-preset `node-server` обслуживается внутренним обработчиком Nitro раньше `requestMiddleware`, поэтому прямой запрос к уже существующему файлу в `.output/public` по адресу с `www` редиректа не получит (HTML-страница редиректится раньше, чем браузер запросит статику — на практике не проявляется).
-- Серверные npm-зависимости зоны Claude Code (не удалять и не менять версии без согласования): drizzle-orm, drizzle-kit, postgres, bcryptjs, @aws-sdk/client-s3, sanitize-html. Раздел `scripts` в `package.json` и каталог `tests/**` — тоже зона Claude Code. Пакеты `@lovable.dev/*` — зона Lovable, не пиннить.
-- Синхронизация — только через merge, без rebase и force-push.
-- Guard в `src/routes/admin/_authed/route.tsx` — навигационный, не граница безопасности. Каждая серверная функция админки обязана проверять сессию самостоятельно: эндпоинты `createServerFn` вызываются по HTTP напрямую.
-- `gh` допустим для `gh pr create`, `gh pr view`, `gh pr status`, `gh pr merge`. Claude Code мержит собственный PR сам при одновременном соблюдении условий: все проверки задания зелёные (typecheck, test, lint совпадает с базой, prettier, build); ни одно стоп-условие задания не сработало; в PR нет файлов `drizzle/**` и правок `src/db/schema.ts`. Команда — строго `gh pr merge N --merge --delete-branch`: merge-коммит, как в веб-интерфейсе; squash и rebase ломают синхронизацию с Lovable. После мержа — `git checkout main`, `git pull --ff-only`, `git log -1 --format="%h %p %s"`, вывод с двумя родителями в доклад.
-- **PR с миграцией** — любой файл в `drizzle/**` или правка `src/db/schema.ts`. Агент только создаёт PR и ставит в начало заголовка префикс `[миграция]`. Мержит Антон, после применения миграции к схемам `dev` и `public` прода по ритуалу. Агент не мержит такой PR ни при каких условиях, даже если все проверки зелёные.
-- Секреты (`DATABASE_URL`, ключи S3, `SESSION_SECRET`) в удалённую сессию агента не передаются; любая работа, требующая живой БД или S3, выполняется только в локальной сессии на машине Антона.
+- `src/start.ts` — серверный жизненный цикл запроса TanStack Start
+  (`requestMiddleware`): здесь `errorMiddleware` (перехват необработанных
+  ошибок, страница 500) и мидлварь 308-редиректа с `www.` на канонический
+  домен. Ограничение редиректа: раздача статики из `.output/public` в
+  Nitro-preset `node-server` обслуживается внутренним обработчиком Nitro
+  раньше `requestMiddleware`, поэтому прямой запрос к уже существующему файлу
+  в `.output/public` по адресу с `www` редиректа не получит (HTML-страница
+  редиректится раньше, чем браузер запросит статику — на практике не
+  проявляется).
+- Серверные npm-зависимости (не удалять и не менять версии без согласования):
+  drizzle-orm, drizzle-kit, postgres, bcryptjs, @aws-sdk/client-s3,
+  sanitize-html.
+- Guard в `src/routes/admin/_authed/route.tsx` — навигационный, а
+  **не граница безопасности**. Каждая серверная функция админки обязана
+  проверять сессию самостоятельно: эндпоинты `createServerFn` вызываются по
+  HTTP напрямую.
+- Секреты (`DATABASE_URL`, ключи S3, `SESSION_SECRET`)
+  в удалённую сессию агента не передаются; любая работа, требующая живой БД
+  или S3, выполняется только в локальной сессии на машине Антона.
