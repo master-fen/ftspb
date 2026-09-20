@@ -404,9 +404,14 @@ function lineOf(text: string, pos: number): number {
   return line;
 }
 
-/** Комментарии → пробелы той же длины: позиции и номера строк не плывут. */
+/**
+ * Комментарии → пробелы той же длины: позиции и номера строк не плывут.
+ * Осиротевший `-->` без парного `<!--` (опечатка легаси в newsarch_2017.html;
+ * браузер показывал его буквально) после основной замены комментарию
+ * принадлежать не может — тоже затирается.
+ */
 function blankComments(html: string): string {
-  return html.replace(/<!--[\s\S]*?-->/g, (m) => m.replace(/[^\n]/g, " "));
+  return html.replace(/<!--[\s\S]*?-->/g, (m) => m.replace(/[^\n]/g, " ")).replace(/-->/g, "   ");
 }
 
 /** Именованные сущности, которые декодируются в плоских полях (заголовок, анонс) и в профиле. */
@@ -973,16 +978,25 @@ function articleDate(text: string, relFile: string): string | null {
 }
 
 /**
- * Регион содержимого article-страницы по маркерам Dreamweaver: от маркера
- * `InstanceBeginEditable name="Edit02"` до `InstanceEndEditable`; без
- * маркеров — правая колонка от `<td width="821"` до конца файла.
+ * Регион содержимого article-страницы по маркерам Dreamweaver. Маркеры лежат
+ * внутри комментариев `<!-- InstanceBeginEditable name="Edit02" -->` и
+ * `<!-- InstanceEndEditable -->`; регион — между комментариями целиком.
+ * Срез от индекса самого маркера оставлял хвост ` -->` открывающего
+ * комментария текстом в начале тела (д2 у 56 тизерных записей) и голову
+ * `<!-- ` закрывающего — в конце. Без маркеров — правая колонка от
+ * `<td width="821"` до конца файла.
  */
 function articleRegion(raw: string): string {
   const beginMark = raw.indexOf('InstanceBeginEditable name="Edit02"');
   const endMark = beginMark >= 0 ? raw.indexOf("InstanceEndEditable", beginMark) : -1;
-  return beginMark >= 0 && endMark > beginMark
-    ? raw.slice(beginMark, endMark)
-    : raw.slice(Math.max(raw.indexOf('<td width="821"'), 0));
+  if (beginMark < 0 || endMark <= beginMark) {
+    return raw.slice(Math.max(raw.indexOf('<td width="821"'), 0));
+  }
+  const beginClose = raw.indexOf("-->", beginMark);
+  const start = beginClose >= 0 && beginClose < endMark ? beginClose + 3 : beginMark;
+  const endOpen = raw.lastIndexOf("<!--", endMark);
+  const end = endOpen >= start ? endOpen : endMark;
+  return raw.slice(start, end);
 }
 
 /**
