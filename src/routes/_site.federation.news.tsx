@@ -1,16 +1,29 @@
-import { useMemo } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, stripSearchParams } from "@tanstack/react-router";
+import { zodValidator } from "@tanstack/zod-adapter";
+import { z } from "zod";
 import { FederationMobileNav } from "@/components/site/FederationMobileNav";
 import { NewsListCard } from "@/components/site/NewsListCard";
-import { listNews } from "@/lib/news-server-fn";
-import { sortNewsByDateDesc } from "@/lib/news-date";
+import { NewsPagination } from "@/components/site/NewsPagination";
+import { listNewsPage } from "@/lib/news-server-fn";
+import { parsePageParam } from "@/lib/news-paging";
 
 const TITLE = "Новости Федерации — Федерация тенниса Санкт-Петербурга";
 const DESCRIPTION =
   "Официальные новости Федерации тенниса Санкт-Петербурга: решения Правления, собрания, события и объявления.";
 
+/** `?page=` — как на /news; раздел здесь задан страницей, фильтра нет. */
+const searchSchema = z.object({
+  // Не fallback из zod-adapter — почему, см. parsePageParam.
+  page: z.unknown().transform(parsePageParam),
+});
+
 export const Route = createFileRoute("/_site/federation/news")({
-  loader: () => listNews(),
+  validateSearch: zodValidator(searchSchema),
+  search: {
+    middlewares: [stripSearchParams({ page: 1 })],
+  },
+  loaderDeps: ({ search }) => ({ page: search.page }),
+  loader: ({ deps }) => listNewsPage({ data: { category: "federation", page: deps.page } }),
   head: () => ({
     meta: [
       { title: TITLE },
@@ -27,12 +40,7 @@ export const Route = createFileRoute("/_site/federation/news")({
  * (src/routes/_site.federation.tsx) — здесь только содержимое колонки.
  */
 function FederationNewsPage() {
-  const news = Route.useLoaderData();
-
-  const items = useMemo(
-    () => sortNewsByDateDesc(news).filter((n) => n.section === "federation"),
-    [news],
-  );
+  const { items, page, pageCount } = Route.useLoaderData();
 
   return (
     <article>
@@ -50,6 +58,8 @@ function FederationNewsPage() {
           ))}
         </div>
       )}
+
+      <NewsPagination page={page} pageCount={pageCount} />
     </article>
   );
 }

@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { latestNews } from "@/data/mock";
-import type { NewsItem } from "@/lib/types/news";
+import type { NewsCardItem } from "@/lib/types/news";
 import { NewsListCard } from "./NewsListCard";
 import { NewsCoverPlaceholder } from "./NewsCoverPlaceholder";
 import { NewsImage } from "./NewsImage";
@@ -11,7 +11,7 @@ const allNewsLinkClass =
   "font-ui text-[15px] font-bold leading-[19.25px] text-brand-blue ui-link inline-block xl:text-[16px]";
 
 type LatestNewsSectionProps = {
-  items?: NewsItem[];
+  items?: NewsCardItem[];
 };
 
 export function LatestNewsSection({ items = latestNews }: LatestNewsSectionProps) {

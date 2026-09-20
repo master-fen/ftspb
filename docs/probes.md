@@ -280,6 +280,34 @@ $ bun scripts/snapshot-compare.ts snapA snapB
 compare A B exit 0
 $ bun scripts/ssr-snapshot.ts classify snapA snapB
 файлов: 142; совпали: 142; только манифест: 0; прочее: 0; строк манифеста, различных только порядком: 0
+```
+
+## Пробы постраничной ленты и таблиц (PR «постраничная лента», 20.09.2026)
+
+Источник: план агента, ветка `claude/news-pagination`
+(`%USERPROFILE%\.claude\plans\pasted-content-id-6613-compiled-acorn.md`),
+результаты — `batch.local\8-news-pagination.md`.
+Что проверяет: управление лентой на узком экране, прокрутку в начало
+страницы при смене `?page=` силами роутера (с контролем на чипе фильтра,
+который позицию сохраняет), сброс страницы при смене фильтра, страховку
+высоты карточки, горизонтальную прокрутку таблицы внутри обёртки.
+Предусловия — `docs/environment.md` («Браузерные проверки»): подключённый
+браузер и `document.hidden === false` в том же вызове, что замер; первый
+прогон здесь был при скрытой вкладке и не засчитан.
+
+Стенд: сервер B — копия итоговой сборки ветки из scratchpad, порт 3218,
+локальная база; ширина — same-origin iframe на `/robots.txt`; загрузка —
+сетевое затишье (нет новых записей `performance.getEntriesByType('resource')`
+1,5 с, предел 10 с).
+
+| Проба | Действие                                                                                                                                                    | Ожидание                                                                                                                                                                                      | Контроль                                                                                                         |
+| ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| а     | iframe 390, `/news`: `nav[aria-label="Страницы"]` и его дети                                                                                                | один `nav`; «Назад» — `span[aria-disabled=true]`; «Вперёд» — `a[href="/news?page=2"]`; карточек 24; подпись «Стр. 1 из 2»; `scrollWidth === clientWidth`                                      | —                                                                                                                |
+| б     | верхняя вкладка `/news`: `scrollTo(0, 600)`, прочитать `scrollY`; `a[href="/news?page=2"].click()`; дождаться `location.search`                             | `location.search === "?page=2"`, карточек 18, `scrollY === 0`, «Вперёд» — `span[aria-disabled]`, «Назад» — `a[href="/news"]` без `aria-current`                                               | на той же странице: `scrollTo(0, 600)`, клик по чипу «Федерация» → `?category=federation`, `scrollY === 600`     |
+| в     | на `/news?page=2` клик по чипу «Общее»                                                                                                                      | `location.search === "?category=general"` — без `page`                                                                                                                                        | —                                                                                                                |
+| г     | iframe 390, `/news`: у `p` анонса самой длинной карточки — `webkitLineClamp`, `clientHeight`, `scrollHeight`, `lineHeight`; у всех `h3` — `webkitLineClamp` | `webkitLineClamp === "3"`, `clientHeight === 3 × lineHeight` (±1), `scrollHeight > clientHeight`; у всех 24 `h3` — `"3"`                                                                      | самая короткая аннотация: `scrollHeight === clientHeight`                                                        |
+| д     | скриншот `/news` 390 с управлением в кадре                                                                                                                  | `batch.local\samples\8-pagination-390.jpg`                                                                                                                                                    | —                                                                                                                |
+| е     | пробная новость с таблицей (через админку, потом удалена): iframe 390 и 1920 на `/news/СЛАГ`                                                                | на обеих ширинах `documentElement.scrollWidth === clientWidth`; на 390 у `.news-table` `scrollWidth > clientWidth` и после `scrollLeft = 50` → `scrollLeft > 0`; `table` внутри `.news-table` | на 1920 у `.news-table` `scrollWidth === clientWidth` — замер различает ширины; скриншоты 390 и 1920 в `samples` |
 
 ## Не найдено
 
@@ -289,4 +317,3 @@ $ bun scripts/ssr-snapshot.ts classify snapA snapB
 только отчёты итерации 17–19.09.2026. Если текст этой пробы нужен, он
 восстанавливается по `tests/container-box-content.test.ts` и по правилу
 контейнера в `docs/style-rules.md`.
-```

@@ -4,12 +4,34 @@ import { news, newsPhoto } from "@/db/schema";
 import { allNews, featuredNews, latestNews } from "@/data/mock";
 import { formatFileSize } from "@/lib/format-file-size";
 import { getFileExtension } from "@/lib/image-validation";
-import type { NewsCategory, NewsItem, NewsSection } from "@/lib/types/news";
-import { getPublishedDocumentsForNews, type PublicNewsDocument } from "@/server/documents";
+import { sortNewsByDateDesc } from "@/lib/news-date";
+import { cardExcerpt, pageDescription } from "@/lib/news-excerpt";
+import { clampPage, NEWS_PAGE_SIZE, pageCountFor } from "@/lib/news-paging";
+import { pickRelatedNews } from "@/lib/news-related";
+import type { SectionCategory } from "@/lib/section-category";
+import type { NewsCardItem, NewsCategory, NewsItem, NewsSection } from "@/lib/types/news";
+import { getPublishedDocumentsForNews } from "@/server/documents";
 import { getNewsCache, setNewsCache, type NewsCache } from "@/server/news-cache";
 import { buildImageUrl } from "@/server/storage";
 
 const CACHE_TTL_MS = 60_000;
+
+/** Страница ленты: карточки страницы, общее число записей в фильтре и число страниц. */
+export type NewsListPage = {
+  items: NewsCardItem[];
+  total: number;
+  pageCount: number;
+  /** Номер отданной страницы — после приведения в диапазон (`clampPage`), не `?page=` из адреса. */
+  page: number;
+};
+
+/** Страница новости одним вызовом: новость, «Читайте также» и описание для head. */
+export type NewsArticle = {
+  item: NewsItem;
+  related: NewsCardItem[];
+  /** `pageDescription` по правилу анонса (порог 200), при пустом источнике — заголовок. */
+  description: string;
+};
 
 function sectionToCategory(section: NewsSection | null): NewsCategory {
   switch (section) {
@@ -42,10 +64,48 @@ function withSection(item: NewsItem): NewsItem {
   return { ...item, section: categoryToSection(item.category) };
 }
 
-/** `published_at` приходит из drizzle как строка `YYYY-MM-DD` → вид `dd.mm.yy`, который уже парсит news.index.tsx. */
+/** Карточка из мок-фикстуры: раздел из `category`, анонс — по правилу карточки, как в кэше. */
+function toCardItem(item: NewsItem): NewsCardItem {
+  return {
+    id: item.id,
+    category: item.category,
+    section: categoryToSection(item.category),
+    date: item.date,
+    title: item.title,
+    excerpt: cardExcerpt(item.excerpt, item.body) || undefined,
+    cover: item.cover,
+    featured: item.featured ?? false,
+    updatedAtIso: item.updatedAtIso,
+  };
+}
+
+/** `published_at` приходит из drizzle как строка `YYYY-MM-DD` → вид `dd.mm.yy`, который уже парсит news-date.ts. */
 function isoDateToShort(iso: string): string {
   const [y, m, d] = iso.split("-");
   return `${d}.${m}.${y.slice(2)}`;
+}
+
+/**
+ * Обложка новости среди её фото (`photos` уже отсортированы по position).
+ * Фолбэк на первое фото — на текущих данных не выполняется ни разу: у всех
+ * новостей с фото coverPhotoId заполнен и указывает на верную строку. Это
+ * состояние, которого после этапа 5 быть не должно — админка обязана всегда
+ * проставлять обложку. Не молчим: если сработало, значит где-то разошлись
+ * данные, это стоит заметить в логах.
+ */
+function resolveCover<P extends { id: string }>(
+  slug: string,
+  coverPhotoId: string | null,
+  photos: readonly P[],
+): P | undefined {
+  let cover = coverPhotoId ? photos.find((photo) => photo.id === coverPhotoId) : undefined;
+  if (!cover && photos.length > 0) {
+    console.warn(
+      `[news] coverPhotoId пуст или не найден среди фото новости, фолбэк на минимальный position: ${slug}`,
+    );
+    cover = photos[0];
+  }
+  return cover;
 }
 
 async function loadCache(): Promise<NewsCache> {
@@ -63,7 +123,13 @@ async function loadCache(): Promise<NewsCache> {
   // listPublishedPersons: при `.select()` без списка любая новая колонка
   // (source, status, created_at/updated_at, deleted_at…) автоматически
   // попадала бы в кэш и дальше в SSR/loaderData. Наружу — только то, что
-  // рисуют страницы.
+  // рисуют карточки.
+  //
+  // `body` читается только ради правила анонса (`cardExcerpt`: свой анонс,
+  // иначе начало тела) и в кэш не попадает — карточке тело не нужно, а
+  // лоадер ленты отдавал бы его в SSR-разметку и loaderData каждого
+  // открытия. Цена — чтение тел всех опубликованных новостей раз в
+  // CACHE_TTL_MS при перестройке кэша.
   const newsRows = await db
     .select({
       id: news.id,
@@ -76,19 +142,22 @@ async function loadCache(): Promise<NewsCache> {
       featured: news.featured,
       featuredOrder: news.featuredOrder,
       coverPhotoId: news.coverPhotoId,
-      videoUrl: news.videoUrl,
-      hideCoverOnPage: news.hideCoverOnPage,
       updatedAt: news.updatedAt,
     })
     .from(news)
     .where(and(eq(news.status, "published"), isNull(news.deletedAt)))
-    .orderBy(desc(news.publishedAt));
+    // Второй и третий ключ — детерминированные границы страниц: в архиве
+    // много новостей с одной датой, а без tiebreaker порядок внутри дня не
+    // задан, и после перестройки кэша новость могла бы оказаться на двух
+    // страницах или ни на одной.
+    .orderBy(desc(news.publishedAt), desc(news.createdAt), desc(news.id));
 
   const newsIds = newsRows.map((row) => row.id);
 
+  // Из фото карточке нужна только обложка; галерею читает деталка (getNewsBySlug).
   const photoRows = newsIds.length
     ? await db
-        .select()
+        .select({ id: newsPhoto.id, newsId: newsPhoto.newsId, s3Key: newsPhoto.s3Key })
         .from(newsPhoto)
         .where(inArray(newsPhoto.newsId, newsIds))
         .orderBy(newsPhoto.position)
@@ -101,48 +170,14 @@ async function loadCache(): Promise<NewsCache> {
     photosByNewsId.set(photo.newsId, arr);
   }
 
-  const docsByNewsId = new Map<string, PublicNewsDocument[]>();
-  if (newsIds.length) {
-    const docsEntries = await Promise.all(
-      newsIds.map(async (id) => [id, await getPublishedDocumentsForNews(id)] as const),
-    );
-    for (const [id, docs] of docsEntries) {
-      docsByNewsId.set(id, docs);
-    }
-  }
-
   const featuredOrderById = new Map<string, number>();
-  const videoUrlBySlug = new Map<string, string | null>();
 
-  const items: NewsItem[] = newsRows.map((row) => {
-    const photos = photosByNewsId.get(row.id) ?? [];
-    const docs = docsByNewsId.get(row.id) ?? [];
-
-    // Фолбэк на photos[0] (минимальный position, photos уже отсортирован
-    // запросом выше) — на текущих данных не выполняется ни разу: у всех
-    // новостей с фото coverPhotoId заполнен и указывает на верную строку.
-    // Это состояние, которого после этапа 5 быть не должно — админка
-    // обязана всегда проставлять обложку. Не молчим: если сработало,
-    // значит где-то разошлись данные, это стоит заметить в логах.
-    let coverPhoto = row.coverPhotoId
-      ? photos.find((photo) => photo.id === row.coverPhotoId)
-      : undefined;
-    if (!coverPhoto && photos.length > 0) {
-      console.warn(
-        `[news] coverPhotoId пуст или не найден среди фото новости, фолбэк на минимальный position: ${row.slug}`,
-      );
-      coverPhoto = photos[0];
-    }
-    const gallery = photos
-      .filter((photo) => photo.id !== coverPhoto?.id)
-      .map((photo) => buildImageUrl(photo.s3Key));
+  const items: NewsCardItem[] = newsRows.map((row) => {
+    const coverPhoto = resolveCover(row.slug, row.coverPhotoId, photosByNewsId.get(row.id) ?? []);
 
     if (row.featured) {
       featuredOrderById.set(row.slug, row.featuredOrder ?? Number.MAX_SAFE_INTEGER);
     }
-    // Видео — только для деталки: в `items` не кладём, иначе listNews и
-    // getFeaturedAndLatest отдавали бы его во все списки.
-    videoUrlBySlug.set(row.slug, row.videoUrl);
 
     return {
       id: row.slug,
@@ -150,21 +185,9 @@ async function loadCache(): Promise<NewsCache> {
       section: row.section,
       date: isoDateToShort(row.publishedAt),
       title: row.title,
-      excerpt: row.excerpt ?? undefined,
-      body: row.body ?? undefined,
-      attachments: docs.length
-        ? docs.map((doc) => ({
-            kind: getFileExtension(doc.fileName).toUpperCase(),
-            title: doc.title,
-            size: formatFileSize(doc.sizeBytes),
-            url: doc.url,
-          }))
-        : undefined,
+      excerpt: cardExcerpt(row.excerpt, row.body) || undefined,
       cover: coverPhoto ? buildImageUrl(coverPhoto.s3Key) : undefined,
-      gallery: gallery.length ? gallery : undefined,
       featured: row.featured,
-      hideCoverOnPage: row.hideCoverOnPage,
-      publishedAtIso: row.publishedAt,
       updatedAtIso: row.updatedAt.toISOString(),
     };
   });
@@ -172,41 +195,140 @@ async function loadCache(): Promise<NewsCache> {
   const next: NewsCache = {
     items,
     featuredOrderById,
-    videoUrlBySlug,
     expiresAt: now + CACHE_TTL_MS,
   };
   setNewsCache(next);
   return next;
 }
 
-export async function listNews(): Promise<NewsItem[]> {
+/** Карточки всех опубликованных новостей, новые сверху: карта сайта и «Читайте также». */
+export async function listNews(): Promise<NewsCardItem[]> {
   if (db === null) {
-    return allNews.map(withSection);
+    return sortNewsByDateDesc(allNews.map(toCardItem));
   }
   const { items } = await loadCache();
   return items;
 }
 
+function matchesCategory(item: NewsCardItem, category: SectionCategory): boolean {
+  if (category === "all") return true;
+  // Сравниваем машинный раздел, а не русскую подпись category.
+  // «Общее» — новости без раздела (section === null).
+  const wanted: NewsSection | null = category === "general" ? null : category;
+  return (item.section ?? null) === wanted;
+}
+
+/**
+ * Страница ленты: фильтр по разделу, `NEWS_PAGE_SIZE` карточек; номер вне
+ * диапазона — первая страница (мусор в `?page=` до сюда не доходит — его
+ * снимает схема поиска маршрута).
+ */
+export async function listNewsPage(input: {
+  page: number;
+  category: SectionCategory;
+}): Promise<NewsListPage> {
+  const all = await listNews();
+  const filtered = all.filter((item) => matchesCategory(item, input.category));
+  const total = filtered.length;
+  const pageCount = pageCountFor(total);
+  const page = clampPage(input.page, pageCount);
+  const start = (page - 1) * NEWS_PAGE_SIZE;
+  return { items: filtered.slice(start, start + NEWS_PAGE_SIZE), total, pageCount, page };
+}
+
+/**
+ * Новость для своей страницы — отдельный запрос по слагу: тело, видео,
+ * галерея и документы. Кэш списка не поднимается, своего кэша у деталки нет.
+ */
 export async function getNewsBySlug(slug: string): Promise<NewsItem | null> {
   if (db === null) {
     const found = allNews.find((item) => item.id === slug);
     return found ? withSection(found) : null;
   }
-  const { items, videoUrlBySlug } = await loadCache();
-  const item = items.find((item) => item.id === slug);
+
+  const rows = await db
+    .select({
+      id: news.id,
+      slug: news.slug,
+      title: news.title,
+      excerpt: news.excerpt,
+      body: news.body,
+      section: news.section,
+      publishedAt: news.publishedAt,
+      featured: news.featured,
+      coverPhotoId: news.coverPhotoId,
+      videoUrl: news.videoUrl,
+      hideCoverOnPage: news.hideCoverOnPage,
+      updatedAt: news.updatedAt,
+    })
+    .from(news)
+    .where(and(eq(news.slug, slug), eq(news.status, "published"), isNull(news.deletedAt)))
+    .limit(1);
+  const row = rows[0];
+  if (!row) {
+    return null;
+  }
+
+  const [photos, docs] = await Promise.all([
+    db
+      .select({ id: newsPhoto.id, s3Key: newsPhoto.s3Key })
+      .from(newsPhoto)
+      .where(eq(newsPhoto.newsId, row.id))
+      .orderBy(newsPhoto.position),
+    getPublishedDocumentsForNews(row.id),
+  ]);
+
+  const coverPhoto = resolveCover(row.slug, row.coverPhotoId, photos);
+  const gallery = photos
+    .filter((photo) => photo.id !== coverPhoto?.id)
+    .map((photo) => buildImageUrl(photo.s3Key));
+
+  return {
+    id: row.slug,
+    category: sectionToCategory(row.section),
+    section: row.section,
+    date: isoDateToShort(row.publishedAt),
+    title: row.title,
+    excerpt: row.excerpt ?? undefined,
+    body: row.body ?? undefined,
+    attachments: docs.length
+      ? docs.map((doc) => ({
+          kind: getFileExtension(doc.fileName).toUpperCase(),
+          title: doc.title,
+          size: formatFileSize(doc.sizeBytes),
+          url: doc.url,
+        }))
+      : undefined,
+    cover: coverPhoto ? buildImageUrl(coverPhoto.s3Key) : undefined,
+    gallery: gallery.length ? gallery : undefined,
+    featured: row.featured,
+    // Значение колонки как есть (null, если видео нет).
+    videoUrl: row.videoUrl,
+    hideCoverOnPage: row.hideCoverOnPage,
+    publishedAtIso: row.publishedAt,
+    updatedAtIso: row.updatedAt.toISOString(),
+  };
+}
+
+/**
+ * Страница новости одним вызовом: лоадер деталки не переносит список
+ * карточек на клиент — «Читайте также» подбирается здесь из кэша карточек.
+ */
+export async function getNewsArticle(slug: string): Promise<NewsArticle | null> {
+  const item = await getNewsBySlug(slug);
   if (!item) {
     return null;
   }
-  // Значение колонки как есть (null, если видео нет).
-  return { ...item, videoUrl: videoUrlBySlug.get(slug) ?? null };
+  const related = pickRelatedNews(await listNews(), item);
+  return { item, related, description: pageDescription(item.excerpt, item.body) || item.title };
 }
 
 export async function getFeaturedAndLatest(): Promise<{
-  featured: NewsItem[];
-  latest: NewsItem[];
+  featured: NewsCardItem[];
+  latest: NewsCardItem[];
 }> {
   if (db === null) {
-    return { featured: featuredNews.map(withSection), latest: latestNews.map(withSection) };
+    return { featured: featuredNews.map(toCardItem), latest: latestNews.map(toCardItem) };
   }
   const { items, featuredOrderById } = await loadCache();
   const featured = items

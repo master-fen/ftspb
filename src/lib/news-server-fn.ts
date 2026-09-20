@@ -1,8 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
+import { SECTION_CATEGORIES } from "@/lib/section-category";
 import {
   getFeaturedAndLatest as getFeaturedAndLatestImpl,
-  getNewsBySlug as getNewsBySlugImpl,
-  listNews as listNewsImpl,
+  getNewsArticle as getNewsArticleImpl,
+  listNewsPage as listNewsPageImpl,
 } from "@/server/news";
 
 /**
@@ -12,11 +14,14 @@ import {
  * `.handler()` компилируется только в серверный чанк, на клиенте остаётся
  * RPC-заглушка.
  */
-export const listNews = createServerFn({ method: "GET" }).handler(() => listNewsImpl());
+export const listNewsPage = createServerFn({ method: "GET" })
+  // Номер вне диапазона приводит к первой странице сама функция (clampPage).
+  .validator(z.object({ page: z.number().int(), category: z.enum(SECTION_CATEGORIES) }))
+  .handler(({ data }) => listNewsPageImpl(data));
 
-export const getNewsBySlug = createServerFn({ method: "GET" })
+export const getNewsArticle = createServerFn({ method: "GET" })
   .validator((slug: string) => slug)
-  .handler(({ data }) => getNewsBySlugImpl(data));
+  .handler(({ data }) => getNewsArticleImpl(data));
 
 export const getFeaturedAndLatest = createServerFn({ method: "GET" }).handler(() =>
   getFeaturedAndLatestImpl(),

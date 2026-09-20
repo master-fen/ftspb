@@ -1,11 +1,11 @@
 import { Link } from "@tanstack/react-router";
-import type { NewsItem } from "@/lib/types/news";
+import type { NewsCardItem } from "@/lib/types/news";
 import { NewsCoverPlaceholder } from "./NewsCoverPlaceholder";
 import { NewsImage } from "./NewsImage";
 import { newsMetaLine } from "@/lib/news-meta";
 
 type NewsCardProps = {
-  item: NewsItem;
+  item: NewsCardItem;
   size?: "hero" | "default";
   priority?: boolean;
 };
