@@ -17,7 +17,7 @@
 | `bun run format`          | `prettier --write .`                 |
 | `bun run charter:check`   | сверка выгрузки Устава с PDF         |
 
-База на 19.09.2026: `bun test` — 457 тестов в 39 файлах, 3165 вызовов
+База на 20.09.2026: `bun test` — 495 тестов в 41 файле, 3227 вызовов
 `expect()`, 0 падений. Из них в `scripts/` — 101 тест в шести файлах:
 `css-extract` 19, `css-rule-forms` 11, `snapshot-align` 10,
 `snapshot-compare` 11, `snapshot-locate` 25, `ssr-snapshot` 25. `bun run lint`
