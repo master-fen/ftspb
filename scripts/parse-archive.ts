@@ -843,28 +843,146 @@ type SanitizeCtx = {
   videoLinks?: boolean;
 };
 
-/**
- * Тело новости → белый список p, br, a[href], b/strong, i/em.
- * Таблицы вёрстки разворачиваются в последовательность абзацев (границы
- * ячеек/рядов/абзацев — разрывы), script/style, on*-атрибуты и inline-стили удаляются,
- * фото-разметка и служебные фразы изъяты до вызова. В href допускаются
- * только http/https/mailto: прочие протоколы (javascript:, data:,
- * vbscript:) и неабсолютизируемые ссылки заменяются текстом ссылки.
- */
-function sanitizeBody(html: string, ctx: SanitizeCtx): string {
-  const work = html
-    // `<` без последующей латинской буквы/`/`/`!` — литеральный символ
-    // (опечатки вида «<Завершился …»), не начало тега.
-    .replace(/<(?![a-zA-Z/!])/g, "&lt;")
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<script[^>]*>/gi, " ")
-    // Фото-обёртка целиком (<a …><img …></a> без текста) — иначе от неё
-    // остаётся пустой якорь либо ложно срабатывает счётчик javascript-ссылок.
-    .replace(/<a[^>]*>\s*<img[^>]*>\s*<\/a>/gi, " ")
-    .replace(/<img[^>]*>/gi, " ")
-    .replace(/Кликните на фото для увеличения/gi, " ");
+// ───────────────────────── таблицы: разбор и признак «данных» ─────────────────────────
 
+/** Ячейка «с числом»: plain непуст и целиком из цифр/пунктуации счёта. */
+const NUMERIC_CELL_RE = /^[\d\s.,:;/()–-]+$/;
+/** Доля числовых ячеек, начиная с которой таблица — «данных», а не вёрстки. */
+const DATA_TABLE_RATIO = 0.3;
+
+type TableInfo = {
+  /** Индекс `<table` во фрагменте. */
+  start: number;
+  /** Индекс сразу после `</table>`; у незакрытой таблицы легаси — конец фрагмента. */
+  end: number;
+  /** 0 — верхний уровень. */
+  depth: number;
+  rows: number;
+  cols: number;
+  data: boolean;
+  /** Таблиц непосредственно внутри. */
+  nested: number;
+};
+
+/**
+ * Таблицы фрагмента: границы, глубина, строки×столбцы и класс «данных/вёрстки»
+ * по доле числовых ячеек ≥ DATA_TABLE_RATIO. Вложенность учитывается стеком:
+ * текст вложенной таблицы не считается ячейкой внешней. Один признак и для
+ * профиля (--profile), и для санитайзера — счёт и поведение не расходятся.
+ */
+function analyzeTables(html: string): TableInfo[] {
+  type Frame = TableInfo & {
+    cellsInRow: number;
+    totalCells: number;
+    numericCells: number;
+    cellBuf: string;
+    cellOpen: boolean;
+  };
+  const done: TableInfo[] = [];
+  const stack: Frame[] = [];
+  const closeCell = (f: Frame) => {
+    if (!f.cellOpen) return;
+    const t = stripTags(f.cellBuf);
+    f.totalCells += 1;
+    if (t !== "" && NUMERIC_CELL_RE.test(t)) f.numericCells += 1;
+    f.cellOpen = false;
+    f.cellBuf = "";
+  };
+  const endRow = (f: Frame) => {
+    f.cols = Math.max(f.cols, f.cellsInRow);
+    f.cellsInRow = 0;
+  };
+  const finish = (f: Frame, end: number) => {
+    closeCell(f);
+    endRow(f);
+    done.push({
+      start: f.start,
+      end,
+      depth: f.depth,
+      rows: f.rows,
+      cols: f.cols,
+      data: f.totalCells > 0 && f.numericCells / f.totalCells >= DATA_TABLE_RATIO,
+      nested: f.nested,
+    });
+  };
+  const tagRe = /<(\/?)(table|tr|td|th)\b[^>]*>/gi;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = tagRe.exec(html))) {
+    const top = stack[stack.length - 1];
+    if (top && top.cellOpen) top.cellBuf += html.slice(last, m.index);
+    last = m.index + m[0].length;
+    const closing = m[1] === "/";
+    const tag = m[2].toLowerCase();
+    if (tag === "table") {
+      if (!closing) {
+        if (top) top.nested += 1;
+        stack.push({
+          start: m.index,
+          end: -1,
+          depth: stack.length,
+          rows: 0,
+          cols: 0,
+          data: false,
+          nested: 0,
+          cellsInRow: 0,
+          totalCells: 0,
+          numericCells: 0,
+          cellBuf: "",
+          cellOpen: false,
+        });
+      } else {
+        const f = stack.pop();
+        if (f) finish(f, last);
+      }
+      continue;
+    }
+    const f = stack[stack.length - 1];
+    if (!f) continue;
+    if (tag === "tr") {
+      closeCell(f);
+      endRow(f);
+      if (!closing) f.rows += 1;
+    } else {
+      // td | th
+      closeCell(f);
+      if (!closing) {
+        f.cellOpen = true;
+        f.cellsInRow += 1;
+      }
+    }
+  }
+  // Незакрытые <table> легаси — досчитываем как закрытые до конца фрагмента.
+  while (stack.length) finish(stack.pop()!, html.length);
+  return done.sort((a, b) => a.start - b.start);
+}
+
+// ───────────────────────── санитайзер: конвейер ─────────────────────────
+
+/** Предобработка фрагмента перед разбором: опечатки `<`, script/style, фото-разметка, служебные фразы. */
+function prepareHtml(html: string): string {
+  return (
+    html
+      // `<` без последующей латинской буквы/`/`/`!` — литеральный символ
+      // (опечатки вида «<Завершился …»), не начало тега.
+      .replace(/<(?![a-zA-Z/!])/g, "&lt;")
+      .replace(/<script[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style[\s\S]*?<\/style>/gi, " ")
+      .replace(/<script[^>]*>/gi, " ")
+      // Фото-обёртка целиком (<a …><img …></a> без текста) — иначе от неё
+      // остаётся пустой якорь либо ложно срабатывает счётчик javascript-ссылок.
+      .replace(/<a[^>]*>\s*<img[^>]*>\s*<\/a>/gi, " ")
+      .replace(/<img[^>]*>/gi, " ")
+      .replace(/Кликните на фото для увеличения/gi, " ")
+  );
+}
+
+/**
+ * Инлайн-конвейер: фрагмент → абзацы (без обёртки `<p>`) с белым списком
+ * a[href], b/strong, i/em, `<br>`; границы блочных тегов (в том числе
+ * ячеек и рядов таблиц) — разрывы абзацев, прочие теги выбрасываются.
+ */
+function inlineParagraphs(work: string, ctx: SanitizeCtx): string[] {
   type Para = string[];
   const paras: Para[] = [];
   let current: Para = [];
@@ -952,8 +1070,95 @@ function sanitizeBody(html: string, ctx: SanitizeCtx): string {
     // все прочие теги (span, font, div-атрибуты и т.д.) просто выбрасываются
   }
   flush();
+  return paras.map((p) => p[0]);
+}
 
-  return paras.map((p) => `<p>${p[0]}</p>`).join("\n");
+/** Атрибуты ячейки, которые принимает сайт: colspan/rowspan с целым больше единицы. */
+function spanAttrs(tag: string): string {
+  let out = "";
+  for (const m of tag.matchAll(/\b(colspan|rowspan)\s*=\s*["']?(\d+)/gi)) {
+    if (Number(m[2]) > 1) out += ` ${m[1].toLowerCase()}="${Number(m[2])}"`;
+  }
+  return out;
+}
+
+/**
+ * Таблица данных → разметка из тегов, которые принимает сайт
+ * (src/server/sanitize.ts): table, caption, thead, tbody, tfoot, tr, th, td;
+ * у ячеек — только colspan/rowspan. Содержимое ячейки и подписи — тем же
+ * инлайн-конвейером, блочные границы внутри ячейки — `<br>`. Незакрытые
+ * структурные теги закрываются в конце.
+ */
+function sanitizeTable(tableHtml: string, ctx: SanitizeCtx): string {
+  const out: string[] = [];
+  const open: string[] = [];
+  let cell: { tag: string; attrs: string; from: number } | null = null;
+  const closeCell = (to: number) => {
+    if (!cell) return;
+    const inner = inlineParagraphs(tableHtml.slice(cell.from, to), ctx).join("<br>");
+    out.push(`<${cell.tag}${cell.attrs}>${inner}</${cell.tag}>`);
+    cell = null;
+  };
+  const closeTo = (tag: string) => {
+    const idx = open.lastIndexOf(tag);
+    if (idx === -1) return;
+    while (open.length > idx) out.push(`</${open.pop()}>`);
+  };
+  const tagRe = /<(\/?)(table|caption|thead|tbody|tfoot|tr|th|td)\b[^>]*>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = tagRe.exec(tableHtml))) {
+    const closing = m[1] === "/";
+    const tag = m[2].toLowerCase();
+    closeCell(m.index);
+    if (tag === "td" || tag === "th" || tag === "caption") {
+      if (!closing) {
+        cell = {
+          tag,
+          attrs: tag === "caption" ? "" : spanAttrs(m[0]),
+          from: m.index + m[0].length,
+        };
+      }
+      continue;
+    }
+    if (closing) {
+      closeTo(tag);
+    } else {
+      out.push(`<${tag}>`);
+      open.push(tag);
+    }
+  }
+  closeCell(tableHtml.length);
+  while (open.length) out.push(`</${open.pop()}>`);
+  return out.join("");
+}
+
+/**
+ * Тело новости → блоки: абзацы `<p>` (белый список a[href], b/strong, i/em,
+ * `<br>`) и таблицы данных. Фрагмент режется по границам таблиц данных без
+ * вложенных таблиц (analyzeTables — тот же признак, что считает профиль);
+ * куски между ними идут инлайн-конвейером, где макетные таблицы и таблицы
+ * данных с вложенными разворачиваются в абзацы (границы ячеек/рядов —
+ * разрывы). Таблица данных внутри макетной остаётся таблицей: внешняя
+ * разворачивается вокруг неё. script/style, on*-атрибуты и inline-стили
+ * удаляются, фото-разметка и служебные фразы изъяты до разбора. В href
+ * допускаются только http/https/mailto: прочие протоколы (javascript:,
+ * data:, vbscript:) и неабсолютизируемые ссылки заменяются текстом ссылки.
+ */
+function sanitizeBody(html: string, ctx: SanitizeCtx): string {
+  const work = prepareHtml(html);
+  const blocks: string[] = [];
+  const pushParas = (fragment: string) => {
+    for (const p of inlineParagraphs(fragment, ctx)) blocks.push(`<p>${p}</p>`);
+  };
+  let pos = 0;
+  for (const t of analyzeTables(work)) {
+    if (!t.data || t.nested > 0 || t.start < pos) continue;
+    pushParas(work.slice(pos, t.start));
+    blocks.push(sanitizeTable(work.slice(t.start, t.end), ctx));
+    pos = t.end;
+  }
+  pushParas(work.slice(pos));
+  return blocks.join("\n");
 }
 
 // ───────────────────────── article-страницы ─────────────────────────
@@ -1786,113 +1991,42 @@ function profDroppedTags(html: string): Record<string, number> {
   return Object.fromEntries(Object.entries(counts).sort(([a], [b]) => (a < b ? -1 : 1)));
 }
 
-/** Ячейка «с числом»: plain непуст и целиком из цифр/пунктуации счёта. */
-const NUMERIC_CELL_RE = /^[\d\s.,:;/()–-]+$/;
-
-type ProfTables = { всего: number; данных: number; вёрстки: number; макс: string | null };
+type ProfTables = {
+  всего: number;
+  данных: number;
+  вёрстки: number;
+  макс: string | null;
+  /** Таблиц на глубине ≥ 1 (внутри другой таблицы) — A7. */
+  вложенных: number;
+  /** Максимальная глубина: 1 — таблицы без вложенности, 0 — таблиц нет. */
+  глубина: number;
+  /** Таблиц данных, внутри которых есть другая таблица — в теле разворачиваются (A4). */
+  данныхСВложенными: number;
+};
 
 /**
- * Таблицы фрагмента: строки×столбцы и классификация «данных/вёрстки» по доле
- * числовых ячеек ≥ 0,3. Вложенность учитывается стеком: текст вложенной
- * таблицы не считается ячейкой внешней.
+ * Сводка таблиц фрагмента для профиля — по общему analyzeTables: тот же
+ * признак «данных/вёрстки», что и у санитайзера, счёт и поведение не
+ * расходятся.
  */
 function profAnalyzeTables(html: string): ProfTables {
-  type Frame = {
-    rows: number;
-    cellsInRow: number;
-    maxCols: number;
-    totalCells: number;
-    numericCells: number;
-    cellBuf: string;
-    cellOpen: boolean;
-  };
-  const done: Array<{ rows: number; cols: number; data: boolean }> = [];
-  const stack: Frame[] = [];
-  const closeCell = (f: Frame) => {
-    if (!f.cellOpen) return;
-    const t = plainProf(f.cellBuf);
-    f.totalCells += 1;
-    if (t !== "" && NUMERIC_CELL_RE.test(t)) f.numericCells += 1;
-    f.cellOpen = false;
-    f.cellBuf = "";
-  };
-  const endRow = (f: Frame) => {
-    f.maxCols = Math.max(f.maxCols, f.cellsInRow);
-    f.cellsInRow = 0;
-  };
-  const tagRe = /<(\/?)(table|tr|td|th)\b[^>]*>/gi;
-  let last = 0;
-  let m: RegExpExecArray | null;
-  while ((m = tagRe.exec(html))) {
-    const top = stack[stack.length - 1];
-    if (top && top.cellOpen) top.cellBuf += html.slice(last, m.index);
-    last = m.index + m[0].length;
-    const closing = m[1] === "/";
-    const tag = m[2].toLowerCase();
-    if (tag === "table") {
-      if (!closing) {
-        stack.push({
-          rows: 0,
-          cellsInRow: 0,
-          maxCols: 0,
-          totalCells: 0,
-          numericCells: 0,
-          cellBuf: "",
-          cellOpen: false,
-        });
-      } else {
-        const f = stack.pop();
-        if (f) {
-          closeCell(f);
-          endRow(f);
-          done.push({
-            rows: f.rows,
-            cols: f.maxCols,
-            data: f.totalCells > 0 && f.numericCells / f.totalCells >= 0.3,
-          });
-        }
-      }
-      continue;
-    }
-    const f = stack[stack.length - 1];
-    if (!f) continue;
-    if (tag === "tr") {
-      closeCell(f);
-      endRow(f);
-      if (!closing) f.rows += 1;
-    } else {
-      // td | th
-      closeCell(f);
-      if (!closing) {
-        f.cellOpen = true;
-        f.cellsInRow += 1;
-      }
-    }
-  }
-  // Незакрытые <table> легаси — досчитываем как закрытые.
-  while (stack.length) {
-    const f = stack.pop()!;
-    closeCell(f);
-    endRow(f);
-    done.push({
-      rows: f.rows,
-      cols: f.maxCols,
-      data: f.totalCells > 0 && f.numericCells / f.totalCells >= 0.3,
-    });
-  }
+  const tables = analyzeTables(html);
   let макс: string | null = null;
   let maxArea = -1;
-  for (const t of done) {
+  for (const t of tables) {
     if (t.rows * t.cols > maxArea) {
       maxArea = t.rows * t.cols;
       макс = `${t.rows}×${t.cols}`;
     }
   }
   return {
-    всего: done.length,
-    данных: done.filter((t) => t.data).length,
-    вёрстки: done.filter((t) => !t.data).length,
+    всего: tables.length,
+    данных: tables.filter((t) => t.data).length,
+    вёрстки: tables.filter((t) => !t.data).length,
     макс,
+    вложенных: tables.filter((t) => t.depth > 0).length,
+    глубина: tables.reduce((d, t) => Math.max(d, t.depth + 1), 0),
+    данныхСВложенными: tables.filter((t) => t.data && t.nested > 0).length,
   };
 }
 
@@ -2143,6 +2277,9 @@ function mergeSrcFeatures(a: SrcFeatures, b: SrcFeatures): SrcFeatures {
       вёрстки: a.таблицы.вёрстки + b.таблицы.вёрстки,
       макс:
         parseМакс(a.таблицы.макс) >= parseМакс(b.таблицы.макс) ? a.таблицы.макс : b.таблицы.макс,
+      вложенных: a.таблицы.вложенных + b.таблицы.вложенных,
+      глубина: Math.max(a.таблицы.глубина, b.таблицы.глубина),
+      данныхСВложенными: a.таблицы.данныхСВложенными + b.таблицы.данныхСВложенными,
     },
     выравнивание: {
       center: a.выравнивание.center + b.выравнивание.center,
@@ -2655,6 +2792,8 @@ type ResultFeatures = {
   пустыхP: number;
   br3Подряд: number;
   nbsp3Подряд: number;
+  /** Тегов `<table` в теле записи (после A4 — таблицы данных). */
+  таблицВТеле: number;
 };
 
 type Detectors = {
@@ -2749,6 +2888,7 @@ function profResultFeatures(rec: OutputRecord): ResultFeatures {
     пустыхP: (body.match(/<p>\s*<\/p>/g) ?? []).length,
     br3Подряд: (body.match(/(?:<br>\s*){3,}/g) ?? []).length,
     nbsp3Подряд: (body.match(/(?:&nbsp;\s*){3,}/g) ?? []).length,
+    таблицВТеле: (body.match(/<table\b/g) ?? []).length,
   };
 }
 
@@ -3317,6 +3457,15 @@ function srcScopeSection(
     },
     ["нет таблиц", "только вёрстки", "только данных", "данных и вёрстки"],
   );
+  L.push("### Вложенные таблицы (A7)");
+  L.push("");
+  L.push(
+    `- записей с таблицей внутри другой таблицы: ${have.filter((p) => g(p).таблицы.вложенных > 0).length}; вложенных таблиц всего: ${have.reduce((s, p) => s + g(p).таблицы.вложенных, 0)}; максимальная глубина: ${have.reduce((d, p) => Math.max(d, g(p).таблицы.глубина), 0)} (1 — без вложенности)`,
+  );
+  L.push(
+    `- записей с таблицей данных, внутри которой есть другая таблица (в теле разворачивается): ${have.filter((p) => g(p).таблицы.данныхСВложенными > 0).length}`,
+  );
+  L.push("");
   counterTable(L, "center-теги", have, (p) => g(p).выравнивание.center);
   counterTable(L, "align=center", have, (p) => g(p).выравнивание.alignCenter);
   counterTable(L, "атрибуты style", have, (p) => g(p).выравнивание.style);
@@ -3824,6 +3973,17 @@ function renderProfileReport(
   counterTable(L, "Пустые <p></p>", profs, (p) => p.результат.пустыхP);
   counterTable(L, "≥3 <br> подряд", profs, (p) => p.результат.br3Подряд);
   counterTable(L, "≥3 &nbsp; подряд", profs, (p) => p.результат.nbsp3Подряд);
+  counterTable(L, "Таблиц в теле записи (A4)", profs, (p) => p.результат.таблицВТеле);
+  const withTables = profs.filter((p) => p.результат.таблицВТеле > 0);
+  L.push(`### Записи с таблицей в теле: ${withTables.length}`);
+  L.push("");
+  for (const p of withTables) {
+    L.push(
+      `- ${profKeyStr(p)} — таблиц в теле ${p.результат.таблицВТеле}, таблиц данных в источнике ${p.источник.сумма.таблицы.данных}`,
+    );
+  }
+  if (withTables.length === 0) L.push("_нет_");
+  L.push("");
 
   L.push("## Признаки трансформации");
   L.push("");
