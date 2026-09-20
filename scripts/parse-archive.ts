@@ -212,6 +212,8 @@ type ReportBag = {
   internalLinks: number;
   externalLinks: number;
   droppedBadProtoLinks: number;
+  /** Видео-вставок (iframe) в телах, заменённых ссылкой «Видео». */
+  videoLinks: number;
   teaserCount: number;
   galleryCount: number;
   quoteCount: number;
@@ -241,6 +243,7 @@ const report: ReportBag = {
   internalLinks: 0,
   externalLinks: 0,
   droppedBadProtoLinks: 0,
+  videoLinks: 0,
   teaserCount: 0,
   galleryCount: 0,
   quoteCount: 0,
@@ -959,8 +962,15 @@ function analyzeTables(html: string): TableInfo[] {
 
 // ───────────────────────── санитайзер: конвейер ─────────────────────────
 
-/** Предобработка фрагмента перед разбором: опечатки `<`, script/style, фото-разметка, служебные фразы. */
-function prepareHtml(html: string): string {
+/**
+ * Предобработка фрагмента перед разбором: опечатки `<`, script/style,
+ * фото-разметка, служебные фразы, видео-вставки. Видео-вставка (`<iframe
+ * src>`, на легаси — ролики YouTube) при `videoLinks` становится ссылкой
+ * «Видео» на адрес ролика как в источнике — единственная настоящая потеря
+ * содержания архива; без `videoLinks` (путь анонса) выбрасывается, как и
+ * раньше. Других вставок (embed/object/video) в архиве нет.
+ */
+function prepareHtml(html: string, ctx: SanitizeCtx): string {
   return (
     html
       // `<` без последующей латинской буквы/`/`/`!` — литеральный символ
@@ -974,6 +984,14 @@ function prepareHtml(html: string): string {
       .replace(/<a[^>]*>\s*<img[^>]*>\s*<\/a>/gi, " ")
       .replace(/<img[^>]*>/gi, " ")
       .replace(/Кликните на фото для увеличения/gi, " ")
+      .replace(
+        /<iframe\b[^>]*\bsrc\s*=\s*["']?([^"'\s>]+)["']?[^>]*>[\s\S]*?<\/iframe>/gi,
+        (_whole: string, src: string) => {
+          if (!ctx.videoLinks) return " ";
+          if (!ctx.silent) report.videoLinks += 1;
+          return ` <a href="${src.replace(/"/g, "&quot;")}">Видео</a> `;
+        },
+      )
   );
 }
 
@@ -1145,7 +1163,7 @@ function sanitizeTable(tableHtml: string, ctx: SanitizeCtx): string {
  * data:, vbscript:) и неабсолютизируемые ссылки заменяются текстом ссылки.
  */
 function sanitizeBody(html: string, ctx: SanitizeCtx): string {
-  const work = prepareHtml(html);
+  const work = prepareHtml(html, ctx);
   const blocks: string[] = [];
   const pushParas = (fragment: string) => {
     for (const p of inlineParagraphs(fragment, ctx)) blocks.push(`<p>${p}</p>`);
@@ -1624,7 +1642,7 @@ function buildRecord(item: FeedItem): OutputRecord | null {
   let anons: string | undefined;
   let source: string;
   if (teaser && teaser.page && articleBody !== null) {
-    bodyHtmlOut = sanitizeBody(articleBody, { baseUrl: teaser.page.url });
+    bodyHtmlOut = sanitizeBody(articleBody, { baseUrl: teaser.page.url, videoLinks: true });
     const feedPlain = stripTags(sanitizeBody(feedBody, { baseUrl: feedUrl }));
     anons = removeLinkSentence(feedPlain) || undefined;
     source = teaser.page.url;
@@ -1642,7 +1660,7 @@ function buildRecord(item: FeedItem): OutputRecord | null {
       );
     }
   } else {
-    bodyHtmlOut = sanitizeBody(feedBody, { baseUrl: feedUrl });
+    bodyHtmlOut = sanitizeBody(feedBody, { baseUrl: feedUrl, videoLinks: true });
     anons = undefined;
     source = feedUrl;
   }
@@ -1955,6 +1973,7 @@ function renderReport(records: OutputRecord[]): string {
   L.push(
     `- ссылок с недопустимым протоколом/битым href (заменены текстом): ${report.droppedBadProtoLinks}`,
   );
+  L.push(`- видео-вставок (iframe) в телах, заменённых ссылкой «Видео»: ${report.videoLinks}`);
   L.push("");
   return L.join("\n") + "\n";
 }
