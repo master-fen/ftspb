@@ -56,6 +56,22 @@ export function hasMarkerResidue(html: string): boolean {
   return html.includes(RECORD_MARKER_SCHEME);
 }
 
+/**
+ * Карта «`Источник` записи → её слаг». Строится по ПОЛНОМУ списку записей, а
+ * не по срезу `--limit`: метка может указывать на запись за пределом среза, и
+ * по укороченной карте она молча стала бы текстом.
+ */
+export function slugMapBySource(
+  sources: ReadonlyArray<string | undefined>,
+  slugs: ReadonlyArray<string>,
+): Map<string, string> {
+  const map = new Map<string, string>();
+  sources.forEach((source, i) => {
+    if (source !== undefined && slugs[i] !== undefined) map.set(source, slugs[i]);
+  });
+  return map;
+}
+
 export type MarkerReplaceResult = {
   html: string;
   /** Сколько меток заменено на /news/СЛАГ. */

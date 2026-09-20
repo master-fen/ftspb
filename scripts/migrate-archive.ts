@@ -10,6 +10,12 @@ import { allNews, featuredNews } from "../src/data/mock";
 import { LEGACY_SLUG_MAX_LENGTH, slugify, truncateSlug } from "../src/server/slug";
 import { uploadObject } from "../src/server/storage";
 import { textToHtml } from "./text-to-html";
+import {
+  RECORD_MARKER_SCHEME,
+  hasMarkerResidue,
+  replaceMarkers,
+  slugMapBySource,
+} from "./archive-markers";
 
 const { news, newsPhoto, document, newsDocument } = schema;
 
@@ -674,6 +680,40 @@ async function main() {
 
   const slugs = resolveSlugs(records);
 
+  // ── метки на архивные записи → адреса ──
+  // Адрес записи знает только мигратор, поэтому разбор ставит в тело метку на
+  // `Источник` целевой записи. Карта строится по ПОЛНОМУ списку записей, а не
+  // по срезу `--limit`: иначе метка на запись за пределом среза молча стала бы
+  // текстом. Замена идёт здесь — после разрешения всех слагов и до любых
+  // действий с S3 и БД.
+  const allSlugs = limit !== undefined ? resolveSlugs(allRecords) : slugs;
+  const slugBySource = slugMapBySource(
+    allRecords.map((r) => r["Источник"]),
+    allSlugs,
+  );
+  let markersReplaced = 0;
+  const markersDropped: string[] = [];
+  for (const rec of records) {
+    const body = rec["ТекстHTML"];
+    if (body === undefined) continue;
+    const res = replaceMarkers(body, slugBySource);
+    rec["ТекстHTML"] = res.html;
+    markersReplaced += res.replaced;
+    for (const src of res.dropped) {
+      markersDropped.push(`"${rec["Заголовок"]}": ${src}`);
+    }
+  }
+  // Остаток схемы после замены означает, что форма метки разошлась с формой
+  // замены: молча залить такое тело нельзя.
+  const markerResidue = records.filter((r) => r["ТекстHTML"] && hasMarkerResidue(r["ТекстHTML"]));
+  if (markerResidue.length > 0) {
+    console.error(
+      `Остаток метки ${RECORD_MARKER_SCHEME} после замены у ${markerResidue.length} записей:`,
+    );
+    for (const r of markerResidue) console.error(`  "${r["Заголовок"]}" (${r["Дата"]})`);
+    process.exit(1);
+  }
+
   let coverCount = 0;
   let noCoverCount = 0;
   let galleryPhotoCount = 0;
@@ -713,6 +753,10 @@ async function main() {
       `Фото в галереях: ${galleryPhotoCount}, http-ссылок пропущено: ${droppedHttpCount}`,
     );
     console.log(`Документов: ${documentCount}`);
+    console.log(
+      `Меток заменено: ${markersReplaced}, снято (записи нет): ${markersDropped.length}` +
+        (markersDropped.length ? ` — ${markersDropped.join("; ")}` : ""),
+    );
     if (!replaceAll) {
       console.log(`Не найдено в mock.ts: ${mockNotFoundCount}`);
     }

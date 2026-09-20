@@ -5,6 +5,7 @@ import {
   hasMarkerResidue,
   markerHref,
   replaceMarkers,
+  slugMapBySource,
 } from "./archive-markers.ts";
 
 const SRC_A = "https://www.tennisfed.spb.ru/2023/0625";
@@ -82,6 +83,32 @@ describe("остаток схемы", () => {
 
   test("hasMarkerResidue не срабатывает на чистом теле", () => {
     expect(hasMarkerResidue("<p>Архив, запись, ссылка — и ни одной метки.</p>")).toBe(false);
+  });
+});
+
+describe("slugMapBySource", () => {
+  const sources = [SRC_A, SRC_B, undefined, SRC_MISSING];
+  const slugs = ["festivalnye-rasskazy", "fest-etap-24-iyunya", "iz-lenty", "tretya-stranica"];
+
+  test("карта по полному списку разрешает метку на запись за пределом среза", () => {
+    const full = slugMapBySource(sources, slugs);
+    const body = `<p>${anchor(SRC_MISSING, "дальняя запись")}</p>`;
+    const r = replaceMarkers(body, full);
+    expect(r.replaced).toBe(1);
+    expect(r.html).toBe('<p><a href="/news/tretya-stranica">дальняя запись</a></p>');
+  });
+
+  test("карта по срезу теряет её — метка молча стала бы текстом", () => {
+    const sliced = slugMapBySource(sources.slice(0, 2), slugs.slice(0, 2));
+    const body = `<p>${anchor(SRC_MISSING, "дальняя запись")}</p>`;
+    const r = replaceMarkers(body, sliced);
+    expect(r.replaced).toBe(0);
+    expect(r.dropped).toEqual([SRC_MISSING]);
+    expect(r.html).toBe("<p>дальняя запись</p>");
+  });
+
+  test("запись без Источника в карту не попадает", () => {
+    expect(slugMapBySource(sources, slugs).size).toBe(3);
   });
 });
 
