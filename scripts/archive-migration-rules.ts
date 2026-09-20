@@ -20,12 +20,12 @@ import { LEGACY_SLUG_MAX_LENGTH, slugify, truncateSlug } from "../src/server/slu
 
 /** Нормализация заголовка для сравнения: края и повторы пробелов. */
 export function normalizeTitle(title: string): string {
-  throw new Error(`не реализовано: normalizeTitle(${title})`);
+  return title.trim().replace(/\s+/g, " ");
 }
 
 /** Ключ сравнения «заголовок + дата» — им пользуются справка и старый контроль. */
 export function titleDateKey(title: string, publishedAt: string): string {
-  throw new Error(`не реализовано: titleDateKey(${title}, ${publishedAt})`);
+  return `${normalizeTitle(title)}|${publishedAt}`;
 }
 
 // ───────────────────────── часть D: created_at ─────────────────────────
@@ -44,6 +44,34 @@ export const CREATED_AT_STEP_MS = 1000;
 /** Сторож: при таком числе записей за день отметка уехала бы за полночь. */
 export const MAX_RECORDS_PER_DAY = 3600;
 
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Разбор `ГГГГ-ММ-ДД` в отметку полудня UTC с обратной сверкой.
+ *
+ * Одного `Date.parse` мало: он перекатывает несуществующие даты — на входе
+ * `2024-02-30T12:00:00.000Z` он молча отдаёт 1 марта (проверено на node 24 и
+ * на bun). Поэтому результат приводится обратно к `ГГГГ-ММ-ДД` и сверяется
+ * с входом.
+ */
+function baseUtcNoon(publishedAt: string): number {
+  if (!ISO_DATE_RE.test(publishedAt)) {
+    throw new Error(`createdAtForRank: некорректная дата «${publishedAt}», нужен вид ГГГГ-ММ-ДД`);
+  }
+  const hour = String(CREATED_AT_BASE_UTC_HOUR).padStart(2, "0");
+  const ms = Date.parse(`${publishedAt}T${hour}:00:00.000Z`);
+  if (Number.isNaN(ms)) {
+    throw new Error(`createdAtForRank: некорректная дата «${publishedAt}»`);
+  }
+  if (new Date(ms).toISOString().slice(0, 10) !== publishedAt) {
+    throw new Error(
+      `createdAtForRank: некорректная дата «${publishedAt}» — при разборе перекатилась в ` +
+        `«${new Date(ms).toISOString().slice(0, 10)}»`,
+    );
+  }
+  return ms;
+}
+
 /**
  * Отметка создания записи по её рангу внутри дня (с нуля, в порядке массива
  * выгрузки). Ранг 0 — верхняя запись дня на старом сайте, ей нужна самая
@@ -51,12 +79,26 @@ export const MAX_RECORDS_PER_DAY = 3600;
  * собственного ранга: префиксный срез (--limit) даёт те же отметки.
  */
 export function createdAtForRank(publishedAt: string, rankInDay: number): Date {
-  throw new Error(`не реализовано: createdAtForRank(${publishedAt}, ${rankInDay})`);
+  const base = baseUtcNoon(publishedAt);
+  if (!Number.isInteger(rankInDay) || rankInDay < 0) {
+    throw new Error(`createdAtForRank: ранг ${rankInDay} должен быть целым неотрицательным`);
+  }
+  if (rankInDay >= MAX_RECORDS_PER_DAY) {
+    throw new Error(
+      `createdAtForRank: ранг ${rankInDay} за пределом суток (предел ${MAX_RECORDS_PER_DAY})`,
+    );
+  }
+  return new Date(base - rankInDay * CREATED_AT_STEP_MS);
 }
 
 /** Отметки для всего массива выгрузки: ранг считается внутри каждого дня. */
 export function createdAtByIndex(publishedDates: ReadonlyArray<string>): Date[] {
-  throw new Error(`не реализовано: createdAtByIndex(${publishedDates.length})`);
+  const rankByDate = new Map<string, number>();
+  return publishedDates.map((date) => {
+    const rank = rankByDate.get(date) ?? 0;
+    rankByDate.set(date, rank + 1);
+    return createdAtForRank(date, rank);
+  });
 }
 
 // ───────────────────────── часть B: только добавить ─────────────────────────
@@ -83,7 +125,11 @@ export function decideAddOnly(
   slug: string,
   existingBySlug: ReadonlyMap<string, ExistingNewsRow>,
 ): AddOnlyDecision {
-  throw new Error(`не реализовано: decideAddOnly(${slug}, ${existingBySlug.size})`);
+  const found = existingBySlug.get(slug);
+  if (found === undefined) {
+    return { action: "insert" };
+  }
+  return { action: "skip", reason: found.deletedAt == null ? "active" : "soft-deleted" };
 }
 
 export type AddOnlyPartition<T> = {
@@ -96,7 +142,17 @@ export function partitionAddOnly<T extends { slug: string }>(
   items: ReadonlyArray<T>,
   existingBySlug: ReadonlyMap<string, ExistingNewsRow>,
 ): AddOnlyPartition<T> {
-  throw new Error(`не реализовано: partitionAddOnly(${items.length}, ${existingBySlug.size})`);
+  const insert: T[] = [];
+  const skipped: Array<{ item: T; reason: SkipReason }> = [];
+  for (const item of items) {
+    const decision = decideAddOnly(item.slug, existingBySlug);
+    if (decision.action === "insert") {
+      insert.push(item);
+    } else {
+      skipped.push({ item, reason: decision.reason });
+    }
+  }
+  return { insert, skipped };
 }
 
 // ───────────────── справка о совпадениях по «заголовок + дата» ─────────────────
@@ -115,12 +171,33 @@ export type TitleDateOverlap = {
  * другим слагом. Печатается всегда — и в сухом прогоне, и в боевом, в обоих
  * режимах: на боевом сайте это пары «архивная новость и заведённая руками»,
  * по каждой решает человек.
+ *
+ * Совпадение слага парой не считается: это одна и та же новость по одному
+ * адресу, её судьбу решает режим, а не глаза.
  */
 export function titleDateOverlap(
   existing: ReadonlyArray<ExistingNewsRow>,
   plans: ReadonlyArray<PlanIdentity>,
 ): TitleDateOverlap[] {
-  throw new Error(`не реализовано: titleDateOverlap(${existing.length}, ${plans.length})`);
+  const planSlugs = new Set(plans.map((p) => p.slug));
+  const planByKey = new Map<string, PlanIdentity>();
+  for (const p of plans) {
+    const key = titleDateKey(p.title, p.publishedAt);
+    if (!planByKey.has(key)) {
+      planByKey.set(key, p);
+    }
+  }
+  const out: TitleDateOverlap[] = [];
+  for (const row of existing) {
+    if (planSlugs.has(row.slug)) {
+      continue;
+    }
+    const p = planByKey.get(titleDateKey(row.title, row.publishedAt));
+    if (p !== undefined) {
+      out.push({ existing: row, planSlug: p.slug, planTitle: p.title });
+    }
+  }
+  return out;
 }
 
 // ───────────────── часть B2: предохранитель --replace-all ─────────────────
@@ -147,9 +224,18 @@ export function checkReplaceAllCoverage(
   plans: ReadonlyArray<PlanIdentity>,
   allowDataLoss: boolean,
 ): CoverageVerdict {
-  throw new Error(
-    `не реализовано: checkReplaceAllCoverage(${existing.length}, ${plans.length}, ${allowDataLoss})`,
+  const planSlugs = new Set(plans.map((p) => p.slug));
+  const planKeys = new Set(plans.map((p) => titleDateKey(p.title, p.publishedAt)));
+  const missingBySlug = existing.filter((r) => !planSlugs.has(r.slug));
+  const missingByTitleDate = existing.filter(
+    (r) => !planKeys.has(titleDateKey(r.title, r.publishedAt)),
   );
+  return {
+    ok: missingBySlug.length === 0 || allowDataLoss,
+    missingBySlug,
+    missingByTitleDate,
+    bypassed: missingBySlug.length > 0 && allowDataLoss,
+  };
 }
 
 // ───────────────────────── часть C: заливать или нет ─────────────────────────
@@ -170,7 +256,10 @@ export function decideUpload(args: {
   remote: RemoteObject;
   localSize: number;
 }): UploadDecision {
-  throw new Error(`не реализовано: decideUpload(${args.skipUploaded}, ${args.localSize})`);
+  if (!args.skipUploaded || args.remote === null) {
+    return "upload";
+  }
+  return args.remote.size === args.localSize ? "skip" : "reupload-size-mismatch";
 }
 
 // ───────────────────────── slug: коллизии ─────────────────────────
@@ -184,7 +273,57 @@ export type SlugSource = { Заголовок?: string; Дата?: string };
  * получился бы другим, чем при полном прогоне.
  */
 export function resolveSlugs(records: ReadonlyArray<SlugSource>): string[] {
-  throw new Error(
-    `не реализовано: resolveSlugs(${records.length}, ${slugify("")}${truncateSlug("", LEGACY_SLUG_MAX_LENGTH)})`,
+  // База обрезается до лимита старого сайта ДО разрешения коллизий — новые
+  // slug совпадают с легаси. Датный суффикс добавляется поверх обрезанной
+  // базы и может превысить лимит — это допустимо.
+  const baseSlugs = records.map((r) =>
+    truncateSlug(slugify(r["Заголовок"] ?? ""), LEGACY_SLUG_MAX_LENGTH),
   );
+  const groups = new Map<string, number[]>();
+  baseSlugs.forEach((base, i) => {
+    const arr = groups.get(base) ?? [];
+    arr.push(i);
+    groups.set(base, arr);
+  });
+
+  const finalSlugs = new Array<string>(records.length);
+  for (const [base, indices] of groups) {
+    if (indices.length === 1) {
+      finalSlugs[indices[0]] = base;
+      continue;
+    }
+    for (const i of indices) {
+      const isoMatch = records[i]["Дата"]?.match(/^\d{4}-\d{2}-\d{2}/);
+      if (!isoMatch) {
+        throw new Error(`Некорректная "Дата" у записи "${records[i]["Заголовок"]}"`);
+      }
+      finalSlugs[i] = `${base}-${isoMatch[0]}`;
+    }
+  }
+
+  // Коллизии, оставшиеся и после датного суффикса (в архиве есть разные
+  // новости с одинаковой парой заголовок+дата), получают порядковый суффикс
+  // по порядку следования записей в файле экспорта: slug-дата, slug-дата-2,
+  // slug-дата-3…
+  const ordinal = new Map<string, number>();
+  for (let i = 0; i < finalSlugs.length; i++) {
+    const s = finalSlugs[i];
+    const n = ordinal.get(s) ?? 0;
+    ordinal.set(s, n + 1);
+    if (n > 0) {
+      finalSlugs[i] = `${s}-${n + 1}`;
+    }
+  }
+
+  // Финальная проверка уникальности: бросает, если уникальность не достигнута
+  // и после порядковых суффиксов (например, slug-дата-2 совпал с чьей-то базой).
+  const seen = new Set<string>();
+  for (const s of finalSlugs) {
+    if (seen.has(s)) {
+      throw new Error(`Дублирующийся slug после разрешения коллизии: ${s}`);
+    }
+    seen.add(s);
+  }
+
+  return finalSlugs;
 }
