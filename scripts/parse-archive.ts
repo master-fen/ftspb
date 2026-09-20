@@ -6220,20 +6220,47 @@ function runSelfTest(): number {
       };
     })(),
     (() => {
-      const saved = newRecordPages;
+      const savedNew = newRecordPages;
+      const savedAll = allRecordPages;
       newRecordPages = new Set(["2023/0625.html"]);
+      allRecordPages = new Set(["2023/0625.html"]);
       const input =
         '<p><a href="http://tennisfed.spb.ru/2023/0625">на страницу-запись</a> и ' +
         '<a href="http://tennisfed.spb.ru/2023/0630">на обычную</a></p>';
       const out = sanitizeBody(input, { baseUrl: pageUrl, silent: true });
-      newRecordPages = saved;
+      newRecordPages = savedNew;
+      allRecordPages = savedAll;
       return {
-        name: "ленты: ссылка на страницу-запись становится меткой, ссылка на обычную страницу — нет",
+        name: "ленты: ссылка на страницу-запись смежной ленты становится меткой, ссылка на обычную страницу — нет",
         input,
         output: out,
         ok:
           out.includes(`href="${markerHref(`${SITE}/2023/0625`)}">на страницу-запись</a>`) &&
           out.includes('href="http://tennisfed.spb.ru/2023/0630">на обычную</a>'),
+      };
+    })(),
+    (() => {
+      // Страница-тело записи годовой ленты: в newRecordPages её нет, в
+      // allRecordPages есть. До 20.09.2026 такая ссылка меткой не становилась
+      // и уходила в экспорт адресом легаси.
+      const savedNew = newRecordPages;
+      const savedAll = allRecordPages;
+      newRecordPages = new Set<string>();
+      allRecordPages = new Set(["2023/06151.html"]);
+      const input =
+        '<p><a href="http://tennisfed.spb.ru/2023/06151">на тело записи годовой ленты</a> и ' +
+        '<a href="http://tennisfed.spb.ru/2023/0630">на обычную</a></p>';
+      const out = sanitizeBody(input, { baseUrl: pageUrl, silent: true });
+      newRecordPages = savedNew;
+      allRecordPages = savedAll;
+      return {
+        name: "ленты: ссылка на страницу-тело записи годовой ленты тоже становится меткой",
+        input,
+        output: out,
+        ok:
+          out.includes(
+            `href="${markerHref(`${SITE}/2023/06151`)}">на тело записи годовой ленты</a>`,
+          ) && out.includes('href="http://tennisfed.spb.ru/2023/0630">на обычную</a>'),
       };
     })(),
     (() => {
