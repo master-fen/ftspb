@@ -295,6 +295,8 @@ type ProfCapture = {
   previewReplaced: number;
   photoFeed: ProfPhotoSrc;
   photoArticle: ProfPhotoSrc;
+  /** Адреса видео-вставок в источниках тела (ленточный фрагмент и тизерная страница). */
+  videoSrcs: string[];
 };
 
 function newProfCapture(item: FeedItem, feedUrl: string): ProfCapture {
@@ -318,6 +320,7 @@ function newProfCapture(item: FeedItem, feedUrl: string): ProfCapture {
     previewReplaced: 0,
     photoFeed: { taken: 0, dup: 0, unresolved: 0 },
     photoArticle: { taken: 0, dup: 0, unresolved: 0 },
+    videoSrcs: [],
   };
 }
 
@@ -973,6 +976,11 @@ function analyzeTables(html: string): TableInfo[] {
  * содержания архива; без `videoLinks` (путь анонса) выбрасывается, как и
  * раньше. Других вставок (embed/object/video) в архиве нет.
  */
+/** Видео-вставка: `<iframe … src=АДРЕС …>…</iframe>`. */
+const IFRAME_RE = /<iframe\b[^>]*\bsrc\s*=\s*["']?([^"'\s>]+)["']?[^>]*>[\s\S]*?<\/iframe>/gi;
+/** Адреса видео-вставок фрагмента (профиль: контроль «адрес есть в теле записи»). */
+const videoSrcsOf = (html: string): string[] => [...html.matchAll(IFRAME_RE)].map((m) => m[1]);
+
 function prepareHtml(html: string, ctx: SanitizeCtx): string {
   return (
     html
@@ -987,14 +995,11 @@ function prepareHtml(html: string, ctx: SanitizeCtx): string {
       .replace(/<a[^>]*>\s*<img[^>]*>\s*<\/a>/gi, " ")
       .replace(/<img[^>]*>/gi, " ")
       .replace(/Кликните на фото для увеличения/gi, " ")
-      .replace(
-        /<iframe\b[^>]*\bsrc\s*=\s*["']?([^"'\s>]+)["']?[^>]*>[\s\S]*?<\/iframe>/gi,
-        (_whole: string, src: string) => {
-          if (!ctx.videoLinks) return " ";
-          if (!ctx.silent) report.videoLinks += 1;
-          return ` <a href="${src.replace(/"/g, "&quot;")}">Видео</a> `;
-        },
-      )
+      .replace(IFRAME_RE, (_whole: string, src: string) => {
+        if (!ctx.videoLinks) return " ";
+        if (!ctx.silent) report.videoLinks += 1;
+        return ` <a href="${src.replace(/"/g, "&quot;")}">Видео</a> `;
+      })
   );
 }
 
@@ -1485,7 +1490,10 @@ function buildRecord(item: FeedItem): OutputRecord | null {
     }
   }
   // Фрагмент ленты для профиля — то, что дальше реально идёт в конвейер.
-  if (cap) cap.feedFragment = feedBody;
+  if (cap) {
+    cap.feedFragment = feedBody;
+    cap.videoSrcs.push(...videoSrcsOf(feedBody));
+  }
 
   // ── article-ссылки: три кейса (цитата / тизер / галерея) ──
   type LinkInfo = {
@@ -1580,6 +1588,7 @@ function buildRecord(item: FeedItem): OutputRecord | null {
       cap.teaserRelFile = teaser.relFile;
       cap.teaserUrl = teaser.page.url;
       cap.teaserBodyHtml = teaser.page.bodyHtml;
+      cap.videoSrcs.push(...videoSrcsOf(teaser.page.bodyHtml));
     }
   }
 
@@ -1856,6 +1865,9 @@ const MANUAL_EXCLUSIONS: Array<{ file: string; title: string; date: string; reas
       "более ранний файл",
   },
 ];
+
+/** Ожидаемое число записей экспорта: 1882 по рекогносцировке минус точечные исключения. */
+const EXPECTED_RECORDS = 1882 - MANUAL_EXCLUSIONS.length;
 
 function dedupeRecords(collected: CollectedRecord[]): OutputRecord[] {
   const sha1 = (s: string) => createHash("sha1").update(s, "utf8").digest("hex");
@@ -3007,7 +3019,9 @@ function profDetectors(rec: OutputRecord, cap: ProfCapture): Detectors {
       tmpDocs,
       true,
     );
-    const sanFeed = plainProf(sanitizeBody(feedPrepared, { baseUrl: cap.feedUrl, silent: true }));
+    const sanFeed = plainProf(
+      sanitizeBody(feedPrepared, { baseUrl: cap.feedUrl, silent: true, videoLinks: true }),
+    );
     let sanArt: string | null = null;
     if (cap.teaserBodyHtml !== null && cap.teaserUrl !== null) {
       const artPrepared = extractDocuments(
@@ -3017,7 +3031,9 @@ function profDetectors(rec: OutputRecord, cap: ProfCapture): Detectors {
         tmpDocs,
         true,
       );
-      sanArt = plainProf(sanitizeBody(artPrepared, { baseUrl: cap.teaserUrl, silent: true }));
+      sanArt = plainProf(
+        sanitizeBody(artPrepared, { baseUrl: cap.teaserUrl, silent: true, videoLinks: true }),
+      );
     }
     а = pBody !== sanFeed && (sanArt === null || pBody !== sanArt);
   }
@@ -3956,6 +3972,9 @@ function renderExcerptPreview(
 
 type Control = { текст: string; ок: boolean; факт: string };
 
+/** Адрес видео-вставки записи и есть ли ссылка на него в теле. */
+type VideoCheck = { key: string; src: string; ok: boolean };
+
 type InventoryExtras = {
   feeds: AdjacentFeed[];
   unreferenced: string[];
@@ -3963,6 +3982,7 @@ type InventoryExtras = {
   previewSize: number;
   records: OutputRecord[];
   controls: Control[];
+  videos: VideoCheck[];
 };
 
 function renderProfileReport(
@@ -4337,6 +4357,20 @@ function renderProfileReport(
   renderCandidates2026(L, profs);
   renderYearSummary(L, profs);
 
+  L.push("## Видео-вставки (A5)");
+  L.push("");
+  L.push(
+    "Адреса `<iframe src>` из ленточного фрагмента и тела тизерной страницы записи; «в теле» — " +
+      "ссылка с этим адресом есть в ТекстHTML. Одна вставка на ленте и на тизерной странице одной " +
+      "записи считается дважды.",
+  );
+  L.push("");
+  L.push("| ключ | адрес | в теле |");
+  L.push("|---|---|---|");
+  for (const v of inv.videos) L.push(`| ${v.key} | ${mdEsc(v.src)} | ${v.ok ? "да" : "НЕТ"} |`);
+  if (inv.videos.length === 0) L.push("| _нет_ | | |");
+  L.push("");
+
   L.push("## Контроли");
   L.push("");
   for (const c of inv.controls) L.push(`- ${c.ок ? "ДА" : "НЕТ"} — ${c.текст}: ${c.факт}`);
@@ -4684,7 +4718,68 @@ function runProfile(records: OutputRecord[]): void {
   const p66 = profs.find((p) => p.ключ.файл === "newsarch_2023.html" && p.ключ.номер === 66);
   const d6of66 = p66?.детекторы.д6;
   const anonsCount = profs.filter((p) => p.результат.естьАнонс).length;
+
+  // ── контроли чистки архива (задание archive-cleanup, 20.09.2026) ──
+  const d1Count = (f: (d: D1Forms) => boolean) =>
+    profs.filter((p) => f(p.детекторы.д1.формы.заголовок) || f(p.детекторы.д1.формы.анонс)).length;
+  const d1Semi = d1Count((d) => d.сТочкой);
+  const d1Bare = d1Count((d) => d.безТочки);
+  const d2Hits = profs.filter((p) => p.детекторы.д2.любое).length;
+  const teasers = profs.filter((p) => p.детекторы.д8 !== null);
+  const d8a = teasers.filter((p) => p.детекторы.д8!.а).length;
+  const d8b = teasers.filter((p) => p.детекторы.д8!.б).length;
+  const d8loose = teasers.filter((p) => p.детекторы.д8!.аНестрого).length;
+  const withTableBody = profs.filter((p) => p.результат.таблицВТеле > 0);
+  const tableWithoutData = withTableBody.filter((p) => p.источник.сумма.таблицы.данных === 0);
+  const videoChecks: VideoCheck[] = [];
+  profs.forEach((p, i) => {
+    for (const src of profByRecord.get(records[i])!.videoSrcs) {
+      videoChecks.push({
+        key: profKeyShort(p),
+        src,
+        ok: records[i]["ТекстHTML"].includes(`href="${src}"`),
+      });
+    }
+  });
+  const videoMissing = videoChecks.filter((v) => !v.ok);
+
   const controls: Control[] = [
+    {
+      текст: "д1 = 0 по обеим формам (заголовки и анонсы)",
+      ок: d1Semi === 0 && d1Bare === 0,
+      факт: `с \`;\` ${d1Semi}, без \`;\` ${d1Bare}`,
+    },
+    { текст: "д2 = 0", ок: d2Hits === 0, факт: `${d2Hits}` },
+    {
+      текст: "д8 = 0 по (а) и (б)",
+      ок: d8a === 0 && d8b === 0,
+      факт: `а=${d8a}, б=${d8b} (тизерных ${teasers.length}; нестрого (а) ${d8loose}, ожидание ${D8_LOOSE_EXPECTED})`,
+    },
+    {
+      текст: "записей с таблицей в теле не меньше 10 (ожидание около 21)",
+      ок: withTableBody.length >= 10,
+      факт: `${withTableBody.length}`,
+    },
+    {
+      текст: "тег <table не встречается в телах записей, у которых таблиц данных нет",
+      ок: tableWithoutData.length === 0,
+      факт:
+        tableWithoutData.length === 0
+          ? `нарушений 0 из ${withTableBody.length} записей с таблицей`
+          : tableWithoutData.map(profKeyShort).join(", "),
+    },
+    {
+      текст: "все адреса видео-вставок присутствуют в телах своих записей",
+      ок: videoChecks.length > 0 && videoMissing.length === 0,
+      факт: `${videoChecks.length - videoMissing.length}/${videoChecks.length}${videoMissing.length ? ": нет — " + videoMissing.map((v) => `${v.key} ${v.src}`).join("; ") : ""}`,
+    },
+    {
+      текст: `записей в экспорте ${EXPECTED_RECORDS} (1882 минус точечные исключения)`,
+      ок: profs.length === EXPECTED_RECORDS,
+      факт: `${profs.length}`,
+    },
+    // ── прежние контроли инвентаризации (19.09.2026); снят «#66 оба флага д8
+    // истинны» — его предмет закрыт контролем «д8 = 0» по всему архиву.
     {
       текст: "newsarch_2023.html#66 в д6 с дельтой 31 день (лента 26.05.2023, статья 26.06.2023)",
       ок:
@@ -4703,21 +4798,6 @@ function runProfile(records: OutputRecord[]): void {
       факт: p66
         ? `страниц ${p66.детекторы.д7.страниц} (${p66.детекторы.д7.страницы.map((s) => `${s.relFile}:${s.длина}`).join(", ")})`
         : "запись не найдена",
-    },
-    {
-      текст: "у newsarch_2023.html#66 оба флага д8 истинны",
-      ок:
-        p66 !== undefined && p66.детекторы.д8 !== null && p66.детекторы.д8.а && p66.детекторы.д8.б,
-      факт: p66
-        ? p66.детекторы.д8 === null
-          ? "запись не тизерная"
-          : `а=${p66.детекторы.д8.а} (нестрого ${p66.детекторы.д8.аНестрого}), б=${p66.детекторы.д8.б}`
-        : "запись не найдена",
-    },
-    {
-      текст: "записей в экспорте 1882",
-      ок: profs.length === 1882,
-      факт: `${profs.length}`,
     },
     {
       текст: "записей с собственным анонсом не более 60 (ожидание 56)",
@@ -4743,6 +4823,7 @@ function runProfile(records: OutputRecord[]): void {
       previewSize: previewPicks.length,
       records,
       controls,
+      videos: videoChecks,
     }),
     "utf-8",
   );
