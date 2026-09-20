@@ -1764,8 +1764,7 @@ function buildRecord(item: FeedItem): OutputRecord | null {
   // работает как раньше и даёт исходное множество страниц-тел.
   const ownTeaserRel = (links.find((l) => l.kase === "тизер") ?? null)?.relFile ?? null;
   for (const l of links) {
-    if (l.relFile === ownTeaserRel) continue;
-    if ((l.kase === "тизер" || l.kase === "галерея") && allRecordPages.has(l.relFile)) {
+    if (isSuppressedLink(l.kase, l.relFile, ownTeaserRel, allRecordPages)) {
       l.kase = "ссылканазапись";
       report.markerLinks.push(
         `${context}: «${title}» → ${l.relFile}${newRecordPages.has(l.relFile) ? "" : " (тело чужой записи, метки нет)"}`,
@@ -2108,6 +2107,22 @@ function splitMediaRows(file: string, html: string): MediaRow[] {
     });
   }
   return rows;
+}
+
+/**
+ * Подавляется ли поглощение по этой ссылке. Страница, ставшая записью,
+ * родителем не поглощается — кроме той, что стала телом самой этой записи:
+ * её первая тизерная ссылка выбирается до подавления, иначе запись осталась
+ * бы без тела. Цитаты и утраченные страницы не поглощаются и так.
+ */
+function isSuppressedLink(
+  kase: string,
+  relFile: string,
+  ownTeaserRel: string | null,
+  recordPages: ReadonlySet<string>,
+): boolean {
+  if (relFile === ownTeaserRel) return false;
+  return (kase === "тизер" || kase === "галерея") && recordPages.has(relFile);
 }
 
 /**
@@ -6097,7 +6112,183 @@ function runSelfTest(): number {
     console.log(`  выход: ${c.output}`);
   }
 
-  const total = cases.length + profCases.length + invCases.length + cleanupCases.length;
+  // ── кейсы смежных лент (задание archive-feeds) — буквальный вход и выход ──
+
+  // Две строки ленты подряд со всеми странностями разметки сразу: атрибуты без
+  // кавычек рядом с кавычками, `/../` в адресе, сырой перевод строки внутри
+  // <h4>, хвост `</div><!--class="media"-->` (комментарии уже затёрты
+  // blankComments, как в боевом пути) и чужой <font class=smtxt> перед первой
+  // строкой — он есть в каждом из трёх файлов и в строку попадать не должен.
+  const mediaFeedHtml = blankComments(
+    "<p align=center>\n<font class=smtxt><i>\nПодзаголовок ленты\n</i></font>\n<hr>\n" +
+      '<div class="media news-body">\n' +
+      '\t\t<div class="media-left">\n' +
+      "\t\t<a href=https://www.tennisfed.spb.ru/../2025/1109>" +
+      "<img class=\"media-object\" src=https://www.tennisfed.spb.ru/news/2025/11/a_sm.jpg width = '150'></a>\n" +
+      "\t\t</div><!--media-left-->\n" +
+      '\t\t<div class="media-body">\n' +
+      "\t\t\t<strong><a href=https://www.tennisfed.spb.ru/../2025/1109>" +
+      '<h4 class="media-heading">Праздничный турнир\nна "Ижорце"</h4></a></strong>\n' +
+      '\t\t\t<i class="media-heading micrtxt">Опубликовано: 09.11.2025</i>\n\t\t\t<br />\n' +
+      "\t\t\t<a href=https://www.tennisfed.spb.ru/../2025/1109>\n" +
+      "\t\t\t<i class=smtxt>Короткий анонс строки.</i></a>\n" +
+      "\t\t</div><!--media-body-->\n\t\t<hr>\n\t\t" +
+      '</div><!--class="media"--><div class="media news-body">\n' +
+      '\t\t<div class="media-left">\n' +
+      "\t\t<a href=http://www.tennisfed.spb.ru/../2024/05271>" +
+      "<img class=\"media-object\" src=http://www.creyda.ru/b_sm.jpg width = '150'></a>\n" +
+      "\t\t</div><!--media-left-->\n" +
+      '\t\t<div class="media-body">\n' +
+      "\t\t\t<strong><a href=http://www.tennisfed.spb.ru/../2024/05271>" +
+      '<h4 class="media-heading">Вторая строка</h4></a></strong>\n' +
+      '\t\t\t<i class="media-heading micrtxt">Опубликовано: 27.05.2024</i>\n\t\t\t<br />\n' +
+      "\t\t\t<a href=http://www.tennisfed.spb.ru/../2024/05271>\n" +
+      "\t\t\t<i class=smtxt>Анонс второй строки.</i></a>\n" +
+      "\t\t</div><!--media-body-->\n\t\t<hr>\n\t\t" +
+      '</div><!--class="media"-->\n<span class="Copyright">Copyright</span>\n',
+  );
+  const mediaBadHtml = blankComments(
+    '<div class="media news-body">\n\t\t<div class="media-left">\n' +
+      '\t\t<a href=http://www.tennisfed.spb.ru/lnk_clubs.html><img class="media-object" src=x.jpg></a>\n' +
+      '\t\t</div><!--media-left-->\n\t\t<hr>\n\t\t</div><!--class="media"-->\n',
+  );
+  const bannerHtml =
+    '<p class="Header_BlueBack"><marquee behavior="alternate"><span style="color:#f25100">' +
+    "<a href=http://www.tennisfed.spb.ru/festvest.html>ФЕСТИВАЛЬ ТЕННИСНЫХ ГОРОДОВ</a>" +
+    "</span></marquee></p>\n<p align=center class=lgtxt>Заголовок страницы</p>\n<p>Текст.</p>";
+  const noBannerHtml = "<p align=center class=lgtxt>Заголовок страницы</p>\n<p>Текст.</p>";
+  const pageUrl = `${SITE}/2023/0625`;
+
+  const feedCases: Array<{ name: string; input: string; output: string; ok: boolean }> = [
+    (() => {
+      const before = runErrors.length;
+      // Имя вне RECON_EXPECTED_MEDIA_ROWS: сверка числа строк — забота прогона.
+      const rows = splitMediaRows("selftest-feed.html", mediaFeedHtml);
+      const added = runErrors.length - before;
+      return {
+        name: "ленты: две строки вёрстки media — ссылка, заголовок, дата ленты и анонс по тегам",
+        input: mediaFeedHtml,
+        output: JSON.stringify(rows.map(({ line: _line, ...r }) => r)),
+        ok:
+          added === 0 &&
+          rows.length === 2 &&
+          rows[0].position === 1 &&
+          rows[0].relFile === "2025/1109.html" &&
+          rows[0].title === 'Праздничный турнир на "Ижорце"' &&
+          rows[0].feedDate === "2025-11-09" &&
+          rows[0].anons === "Короткий анонс строки." &&
+          rows[1].position === 2 &&
+          rows[1].relFile === "2024/05271.html" &&
+          rows[1].title === "Вторая строка" &&
+          rows[1].feedDate === "2024-05-27" &&
+          rows[1].anons === "Анонс второй строки.",
+      };
+    })(),
+    (() => {
+      const before = runErrors.length;
+      const rows = splitMediaRows("selftest-feed.html", mediaBadHtml);
+      const added = runErrors.slice(before);
+      runErrors.length = before; // самотест не оставляет за собой фатальных записей
+      return {
+        name: "ленты: строка без ссылки на article-страницу — фатальная ошибка, а не тихий пропуск",
+        input: mediaBadHtml,
+        output: `строк ${rows.length}, runErrors +${added.length}: ${added.join(" | ")}`,
+        ok: rows.length === 0 && added.length === 1 && added[0].includes("без ссылки"),
+      };
+    })(),
+    (() => {
+      const cut = cutTemplateBanner(bannerHtml);
+      const keep = cutTemplateBanner(noBannerHtml);
+      return {
+        name: "ленты: баннер шаблона срезается первым абзацем; страница без баннера не трогается",
+        input: JSON.stringify([bannerHtml, noBannerHtml]),
+        output: JSON.stringify([cut, keep]),
+        ok:
+          cut.cut &&
+          cut.html === "<p align=center class=lgtxt>Заголовок страницы</p>\n<p>Текст.</p>" &&
+          !keep.cut &&
+          keep.html === noBannerHtml,
+      };
+    })(),
+    (() => {
+      const saved = newRecordPages;
+      newRecordPages = new Set(["2023/0625.html"]);
+      const input =
+        '<p><a href="http://tennisfed.spb.ru/2023/0625">на страницу-запись</a> и ' +
+        '<a href="http://tennisfed.spb.ru/2023/0630">на обычную</a></p>';
+      const out = sanitizeBody(input, { baseUrl: pageUrl, silent: true });
+      newRecordPages = saved;
+      return {
+        name: "ленты: ссылка на страницу-запись становится меткой, ссылка на обычную страницу — нет",
+        input,
+        output: out,
+        ok:
+          out.includes(`href="${markerHref(`${SITE}/2023/0625`)}">на страницу-запись</a>`) &&
+          out.includes('href="http://tennisfed.spb.ru/2023/0630">на обычную</a>'),
+      };
+    })(),
+    (() => {
+      const input =
+        '<p>до <a href="http://www.tennisfed.spb.ru/festvest.html">ФЕСТИВАЛЬ</a> и ' +
+        '<a href="/pobeda.html">Победа</a>, рядом ' +
+        '<a href="http://tennisfed.spb.ru/lnk_clubs.html">клубы</a></p>';
+      const out = sanitizeBody(input, { baseUrl: pageUrl, silent: true });
+      return {
+        name: "ленты: ссылка на файл ленты снимается (текст остаётся), соседняя внутренняя не тронута",
+        input,
+        output: out,
+        ok:
+          out ===
+          "<p>до ФЕСТИВАЛЬ и Победа, рядом " +
+            '<a href="http://tennisfed.spb.ru/lnk_clubs.html">клубы</a></p>',
+      };
+    })(),
+    (() => {
+      const pages = new Set(["2023/0626.html", "2024/05021.html"]);
+      const own = isSuppressedLink("тизер", "2023/0626.html", "2023/0626.html", pages);
+      const alien = isSuppressedLink("галерея", "2024/05021.html", "2023/0626.html", pages);
+      const plain = isSuppressedLink("галерея", "2023/0701.html", "2023/0626.html", pages);
+      const quote = isSuppressedLink("цитата", "2024/05021.html", "2023/0626.html", pages);
+      return {
+        name: "ленты: собственная страница-тело продолжает поглощаться, чужая страница-запись — нет",
+        input: "страницы-записи: 2023/0626.html, 2024/05021.html; своя тизерная: 2023/0626.html",
+        output: JSON.stringify({ own, alien, plain, quote }),
+        ok: !own && alien && !plain && !quote,
+      };
+    })(),
+    (() => {
+      const withLine = articleDate(
+        "<p class=micrtxt align=right><i>Опубликовано<br>11 июня 2024 г.</i></p>",
+        "2024/0711.html",
+      );
+      const byName = articleDate("<p>Без строки публикации</p>", "2024/0711.html");
+      const fixed = articleDate("<p>Опубликовано 31 ноября 2010 г.</p>", "2010/1131.html");
+      return {
+        name: "ленты: дата страницы побеждает имя файла; без строки публикации — fromName; кривая чинится",
+        input: "страница 2024/0711.html: «11 июня 2024 г.» против имени файла 07-11",
+        output: JSON.stringify({ withLine, byName, fixed }),
+        ok:
+          withLine !== null &&
+          withLine.iso === "2024-06-11" &&
+          !withLine.fromName &&
+          byName !== null &&
+          byName.iso === "2024-07-11" &&
+          byName.fromName &&
+          fixed !== null &&
+          fixed.iso === "2010-11-30" &&
+          fixed.original === "31.11.2010",
+      };
+    })(),
+  ];
+  for (const c of feedCases) {
+    if (!c.ok) failed += 1;
+    console.log(`[${c.ok ? "OK" : "FAIL"}] ${c.name}`);
+    console.log(`  вход:  ${c.input}`);
+    console.log(`  выход: ${c.output}`);
+  }
+
+  const total =
+    cases.length + profCases.length + invCases.length + cleanupCases.length + feedCases.length;
   console.log(`\nСамотест: ${total - failed}/${total} прошло`);
   return failed === 0 ? 0 : 1;
 }
