@@ -37,12 +37,14 @@ export type FileAction =
 
 /** Расширение пути в нижнем регистре, с точкой. Пустая строка, если его нет. */
 export function extensionOf(filePath: string): string {
-  return filePath;
+  const name = filePath.slice(Math.max(filePath.lastIndexOf("/"), filePath.lastIndexOf("\\")) + 1);
+  const dot = name.lastIndexOf(".");
+  return dot > 0 ? name.slice(dot).toLowerCase() : "";
 }
 
 /** Считается ли путь изображением: решается по расширению, как у мигратора. */
 export function isImagePath(filePath: string): boolean {
-  return Boolean(filePath);
+  return IMAGE_EXTENSIONS.has(extensionOf(filePath));
 }
 
 /**
@@ -52,12 +54,33 @@ export function isImagePath(filePath: string): boolean {
  * остановиться.
  */
 export function decideAction(filePath: string, meta: ImageMeta | null): FileAction {
-  throw new Error(`не реализовано: decideAction(${filePath}, ${meta === null})`);
+  if (!isImagePath(filePath)) {
+    return "copy-document";
+  }
+  if (meta === null) {
+    throw new Error(`decideAction: для изображения ${filePath} не переданы метаданные`);
+  }
+  if (extensionOf(filePath) === ".gif" || meta.format === "gif") {
+    return "copy-gif";
+  }
+  const longSide = Math.max(meta.width ?? 0, meta.height ?? 0);
+  if (longSide <= 0) {
+    throw new Error(`decideAction: у изображения ${filePath} не прочитались размеры`);
+  }
+  return longSide > MAX_DIMENSION ? "transform" : "copy-small";
 }
 
 /** Меняется ли расширение: перекодирование даёт JPEG, остальное — нет. */
 export function outputRelPath(relPath: string, action: FileAction): string {
-  throw new Error(`не реализовано: outputRelPath(${relPath}, ${action})`);
+  if (action !== "transform") {
+    return relPath;
+  }
+  const dot = relPath.lastIndexOf(".");
+  const slash = Math.max(relPath.lastIndexOf("/"), relPath.lastIndexOf("\\"));
+  if (dot <= slash + 1) {
+    return `${relPath}.jpg`;
+  }
+  return `${relPath.slice(0, dot)}.jpg`;
 }
 
 export type Collision = { out: string; sources: string[] };
@@ -68,5 +91,18 @@ export type Collision = { out: string; sources: string[] };
  * Такое молча перезаписывать нельзя — проход обязан остановиться до записи.
  */
 export function collisions(map: ReadonlyMap<string, string>): Collision[] {
-  throw new Error(`не реализовано: collisions(${map.size})`);
+  const bySource = new Map<string, string[]>();
+  for (const [from, to] of map) {
+    const key = to.toLowerCase();
+    const arr = bySource.get(key) ?? [];
+    arr.push(from);
+    bySource.set(key, arr);
+  }
+  const out: Collision[] = [];
+  for (const [to, sources] of bySource) {
+    if (sources.length > 1) {
+      out.push({ out: to, sources: sources.slice().sort() });
+    }
+  }
+  return out.sort((a, b) => a.out.localeCompare(b.out));
 }
