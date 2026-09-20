@@ -2489,7 +2489,16 @@ function renderReport(records: OutputRecord[]): string {
     `- ссылок с недопустимым протоколом/битым href (заменены текстом): ${report.droppedBadProtoLinks}`,
   );
   L.push(`- видео-вставок (iframe) в телах, заменённых ссылкой «Видео»: ${report.videoLinks}`);
-  L.push(`- меток на архивные записи (archive-record:) поставлено: ${report.recordMarkers}`);
+  const markersInExport = records.reduce((s, r) => s + findMarkerSources(r["ТекстHTML"]).length, 0);
+  L.push(`- меток на архивные записи (archive-record:) в телах экспорта: ${markersInExport}`);
+  L.push(
+    `- срабатываний правила метки в конвейере: ${report.recordMarkers}. Больше, чем меток в` +
+      " экспорте: часть ссылок на страницы-записи обёрнута вокруг картинки, а картинки в тело" +
+      " не переносятся — такой якорь остаётся без видимого текста, и абзац из одних пустых" +
+      " якорей конвейер не публикует (проверено: якорей с пустым текстом в экспорте 0)." +
+      " Ещё часть приходит из разбора ленточного фрагмента ради анонса — анонс плоский, и" +
+      " метки в него не попадают",
+  );
   const droppedFeed = Object.entries(report.feedFileLinksDropped).sort();
   L.push(
     `- ссылок на файлы лент снято (текст оставлен): ${droppedFeed.reduce((s, [, n]) => s + n, 0)}` +
