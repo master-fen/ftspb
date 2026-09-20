@@ -717,7 +717,12 @@ const BLOCK_TAGS = new Set([
   "form",
 ]);
 
-type SanitizeCtx = { baseUrl: string; silent?: boolean };
+type SanitizeCtx = {
+  baseUrl: string;
+  silent?: boolean;
+  /** Видео-вставки (`<iframe src>`) становятся ссылкой «Видео» — только для тела записи, не для анонса. */
+  videoLinks?: boolean;
+};
 
 /**
  * Тело новости → белый список p, br, a[href], b/strong, i/em.
@@ -4573,7 +4578,151 @@ function runSelfTest(): number {
     console.log(`  выход: ${c.output}`);
   }
 
-  const total = cases.length + profCases.length + invCases.length;
+  // ── кейсы чистки архива (A1–A5): буквальный вход и выход через боевые функции ──
+  const videoCtx: SanitizeCtx = { baseUrl: `${SITE}/news.html`, videoLinks: true };
+  const dataTableInput =
+    `<table border="1" style="x"><tr><th style="a" colspan="2">Итог</th></tr>` +
+    `<tr><td onclick="steal()"><font color="red">1</font></td>` +
+    `<td><div align="center"><strong>С. Кузнецова</strong></div></td></tr></table>`;
+  const dataTableExpected = `<table><tr><th colspan="2">Итог</th></tr><tr><td>1</td><td><strong>С. Кузнецова</strong></td></tr></table>`;
+  const sectionsTableInput =
+    `<table><caption>Итоги</caption><thead><tr><th>№</th><th>Очки</th></tr></thead>` +
+    `<tbody><tr><td><span class="x">1</span></td><td>30<img src="a.gif"></td></tr></tbody></table>`;
+  const sectionsTableExpected = `<table><caption>Итоги</caption><thead><tr><th>№</th><th>Очки</th></tr></thead><tbody><tr><td>1</td><td>30</td></tr></tbody></table>`;
+  const layoutTableInput = `<table><tr><td>первый абзац текста</td><td>второй абзац</td></tr></table>`;
+  const nestedDataInput = `<table><tr><td>1</td><td><table><tr><td>2</td></tr></table></td></tr></table>`;
+  const iframeInput = `<p>Смотрите ролик<br><iframe width="420" src="https://www.youtube.com/embed/mh6TPzzAq30" frameborder="0" allowfullscreen></iframe></p>`;
+  const videoAnchor = `<a href="https://www.youtube.com/embed/mh6TPzzAq30">Видео</a>`;
+  const orphanInput = "a<!-- x -->b -->c";
+  const regionInput = `<html><!-- InstanceBeginEditable name="Edit02" -->\r\n<p>тело</p>\r\n<!-- InstanceEndEditable --></div>`;
+  const noMarkersInput = `<td width="821"><p>x</p>`;
+  const lit = (name: string, input: string, output: string, expected: string) => ({
+    name,
+    input,
+    output,
+    ok: output === expected,
+  });
+
+  const cleanupCases: Array<{ name: string; input: string; output: string; ok: boolean }> = [
+    lit(
+      "чистка: «&hellip» без точки с запятой в конце заголовка → «…»",
+      "ЛИХОВЦЕВОЙ&hellip",
+      stripTags("ЛИХОВЦЕВОЙ&hellip"),
+      "ЛИХОВЦЕВОЙ…",
+    ),
+    lit(
+      "чистка: «&hellip» в середине текста → «…»",
+      "И ОПЯТЬ&hellip ИТОГИ",
+      stripTags("И ОПЯТЬ&hellip ИТОГИ"),
+      "И ОПЯТЬ… ИТОГИ",
+    ),
+    lit(
+      "чистка: «&hellip;» с точкой с запятой → «…»",
+      "ИТОГИ&hellip;",
+      stripTags("ИТОГИ&hellip;"),
+      "ИТОГИ…",
+    ),
+    lit(
+      "чистка: «&hellipsis» — не сущность, остаётся",
+      "см. &hellipsis дальше",
+      stripTags("см. &hellipsis дальше"),
+      "см. &hellipsis дальше",
+    ),
+    lit("чистка: «P&G» остаётся", "P&G", stripTags("P&G"), "P&G"),
+    lit(
+      "чистка: «&laquo» без точки с запятой → «",
+      "&laquoСПОРТ&raquo",
+      stripTags("&laquoСПОРТ&raquo"),
+      "«СПОРТ»",
+    ),
+    lit(
+      "чистка: неизвестное имя «&foo» остаётся в обеих формах",
+      "a &foo b &foo; c",
+      stripTags("a &foo b &foo; c"),
+      "a &foo b &foo; c",
+    ),
+    lit(
+      "чистка: числовые формы «&#149;» → «•», «&#8230;» → «…», «&#x2026» → «…»",
+      "a&#149;b &#8230; c&#x2026",
+      stripTags("a&#149;b &#8230; c&#x2026"),
+      "a•b … c…",
+    ),
+    (() => {
+      const out = blankComments(orphanInput);
+      return {
+        name: "чистка: осиротевший «-->» затирается, парный комментарий — целиком, длина прежняя",
+        input: orphanInput,
+        output: JSON.stringify(out),
+        ok:
+          !out.includes("-->") &&
+          !out.includes("<!--") &&
+          out.length === orphanInput.length &&
+          out.replace(/\s+/g, " ") === "a b c",
+      };
+    })(),
+    lit(
+      "чистка: регион article без хвостов комментариев маркеров",
+      regionInput,
+      JSON.stringify(articleRegion(regionInput)),
+      JSON.stringify("\r\n<p>тело</p>\r\n"),
+    ),
+    lit(
+      'чистка: article без маркеров — от <td width="821" до конца',
+      noMarkersInput,
+      articleRegion(noMarkersInput),
+      noMarkersInput,
+    ),
+    lit(
+      "чистка: таблица данных остаётся таблицей (colspan), без style/onclick/font",
+      dataTableInput,
+      sanitizeBody(dataTableInput, ctx),
+      dataTableExpected,
+    ),
+    lit(
+      "чистка: caption/thead/tbody сохраняются, span и img внутри ячеек — нет",
+      sectionsTableInput,
+      sanitizeBody(sectionsTableInput, ctx),
+      sectionsTableExpected,
+    ),
+    lit(
+      "чистка: макетная таблица разворачивается в абзацы",
+      layoutTableInput,
+      sanitizeBody(layoutTableInput, ctx),
+      "<p>первый абзац текста</p>\n<p>второй абзац</p>",
+    ),
+    lit(
+      "чистка: таблица данных с вложенной таблицей разворачивается (вложенная без своих вложенных — остаётся)",
+      nestedDataInput,
+      sanitizeBody(nestedDataInput, ctx),
+      "<p>1</p>\n<table><tr><td>2</td></tr></table>",
+    ),
+    (() => {
+      const out = sanitizeBody(iframeInput, videoCtx);
+      return {
+        name: "чистка: iframe → ссылка «Видео» в теле",
+        input: iframeInput,
+        output: out,
+        ok:
+          out.includes(videoAnchor) &&
+          !out.includes("iframe") &&
+          stripTags(out) === "Смотрите ролик Видео",
+      };
+    })(),
+    lit(
+      "чистка: iframe без videoLinks выброшен (путь анонса)",
+      iframeInput,
+      sanitizeBody(iframeInput, ctx),
+      "<p>Смотрите ролик</p>",
+    ),
+  ];
+  for (const c of cleanupCases) {
+    if (!c.ok) failed += 1;
+    console.log(`[${c.ok ? "OK" : "FAIL"}] ${c.name}`);
+    console.log(`  вход:  ${c.input}`);
+    console.log(`  выход: ${c.output}`);
+  }
+
+  const total = cases.length + profCases.length + invCases.length + cleanupCases.length;
   console.log(`\nСамотест: ${total - failed}/${total} прошло`);
   return failed === 0 ? 0 : 1;
 }
