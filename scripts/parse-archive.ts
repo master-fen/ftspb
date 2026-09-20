@@ -863,6 +863,19 @@ function articleDate(text: string, relFile: string): string | null {
 }
 
 /**
+ * Регион содержимого article-страницы по маркерам Dreamweaver: от маркера
+ * `InstanceBeginEditable name="Edit02"` до `InstanceEndEditable`; без
+ * маркеров — правая колонка от `<td width="821"` до конца файла.
+ */
+function articleRegion(raw: string): string {
+  const beginMark = raw.indexOf('InstanceBeginEditable name="Edit02"');
+  const endMark = beginMark >= 0 ? raw.indexOf("InstanceEndEditable", beginMark) : -1;
+  return beginMark >= 0 && endMark > beginMark
+    ? raw.slice(beginMark, endMark)
+    : raw.slice(Math.max(raw.indexOf('<td width="821"'), 0));
+}
+
+/**
  * Содержательная часть article-страницы: ряды ленточной таблицы (обёртка
  * схемы C), а если их нет (схема D) — правая колонка от маркера Edit02 до
  * футера.
@@ -894,13 +907,7 @@ function loadArticle(relFile: string, url: string): ArticlePage | null {
   }
 
   // Регион контента ищем по маркерам-комментариям ДО их вычистки.
-  const beginMark = raw.indexOf('InstanceBeginEditable name="Edit02"');
-  const endMark = beginMark >= 0 ? raw.indexOf("InstanceEndEditable", beginMark) : -1;
-  const region =
-    beginMark >= 0 && endMark > beginMark
-      ? raw.slice(beginMark, endMark)
-      : raw.slice(Math.max(raw.indexOf('<td width="821"'), 0));
-  const html = blankComments(region);
+  const html = blankComments(articleRegion(raw));
 
   const chunks = splitChunks(html, relFile);
   let bodyHtml: string;
