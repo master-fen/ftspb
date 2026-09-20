@@ -8,8 +8,20 @@ import { describeTarget, sslFor } from "../src/db/ssl";
 import * as schema from "../src/db/schema";
 import { allNews, featuredNews } from "../src/data/mock";
 import { LEGACY_SLUG_MAX_LENGTH, slugify, truncateSlug } from "../src/server/slug";
-import { uploadObject } from "../src/server/storage";
+import { headObject, isS3NotFound, uploadObject } from "../src/server/storage";
 import { textToHtml } from "./text-to-html";
+import {
+  type ExistingNewsRow,
+  type PlanIdentity,
+  type RemoteObject,
+  checkReplaceAllCoverage,
+  createdAtByIndex,
+  decideUpload,
+  normalizeTitle,
+  partitionAddOnly,
+  resolveSlugs,
+  titleDateOverlap,
+} from "./archive-migration-rules";
 import {
   RECORD_MARKER_SCHEME,
   hasMarkerResidue,
@@ -54,6 +66,9 @@ function parseArgs(argv: string[]) {
   let dryRun = false;
   let limit: number | undefined;
   let replaceAll = false;
+  let addOnly = false;
+  let skipUploaded = false;
+  let allowDataLoss = false;
   let assets: string | undefined;
 
   for (const arg of argv) {
@@ -61,6 +76,12 @@ function parseArgs(argv: string[]) {
       dryRun = true;
     } else if (arg === "--replace-all") {
       replaceAll = true;
+    } else if (arg === "--add-only") {
+      addOnly = true;
+    } else if (arg === "--skip-uploaded") {
+      skipUploaded = true;
+    } else if (arg === "--allow-data-loss") {
+      allowDataLoss = true;
     } else if (arg.startsWith("--source=")) {
       source = arg.slice("--source=".length);
     } else if (arg.startsWith("--assets=")) {
@@ -83,13 +104,45 @@ function parseArgs(argv: string[]) {
   if (limit !== undefined && (!Number.isInteger(limit) || limit <= 0)) {
     throw new Error("--limit должен быть положительным целым числом");
   }
+  if (addOnly && replaceAll) {
+    throw new Error("--add-only и --replace-all несовместимы: один добавляет, другой заменяет");
+  }
+  if (allowDataLoss && !replaceAll) {
+    throw new Error("--allow-data-loss имеет смысл только вместе с --replace-all");
+  }
 
   // База относительных путей Обложка/Галерея/Документы; по умолчанию —
   // прежнее поведение (файлы рядом с news_export_local.json).
-  return { source, schemaArg, dryRun, limit, replaceAll, assets: assets ?? source };
+  return {
+    source,
+    schemaArg,
+    dryRun,
+    limit,
+    replaceAll,
+    addOnly,
+    skipUploaded,
+    allowDataLoss,
+    assets: assets ?? source,
+  };
 }
 
-const { source, schemaArg, dryRun, limit, replaceAll, assets } = parseArgs(process.argv.slice(2));
+const {
+  source,
+  schemaArg,
+  dryRun,
+  limit,
+  replaceAll,
+  addOnly,
+  skipUploaded,
+  allowDataLoss,
+  assets,
+} = parseArgs(process.argv.slice(2));
+
+const modeName = replaceAll
+  ? "полная замена (--replace-all)"
+  : addOnly
+    ? "только добавить (--add-only)"
+    : "поштучно, перезапись при совпадении слага";
 
 // ───────────────────────── подключение к БД (лениво) ─────────────────────────
 
@@ -98,9 +151,12 @@ const { source, schemaArg, dryRun, limit, replaceAll, assets } = parseArgs(proce
  * `DATABASE_URL` откладываются до первого реального обращения из applyPlan,
  * которое при dryRun не наступает вовсе.
  *
- * Исключение (этап 8, осознанное изменение инварианта): `--dry-run` вместе с
- * `--replace-all` подключается к БД — иначе не показать удаляемое и
- * coverage-check, — но исполняет только SELECT (см. replaceAllDryRun).
+ * Исключения (осознанные изменения инварианта), оба исполняют только SELECT:
+ *   - `--dry-run` вместе с `--replace-all` — иначе не показать ни удаляемое,
+ *     ни вердикт предохранителя (см. replaceAllDryRun);
+ *   - `--dry-run` вместе с `--add-only` — иначе не показать, какие записи
+ *     будут пропущены по совпадению слага, и не напечатать справку о
+ *     совпадениях по «заголовок + дата».
  */
 let sqlInstance: ReturnType<typeof postgres> | undefined;
 let dbInstance: PostgresJsDatabase<typeof schema> | undefined;
@@ -122,10 +178,6 @@ function getDb(): PostgresJsDatabase<typeof schema> {
 }
 
 // ───────────────────────── mock.ts: section/featured ─────────────────────────
-
-function normalizeTitle(title: string): string {
-  return title.trim().replace(/\s+/g, " ");
-}
 
 function mockDateToIso(date: string): string {
   const [d, m, y] = date.split(".");
@@ -248,6 +300,8 @@ type Plan = {
   section: Section;
   source: string | null;
   publishedAt: string;
+  /** Явная отметка создания: порядок внутри дня повторяет ленту легаси. */
+  createdAt: Date;
   featured: boolean;
   featuredOrder: number | null;
   mockMatched: boolean;
@@ -263,21 +317,33 @@ type Plan = {
   }>;
 };
 
-function buildPlan(record: ArchiveRecord, slug: string): Plan {
+/** Заголовок записи с той же проверкой, что в buildPlan (нужен пред-проходу). */
+function titleOf(record: ArchiveRecord, slug: string): string {
   const title = record["Заголовок"]?.trim();
   if (!title) {
     throw new Error(`Запись без заголовка (slug="${slug}")`);
   }
+  return title;
+}
 
+/** ISO-дата записи с той же проверкой, что в buildPlan (нужна пред-проходу). */
+function isoDateOf(record: ArchiveRecord): string {
   const isoMatch = record["Дата"]?.match(/^\d{4}-\d{2}-\d{2}/);
   if (!isoMatch) {
-    throw new Error(`Некорректная "Дата" у записи "${title}": ${record["Дата"]}`);
+    throw new Error(`Некорректная "Дата" у записи "${record["Заголовок"]}": ${record["Дата"]}`);
   }
-  const publishedAt = isoMatch[0];
+  return isoMatch[0];
+}
 
-  // При --replace-all сопоставление с mock.ts отключено: section/featured
-  // расставляются позже руками, полная замена не наследует ничего от моков.
-  const matched = replaceAll ? null : matchMock(title, publishedAt);
+function buildPlan(record: ArchiveRecord, slug: string, createdAt: Date): Plan {
+  const title = titleOf(record, slug);
+  const publishedAt = isoDateOf(record);
+
+  // При --replace-all и --add-only сопоставление с mock.ts отключено:
+  // section/featured расставляются руками. На непустом боевом сайте моки
+  // перебили бы выбранные человеком «главные новости» и столкнули бы
+  // featured_order.
+  const matched = replaceAll || addOnly ? null : matchMock(title, publishedAt);
 
   const cover = record["Обложка"]
     ? (() => {
@@ -342,6 +408,7 @@ function buildPlan(record: ArchiveRecord, slug: string): Plan {
     section: matched?.section ?? null,
     source: record["Источник"]?.trim() || null,
     publishedAt,
+    createdAt,
     featured: matched?.featured ?? false,
     featuredOrder: matched?.featuredOrder ?? null,
     mockMatched: matched !== null,
@@ -352,9 +419,51 @@ function buildPlan(record: ArchiveRecord, slug: string): Plan {
   };
 }
 
+// ───────────────────────── заливка файла ─────────────────────────
+
+let s3Uploaded = 0;
+let s3Reuploaded = 0;
+let s3Skipped = 0;
+
+/**
+ * Единственное место, где байты уходят в бакет. При `--skip-uploaded` сначала
+ * HEAD: объект того же размера повторно не заливается. Ошибка HEAD, не
+ * являющаяся 404, пробрасывается — тихо заливать поверх при сетевом сбое
+ * нельзя. Файл читается с диска только тогда, когда заливка действительно
+ * состоится.
+ */
+async function putFile(key: string, localPath: string, contentType: string): Promise<void> {
+  const localSize = fs.statSync(localPath).size;
+  let remote: RemoteObject = null;
+  if (skipUploaded) {
+    try {
+      remote = { size: (await headObject(key)).size };
+    } catch (error) {
+      if (!isS3NotFound(error)) {
+        throw error;
+      }
+      remote = null;
+    }
+  }
+
+  const decision = decideUpload({ skipUploaded, remote, localSize });
+  if (decision === "skip") {
+    s3Skipped += 1;
+    return;
+  }
+  if (decision === "reupload-size-mismatch") {
+    s3Reuploaded += 1;
+    console.warn(
+      `[warn] размер в бакете отличается: ${key} (бакет ${remote?.size ?? 0}, файл ${localSize}) — перезаливаю`,
+    );
+  }
+  await uploadObject(key, fs.readFileSync(localPath), contentType);
+  s3Uploaded += 1;
+}
+
 // ───────────────────────── применение плана ─────────────────────────
 
-async function applyPlan(plan: Plan): Promise<void> {
+async function applyPlan(plan: Plan, insertOnly = false): Promise<void> {
   if (dryRun) {
     console.log(`[news] план: ${plan.slug}`);
     return;
@@ -375,6 +484,7 @@ async function applyPlan(plan: Plan): Promise<void> {
     section: plan.section,
     source: plan.source,
     publishedAt: plan.publishedAt,
+    createdAt: plan.createdAt,
     status: "published" as const,
     deletedAt: null,
     featured: plan.featured,
@@ -392,6 +502,14 @@ async function applyPlan(plan: Plan): Promise<void> {
     newsId = inserted.id;
     console.log(`[news] создана: ${plan.slug}`);
   } else {
+    if (insertOnly) {
+      // Сюда режим «только добавить» попасть не должен: слаг уже отсеян
+      // разделением. Если попал — схема изменилась под нами, и молча
+      // перезаписывать чужую новость нельзя.
+      throw new Error(
+        `--add-only: слаг ${plan.slug} появился в схеме после разделения — перезапись запрещена`,
+      );
+    }
     newsId = existing[0].id;
     await db
       .update(news)
@@ -407,8 +525,7 @@ async function applyPlan(plan: Plan): Promise<void> {
   let uploaded = 0;
 
   if (plan.cover) {
-    const body = fs.readFileSync(plan.cover.localPath);
-    await uploadObject(plan.cover.s3Key, body, plan.cover.contentType);
+    await putFile(plan.cover.s3Key, plan.cover.localPath, plan.cover.contentType);
     uploaded += 1;
     const [photo] = await db
       .insert(newsPhoto)
@@ -418,8 +535,7 @@ async function applyPlan(plan: Plan): Promise<void> {
   }
 
   for (const item of plan.gallery) {
-    const body = fs.readFileSync(item.localPath);
-    await uploadObject(item.s3Key, body, item.contentType);
+    await putFile(item.s3Key, item.localPath, item.contentType);
     uploaded += 1;
     await db.insert(newsPhoto).values({ newsId, s3Key: item.s3Key, position: item.position });
   }
@@ -440,8 +556,7 @@ async function applyPlan(plan: Plan): Promise<void> {
   }
 
   for (const item of plan.documents) {
-    const body = fs.readFileSync(item.localPath);
-    await uploadObject(item.s3Key, body, item.mimeType);
+    await putFile(item.s3Key, item.localPath, item.mimeType);
     const [docRow] = await db
       .insert(document)
       .values({
@@ -475,22 +590,95 @@ async function applyPlan(plan: Plan): Promise<void> {
 async function uploadPlanObjects(plan: Plan): Promise<number> {
   let uploaded = 0;
   if (plan.cover) {
-    await uploadObject(
-      plan.cover.s3Key,
-      fs.readFileSync(plan.cover.localPath),
-      plan.cover.contentType,
-    );
+    await putFile(plan.cover.s3Key, plan.cover.localPath, plan.cover.contentType);
     uploaded += 1;
   }
   for (const item of plan.gallery) {
-    await uploadObject(item.s3Key, fs.readFileSync(item.localPath), item.contentType);
+    await putFile(item.s3Key, item.localPath, item.contentType);
     uploaded += 1;
   }
   for (const item of plan.documents) {
-    await uploadObject(item.s3Key, fs.readFileSync(item.localPath), item.mimeType);
+    await putFile(item.s3Key, item.localPath, item.mimeType);
     uploaded += 1;
   }
   return uploaded;
+}
+
+/** Все строки news — без фильтра по статусу и deleted_at: слаг уникален для всех. */
+async function loadExistingNews(): Promise<ExistingNewsRow[]> {
+  const db = getDb();
+  return await db
+    .select({
+      slug: news.slug,
+      title: news.title,
+      publishedAt: news.publishedAt,
+      deletedAt: news.deletedAt,
+    })
+    .from(news)
+    .orderBy(news.publishedAt, news.title);
+}
+
+/**
+ * Справка о совпадениях по «заголовок + дата» под другим адресом. Печатается
+ * всегда — и в сухом прогоне, и в боевом — в режимах --add-only и
+ * --replace-all. На боевом сайте это пары «архивная новость и заведённая
+ * руками»: решение по каждой принимает человек, глазами.
+ */
+function printTitleDateOverlap(
+  existing: ReadonlyArray<ExistingNewsRow>,
+  plans: ReadonlyArray<PlanIdentity>,
+): void {
+  const overlap = titleDateOverlap(existing, plans);
+  console.log(`─── совпадения по «заголовок + дата» под другим адресом: ${overlap.length} ───`);
+  if (overlap.length === 0) {
+    console.log("  нет");
+    return;
+  }
+  console.log("  Решение по каждой паре — глазами: возможно, новость уже заведена руками.");
+  for (const o of overlap) {
+    console.log(
+      `  ${o.existing.publishedAt}  в базе «${o.existing.title}» (/news/${o.existing.slug})` +
+        `  ←→  в выгрузке «${o.planTitle}» (/news/${o.planSlug})`,
+    );
+  }
+}
+
+/**
+ * Предохранитель --replace-all: режим удаляет из схемы всё, поэтому новость,
+ * которой нет в выгрузке, исчезнет безвозвратно. Критерий — слаг: он и адрес
+ * /news/СЛАГ, и префикс ключей S3. Вызывается до любой записи, в том числе до
+ * заливки объектов.
+ */
+function guardReplaceAll(
+  existing: ReadonlyArray<ExistingNewsRow>,
+  plans: ReadonlyArray<PlanIdentity>,
+): void {
+  const verdict = checkReplaceAllCoverage(existing, plans, allowDataLoss);
+  console.log("─── replace-all: предохранитель ───");
+  console.log(
+    `Новостей в схеме, которых нет в экспорте (по слагу): ${verdict.missingBySlug.length}`,
+  );
+  for (const r of verdict.missingBySlug) {
+    console.log(
+      `  ${r.slug}  ${r.publishedAt}  «${r.title}»${r.deletedAt == null ? "" : "  [мягко удалена]"}`,
+    );
+  }
+  console.log(`Справочно, по «заголовок + дата»: ${verdict.missingByTitleDate.length}`);
+  for (const r of verdict.missingByTitleDate) {
+    console.log(`  ${r.publishedAt}  «${r.title}»`);
+  }
+
+  if (verdict.bypassed) {
+    console.warn("--allow-data-loss: потеря разрешена явно, продолжаю");
+    return;
+  }
+  if (verdict.ok) {
+    console.log("предохранитель: новостей вне экспорта нет");
+    return;
+  }
+  console.error("Отказ: --replace-all удалит эти записи безвозвратно.");
+  console.error("Повторить с --allow-data-loss, если потеря осознана.");
+  process.exit(1);
 }
 
 /**
@@ -526,6 +714,7 @@ async function replaceAllApply(plans: Plan[]): Promise<void> {
           section: plan.section,
           source: plan.source,
           publishedAt: plan.publishedAt,
+          createdAt: plan.createdAt,
           status: "published" as const,
           featured: plan.featured,
           featuredOrder: plan.featuredOrder,
@@ -573,7 +762,7 @@ async function replaceAllApply(plans: Plan[]): Promise<void> {
  * показать ни удаляемое, ни coverage-check. Здесь исполняются ТОЛЬКО
  * SELECT-запросы — никакой записи.
  */
-async function replaceAllDryRun(plans: Plan[]): Promise<void> {
+async function replaceAllDryRun(): Promise<void> {
   const db = getDb();
 
   const [[newsN], [photoN], [docN], [linkN]] = await Promise.all([
@@ -593,77 +782,6 @@ async function replaceAllDryRun(plans: Plan[]): Promise<void> {
     .orderBy(document.title, document.fileName);
   console.log(`document.title поимённо (${docTitles.length}):`);
   for (const d of docTitles) console.log(`  ${d.title} [${d.fileName}]`);
-
-  // Coverage-check: существующие news, которых нет в экспорте, — кандидаты
-  // на безвозвратную потерю при замене (ожидание: рукотворные тестовые записи).
-  const existing = await db
-    .select({ title: news.title, publishedAt: news.publishedAt })
-    .from(news)
-    .orderBy(news.publishedAt, news.title);
-  const exportKeys = new Set(plans.map((p) => `${normalizeTitle(p.title)}|${p.publishedAt}`));
-  const missing = existing.filter(
-    (r) => !exportKeys.has(`${normalizeTitle(r.title)}|${r.publishedAt}`),
-  );
-  console.log(`coverage-check: существующих news вне экспорта: ${missing.length}`);
-  for (const r of missing) console.log(`  ${r.publishedAt}  ${r.title}`);
-}
-
-// ───────────────────────── slug: коллизии ─────────────────────────
-
-function resolveSlugs(records: ArchiveRecord[]): string[] {
-  // База обрезается до лимита старого сайта ДО разрешения коллизий — новые
-  // slug совпадают с легаси. Датный суффикс добавляется поверх обрезанной
-  // базы и может превысить лимит — это допустимо.
-  const baseSlugs = records.map((r) =>
-    truncateSlug(slugify(r["Заголовок"] ?? ""), LEGACY_SLUG_MAX_LENGTH),
-  );
-  const groups = new Map<string, number[]>();
-  baseSlugs.forEach((base, i) => {
-    const arr = groups.get(base) ?? [];
-    arr.push(i);
-    groups.set(base, arr);
-  });
-
-  const finalSlugs = new Array<string>(records.length);
-  for (const [base, indices] of groups) {
-    if (indices.length === 1) {
-      finalSlugs[indices[0]] = base;
-      continue;
-    }
-    for (const i of indices) {
-      const isoMatch = records[i]["Дата"]?.match(/^\d{4}-\d{2}-\d{2}/);
-      if (!isoMatch) {
-        throw new Error(`Некорректная "Дата" у записи "${records[i]["Заголовок"]}"`);
-      }
-      finalSlugs[i] = `${base}-${isoMatch[0]}`;
-    }
-  }
-
-  // Коллизии, оставшиеся и после датного суффикса (в архиве есть разные
-  // новости с одинаковой парой заголовок+дата), получают порядковый суффикс
-  // по порядку следования записей в файле экспорта: slug-дата, slug-дата-2,
-  // slug-дата-3…
-  const ordinal = new Map<string, number>();
-  for (let i = 0; i < finalSlugs.length; i++) {
-    const s = finalSlugs[i];
-    const n = ordinal.get(s) ?? 0;
-    ordinal.set(s, n + 1);
-    if (n > 0) {
-      finalSlugs[i] = `${s}-${n + 1}`;
-    }
-  }
-
-  // Финальная проверка уникальности: бросает, если уникальность не достигнута
-  // и после порядковых суффиксов (например, slug-дата-2 совпал с чьей-то базой).
-  const seen = new Set<string>();
-  for (const s of finalSlugs) {
-    if (seen.has(s)) {
-      throw new Error(`Дублирующийся slug после разрешения коллизии: ${s}`);
-    }
-    seen.add(s);
-  }
-
-  return finalSlugs;
 }
 
 // ───────────────────────── main ─────────────────────────
@@ -674,26 +792,77 @@ async function main() {
   const records = limit !== undefined ? allRecords.slice(0, limit) : allRecords;
 
   console.log(`Хост: ${describeTarget(process.env.DATABASE_URL)}`);
+  console.log(`Режим: ${modeName}`);
   console.log(
     `Записей в файле: ${allRecords.length}, обрабатывается: ${records.length} (schema=${schemaArg}, dry-run=${dryRun})`,
   );
 
-  const slugs = resolveSlugs(records);
+  // Слаги и отметки created_at считаются по ПОЛНОМУ списку, рабочим берётся
+  // префикс. На срезе (--limit) коллизия слага с записью за пределом среза не
+  // видна: пилот создал бы строки под слагами, которых не будет при полном
+  // прогоне, а метки указали бы на них же. Ранг created_at внутри дня по той
+  // же причине считается по полному списку — и он, и слаг обязаны совпадать с
+  // полным прогоном байт в байт.
+  const allSlugs = resolveSlugs(allRecords);
+  const allCreatedAt = createdAtByIndex(allRecords.map((r) => isoDateOf(r)));
+  const slugs = allSlugs.slice(0, records.length);
+  const createdAts = allCreatedAt.slice(0, records.length);
 
   // ── метки на архивные записи → адреса ──
   // Адрес записи знает только мигратор, поэтому разбор ставит в тело метку на
   // `Источник` целевой записи. Карта строится по ПОЛНОМУ списку записей, а не
   // по срезу `--limit`: иначе метка на запись за пределом среза молча стала бы
-  // текстом. Замена идёт здесь — после разрешения всех слагов и до любых
-  // действий с S3 и БД.
-  const allSlugs = limit !== undefined ? resolveSlugs(allRecords) : slugs;
+  // текстом.
   const slugBySource = slugMapBySource(
     allRecords.map((r) => r["Источник"]),
     allSlugs,
   );
+
+  // Личности записей рабочего набора — всё, что нужно предохранителю и
+  // справке, без единого обращения к диску.
+  const identities = records.map((r, idx) => ({
+    index: idx,
+    slug: slugs[idx],
+    title: titleOf(r, slugs[idx]),
+    publishedAt: isoDateOf(r),
+  }));
+
+  // ── режим «только добавить»: что вставляем, что пропускаем ──
+  // Фазы последовательны: сначала читается схема и принимаются ВСЕ решения,
+  // и только потом хоть что-то пишется. У пропущенных записей не читается
+  // диск и не заливается ни одного объекта.
+  let working = identities;
+  let skippedRows: Array<{ item: (typeof identities)[number]; reason: "active" | "soft-deleted" }> =
+    [];
+
+  if (addOnly || replaceAll) {
+    const existing = await loadExistingNews();
+    printTitleDateOverlap(existing, identities);
+    if (replaceAll) {
+      guardReplaceAll(existing, identities);
+    }
+    if (addOnly) {
+      const bySlug = new Map(existing.map((r) => [r.slug, r]));
+      const part = partitionAddOnly(identities, bySlug);
+      working = part.insert;
+      skippedRows = part.skipped;
+      console.log(`─── только добавить: пропущено ${skippedRows.length} ───`);
+      for (const s of skippedRows) {
+        const what = s.reason === "active" ? "новость уже есть" : "есть МЯГКО УДАЛЁННАЯ новость";
+        console.log(`[skip] ${s.item.slug}: ${what} — «${s.item.title}» (${s.item.publishedAt})`);
+      }
+    }
+  }
+
+  const workingRecords = working.map((w) => records[w.index]);
+
+  // Замена меток идёт по рабочему набору: тела пропущенных никуда не поедут,
+  // и считать их в «меток заменено» было бы неправдой. Карта при этом полная,
+  // поэтому ссылка на пропущенную запись всё равно разрешается в её адрес —
+  // он в схеме и правда есть.
   let markersReplaced = 0;
   const markersDropped: string[] = [];
-  for (const rec of records) {
+  for (const rec of workingRecords) {
     const body = rec["ТекстHTML"];
     if (body === undefined) continue;
     const res = replaceMarkers(body, slugBySource);
@@ -705,7 +874,9 @@ async function main() {
   }
   // Остаток схемы после замены означает, что форма метки разошлась с формой
   // замены: молча залить такое тело нельзя.
-  const markerResidue = records.filter((r) => r["ТекстHTML"] && hasMarkerResidue(r["ТекстHTML"]));
+  const markerResidue = workingRecords.filter(
+    (r) => r["ТекстHTML"] && hasMarkerResidue(r["ТекстHTML"]),
+  );
   if (markerResidue.length > 0) {
     console.error(
       `Остаток метки ${RECORD_MARKER_SCHEME} после замены у ${markerResidue.length} записей:`,
@@ -722,7 +893,7 @@ async function main() {
   let mockNotFoundCount = 0;
 
   function noteAndPrintPlan(plan: Plan): void {
-    if (!replaceAll && !plan.mockMatched) {
+    if (!replaceAll && !addOnly && !plan.mockMatched) {
       mockNotFoundCount += 1;
       console.warn(`[warn] "${plan.title}": не найдено в mock.ts — section=null, featured=false`);
     }
@@ -747,7 +918,15 @@ async function main() {
 
   function printTotals(): void {
     console.log("───────────────────────────────────────");
-    console.log(`Обработано записей: ${records.length}`);
+    console.log(`Режим: ${modeName}`);
+    console.log(`Обработано записей: ${working.length}`);
+    if (addOnly) {
+      const soft = skippedRows.filter((s) => s.reason === "soft-deleted").length;
+      console.log(
+        (dryRun ? `К добавлению: ${working.length}` : `Добавлено новостей: ${working.length}`) +
+          `, пропущено (слаг уже в схеме): ${skippedRows.length}, из них мягко удалённых: ${soft}`,
+      );
+    }
     console.log(`С обложкой: ${coverCount}, без обложки: ${noCoverCount}`);
     console.log(
       `Фото в галереях: ${galleryPhotoCount}, http-ссылок пропущено: ${droppedHttpCount}`,
@@ -757,7 +936,12 @@ async function main() {
       `Меток заменено: ${markersReplaced}, снято (записи нет): ${markersDropped.length}` +
         (markersDropped.length ? ` — ${markersDropped.join("; ")}` : ""),
     );
-    if (!replaceAll) {
+    console.log(
+      `Объектов S3: залито ${s3Uploaded}, из них перезалито по несовпадению размера ${s3Reuploaded}, ` +
+        `пропущено (размер совпал): ${s3Skipped}` +
+        (skipUploaded ? "" : " — ключ --skip-uploaded выключен, пропусков быть не может"),
+    );
+    if (!replaceAll && !addOnly) {
       console.log(`Не найдено в mock.ts: ${mockNotFoundCount}`);
     }
   }
@@ -766,22 +950,23 @@ async function main() {
     // Все планы строятся (и валидируются: наличие файлов, mime, даты) ДО
     // любых действий с S3 и БД — сбой валидации не оставляет полуработы.
     const plans: Plan[] = [];
-    for (let i = 0; i < records.length; i++) {
-      const plan = buildPlan(records[i], slugs[i]);
+    for (const w of working) {
+      const plan = buildPlan(records[w.index], w.slug, createdAts[w.index]);
       noteAndPrintPlan(plan);
       plans.push(plan);
     }
-    printTotals();
     if (dryRun) {
-      await replaceAllDryRun(plans);
+      printTotals();
+      await replaceAllDryRun();
     } else {
       await replaceAllApply(plans);
+      printTotals();
     }
   } else {
-    for (let i = 0; i < records.length; i++) {
-      const plan = buildPlan(records[i], slugs[i]);
+    for (const w of working) {
+      const plan = buildPlan(records[w.index], w.slug, createdAts[w.index]);
       noteAndPrintPlan(plan);
-      await applyPlan(plan);
+      await applyPlan(plan, addOnly);
     }
     printTotals();
   }

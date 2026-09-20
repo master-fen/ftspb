@@ -212,9 +212,11 @@ let newRecordPages: ReadonlySet<string> = new Set<string>();
 /**
  * Все страницы, ставшие записями: страницы-тела записей годовых лент плюс
  * newRecordPages. Ни одна из них не поглощается — кроме той, что стала телом
- * самой поглощающей записи. Ссылка на страницу-тело чужой записи меткой не
- * становится: в экспорте она и сейчас обычная внутренняя ссылка, а её замена
- * вышла бы за перечень изменений задания (см. доклад).
+ * самой поглощающей записи. Ссылка на любую из них становится меткой: каждая
+ * страница множества — `Источник` какой-то записи, поэтому метка заведомо
+ * разрешается (контроль «каждая метка указывает на существующий Источник»).
+ * До 20.09.2026 ворота метки стояли на newRecordPages, и ссылки на
+ * страницы-тела записей годовых лент оставались адресами легаси.
  */
 let allRecordPages: ReadonlySet<string> = new Set<string>();
 
@@ -1236,10 +1238,11 @@ function inlineParagraphs(work: string, ctx: SanitizeCtx): string[] {
           }
           continue;
         }
-        // Ссылка на страницу, ставшую отдельной записью: адрес новой записи
+        // Ссылка на страницу, ставшую записью — всё равно, отдельной записью
+        // смежной ленты или телом записи годовой ленты: адрес новой записи
         // знает не разбор, а мигратор — в тело идёт метка на её `Источник`.
         const targetRel = internalPath !== null ? articleRelFile(abs) : null;
-        if (targetRel !== null && newRecordPages.has(targetRel)) {
+        if (targetRel !== null && allRecordPages.has(targetRel)) {
           if (!ctx.silent) report.recordMarkers += 1;
           const marker = markerHref(canonicalArticleUrl(targetRel));
           current.push(`<a href="${marker.replace(/"/g, "&quot;")}">`);
@@ -1758,16 +1761,16 @@ function buildRecord(item: FeedItem): OutputRecord | null {
   // Страница, ставшая записью, родителем не поглощается: её фото остаются при
   // ней, текст не теряется. Исключение — страница, ставшая телом самой этой
   // записи: её первая тизерная ссылка выбирается до подавления, иначе запись
-  // осталась бы без тела. Ссылку на страницу-запись смежной ленты
-  // inlineParagraphs превращает в метку; ссылка на страницу-тело чужой записи
-  // остаётся обычной внутренней. В проходе 1 множества пусты — там поглощение
-  // работает как раньше и даёт исходное множество страниц-тел.
+  // осталась бы без тела. Ссылку на любую страницу-запись inlineParagraphs
+  // превращает в метку — и на запись смежной ленты, и на тело записи годовой
+  // ленты. В проходе 1 множества пусты — там поглощение работает как раньше и
+  // даёт исходное множество страниц-тел.
   const ownTeaserRel = (links.find((l) => l.kase === "тизер") ?? null)?.relFile ?? null;
   for (const l of links) {
     if (isSuppressedLink(l.kase, l.relFile, ownTeaserRel, allRecordPages)) {
       l.kase = "ссылканазапись";
       report.markerLinks.push(
-        `${context}: «${title}» → ${l.relFile}${newRecordPages.has(l.relFile) ? "" : " (тело чужой записи, метки нет)"}`,
+        `${context}: «${title}» → ${l.relFile}${newRecordPages.has(l.relFile) ? "" : " (тело записи годовой ленты)"}`,
       );
     }
   }
@@ -6220,20 +6223,47 @@ function runSelfTest(): number {
       };
     })(),
     (() => {
-      const saved = newRecordPages;
+      const savedNew = newRecordPages;
+      const savedAll = allRecordPages;
       newRecordPages = new Set(["2023/0625.html"]);
+      allRecordPages = new Set(["2023/0625.html"]);
       const input =
         '<p><a href="http://tennisfed.spb.ru/2023/0625">на страницу-запись</a> и ' +
         '<a href="http://tennisfed.spb.ru/2023/0630">на обычную</a></p>';
       const out = sanitizeBody(input, { baseUrl: pageUrl, silent: true });
-      newRecordPages = saved;
+      newRecordPages = savedNew;
+      allRecordPages = savedAll;
       return {
-        name: "ленты: ссылка на страницу-запись становится меткой, ссылка на обычную страницу — нет",
+        name: "ленты: ссылка на страницу-запись смежной ленты становится меткой, ссылка на обычную страницу — нет",
         input,
         output: out,
         ok:
           out.includes(`href="${markerHref(`${SITE}/2023/0625`)}">на страницу-запись</a>`) &&
           out.includes('href="http://tennisfed.spb.ru/2023/0630">на обычную</a>'),
+      };
+    })(),
+    (() => {
+      // Страница-тело записи годовой ленты: в newRecordPages её нет, в
+      // allRecordPages есть. До 20.09.2026 такая ссылка меткой не становилась
+      // и уходила в экспорт адресом легаси.
+      const savedNew = newRecordPages;
+      const savedAll = allRecordPages;
+      newRecordPages = new Set<string>();
+      allRecordPages = new Set(["2023/06151.html"]);
+      const input =
+        '<p><a href="http://tennisfed.spb.ru/2023/06151">на тело записи годовой ленты</a> и ' +
+        '<a href="http://tennisfed.spb.ru/2023/0630">на обычную</a></p>';
+      const out = sanitizeBody(input, { baseUrl: pageUrl, silent: true });
+      newRecordPages = savedNew;
+      allRecordPages = savedAll;
+      return {
+        name: "ленты: ссылка на страницу-тело записи годовой ленты тоже становится меткой",
+        input,
+        output: out,
+        ok:
+          out.includes(
+            `href="${markerHref(`${SITE}/2023/06151`)}">на тело записи годовой ленты</a>`,
+          ) && out.includes('href="http://tennisfed.spb.ru/2023/0630">на обычную</a>'),
       };
     })(),
     (() => {
