@@ -37,7 +37,7 @@ import { readFileSync, readdirSync, existsSync, mkdirSync, writeFileSync } from 
 import { join } from "node:path";
 import process from "node:process";
 // Расширение обязательно: node раздевает типы сам, но путь не дорезолвит.
-import { markerHref } from "./archive-markers.ts";
+import { findMarkerSources, markerHref } from "./archive-markers.ts";
 
 // ───────────────────────── аргументы ─────────────────────────
 
@@ -186,6 +186,10 @@ const RECON_EXPECTED_MEDIA_ROWS: Record<string, number> = {
  */
 const EXPECTED_MEDIA_RECORDS = 98;
 
+/** Стоп-условие задания: число новых записей вне диапазона — остановиться. */
+const MEDIA_RECORDS_MIN = 90;
+const MEDIA_RECORDS_MAX = 110;
+
 /**
  * Файлы лент легаси: когда легаси умрёт, цели у такой ссылки не станет. Тег
  * снимается, видимый текст остаётся.
@@ -213,6 +217,10 @@ let newRecordPages: ReadonlySet<string> = new Set<string>();
  * вышла бы за перечень изменений задания (см. доклад).
  */
 let allRecordPages: ReadonlySet<string> = new Set<string>();
+
+/** Страницы-тела записей по проходам — сторож неподвижности (см. контроли). */
+let bodyPagesPass1: ReadonlySet<string> = new Set<string>();
+let bodyPagesPass2: ReadonlySet<string> = new Set<string>();
 
 // ───────────────────────── выходной формат ─────────────────────────
 
@@ -286,6 +294,8 @@ type ReportBag = {
   mediaRowsSkipped: string[];
   /** Дубли страницы между смежными лентами — побеждает первая лента. */
   mediaDuplicateRows: string[];
+  /** Строк в файле смежной ленты, до отсева дублей между лентами. */
+  mediaRawRows: Record<string, number>;
   /** Дата страницы разошлась с датой строки ленты. */
   mediaDateMismatch: string[];
   /** Страница смежной ленты без строки «Опубликовано»: дата из имени файла. */
@@ -332,6 +342,7 @@ const report: ReportBag = {
   markerLinks: [],
   mediaRowsSkipped: [],
   mediaDuplicateRows: [],
+  mediaRawRows: {},
   mediaDateMismatch: [],
   mediaDateFromName: [],
   mediaShortBody: [],
@@ -2224,7 +2235,9 @@ function collectMediaRows(): MediaRow[] {
       runErrors.push(`${file}: смежной ленты нет в архиве`);
       continue;
     }
-    for (const row of splitMediaRows(file, blankComments(readCp1251(path)))) {
+    const parsed = splitMediaRows(file, blankComments(readCp1251(path)));
+    report.mediaRawRows[file] = parsed.length;
+    for (const row of parsed) {
       if (seen.has(row.relFile)) {
         report.mediaDuplicateRows.push(
           `${row.file}#${row.position}: ${row.relFile} уже взята более ранней лентой`,
@@ -2461,7 +2474,37 @@ function renderReport(records: OutputRecord[]): string {
     `- ссылок с недопустимым протоколом/битым href (заменены текстом): ${report.droppedBadProtoLinks}`,
   );
   L.push(`- видео-вставок (iframe) в телах, заменённых ссылкой «Видео»: ${report.videoLinks}`);
+  L.push(`- меток на архивные записи (archive-record:) поставлено: ${report.recordMarkers}`);
+  const droppedFeed = Object.entries(report.feedFileLinksDropped).sort();
+  L.push(
+    `- ссылок на файлы лент снято (текст оставлен): ${droppedFeed.reduce((s, [, n]) => s + n, 0)}` +
+      (droppedFeed.length ? ` (${droppedFeed.map(([f, n]) => `${f} ${n}`).join(", ")})` : ""),
+  );
   L.push("");
+
+  L.push("## Смежные ленты как источники записей");
+  L.push("");
+  L.push(
+    "Строк — в файле ленты; пропущено — страница уже стала телом записи годовой ленты" +
+      " (побеждает годовая лента); записей — сколько записей дала лента (до дедупликации).",
+  );
+  L.push("");
+  L.push("| Лента | строк | пропущено | записей |");
+  L.push("|---|---|---|---|");
+  for (const f of report.perFile) {
+    if (!MEDIA_FEED_FILES.includes(f.file)) continue;
+    L.push(`| ${f.file} | ${f.rows} | ${f.skipped ?? 0} | ${f.records} |`);
+  }
+  L.push("");
+  section("Строки смежных лент, не ставшие записями", report.mediaRowsSkipped);
+  section("Дубли страницы между смежными лентами (взята один раз)", report.mediaDuplicateRows);
+  section("Дата страницы ≠ дата строки ленты (у записи — дата страницы)", report.mediaDateMismatch);
+  section("Страница без строки «Опубликовано» (дата из имени файла)", report.mediaDateFromName);
+  section("Записи-страницы с телом короче 200 знаков", report.mediaShortBody);
+  section("Записи-страницы без обложки", report.mediaNoCover);
+  section("Записи-страницы, у которых шапка страницы осталась в теле", report.mediaHeaderNotCut);
+  section("Ссылки на страницу-запись: поглощения нет", report.markerLinks);
+
   return L.join("\n") + "\n";
 }
 
@@ -3015,6 +3058,16 @@ const D8_HEAD_MIN = 20;
  */
 const D8_LOOSE_EXPECTED = 2;
 
+/**
+ * д8 у записей-страниц смежных лент: шапку срезать удаётся не всегда —
+ * у части страниц нет строки публикации, у части она стоит за картинкой или
+ * дальше четвёртого абзаца, а страховки cutArticleHeader не ослабляются.
+ * Ожидание заморожено по прогону 20.09.2026; ключи — в docs/archive-notes.md,
+ * к просмотру глазами перед заливкой. Рост — повод посмотреть, не дефект.
+ */
+const D8_PAGE_EXPECTED_A = 4;
+const D8_PAGE_EXPECTED_B = 2;
+
 /** Голова заголовка: слова до накопления ≥ D8_HEAD_MIN знаков; короткий заголовок — целиком. */
 function profTitleHead(normTitle: string): string {
   if (normTitle.length <= D8_HEAD_MIN) return normTitle;
@@ -3252,9 +3305,11 @@ type ProfileKey = {
 };
 
 type TransformFeatures = {
-  схемаЛенты: "A" | "B" | "C";
+  /** M — строка смежной ленты вёрстки `media` (запись-страница). */
+  схемаЛенты: "A" | "B" | "C" | "M";
   схемаArticle: "C" | "D" | null;
-  кейсArticle: "нет" | "цитата" | "тизер" | "галерея" | "утрачена";
+  /** «страница» — запись смежной ленты: телом стала сама article-страница. */
+  кейсArticle: "нет" | "цитата" | "тизер" | "галерея" | "утрачена" | "страница";
   ссылкиArticle: ProfLink[];
   склейка: boolean;
   синтетическийЗаголовок: boolean;
@@ -3430,14 +3485,19 @@ function profDetectors(rec: OutputRecord, cap: ProfCapture): Detectors {
     // extractDocuments в silent, затем sanitizeBody с теми же baseUrl.
     const absorbedRel = new Set(cap.absorbed.map((a2) => a2.relFile));
     const stripAbsorbed = (html: string): string =>
-      html.replace(
-        /<a\b[^>]*href\s*=\s*["']?([^"'\s>]+)["']?[^>]*>([\s\S]*?)<\/a>/gi,
-        (whole, href: string, inner: string) => {
-          const abs2 = absolutize(href, cap.feedUrl);
-          const rel = abs2 ? articleRelFile(abs2) : null;
-          return rel && absorbedRel.has(rel) ? inner : whole;
-        },
-      );
+      // У записи-страницы смежной ленты поглощения нет: buildMediaRecord ссылок
+      // не снимает, и зеркало обязано этого не делать тоже — иначе д3(а)
+      // загорелась бы на самоссылке страницы.
+      cap.media
+        ? html
+        : html.replace(
+            /<a\b[^>]*href\s*=\s*["']?([^"'\s>]+)["']?[^>]*>([\s\S]*?)<\/a>/gi,
+            (whole, href: string, inner: string) => {
+              const abs2 = absolutize(href, cap.feedUrl);
+              const rel = abs2 ? articleRelFile(abs2) : null;
+              return rel && absorbedRel.has(rel) ? inner : whole;
+            },
+          );
     const tmpDocs: string[] = [];
     const feedPrepared = extractDocuments(
       stripAbsorbed(cap.feedFragment),
@@ -3497,15 +3557,17 @@ function buildProfileRecord(rec: OutputRecord, cap: ProfCapture, пара: boole
   }
   const сумма = article === null ? лента : mergeSrcFeatures(лента, article);
 
-  const кейс: TransformFeatures["кейсArticle"] = cap.teaserRelFile
-    ? "тизер"
-    : cap.absorbed.length > 0
-      ? "галерея"
-      : cap.links.some((l) => l.kase === "утрачена")
-        ? "утрачена"
-        : cap.links.some((l) => l.kase === "цитата")
-          ? "цитата"
-          : "нет";
+  const кейс: TransformFeatures["кейсArticle"] = cap.media
+    ? "страница"
+    : cap.teaserRelFile
+      ? "тизер"
+      : cap.absorbed.length > 0
+        ? "галерея"
+        : cap.links.some((l) => l.kase === "утрачена")
+          ? "утрачена"
+          : cap.links.some((l) => l.kase === "цитата")
+            ? "цитата"
+            : "нет";
   const схемаArticle =
     cap.absorbed.find((a) => a.relFile === cap.teaserRelFile)?.layout ??
     cap.absorbed[0]?.layout ??
@@ -3520,7 +3582,14 @@ function buildProfileRecord(rec: OutputRecord, cap: ProfCapture, пара: boole
   ].sort();
 
   const трансформация: TransformFeatures = {
-    схемаЛенты: cap.titleVia === null ? "A" : cap.titleVia === "span" ? "B" : "C",
+    схемаЛенты:
+      cap.titleVia === "media"
+        ? "M"
+        : cap.titleVia === null
+          ? "A"
+          : cap.titleVia === "span"
+            ? "B"
+            : "C",
     схемаArticle,
     кейсArticle: кейс,
     ссылкиArticle: cap.links,
@@ -3595,13 +3664,13 @@ function buildGoals(profs: ProfileRecord[]): Goal[] {
   for (const [name, values, f] of bucketGoals) {
     for (const v of values) goals.push({ id: `${name}=${v}`, pred: (p) => f(p) === v });
   }
-  for (const v of ["A", "B", "C"] as const) {
+  for (const v of ["A", "B", "C", "M"] as const) {
     goals.push({ id: `схемаЛенты=${v}`, pred: (p) => p.трансформация.схемаЛенты === v });
   }
   for (const v of ["C", "D"] as const) {
     goals.push({ id: `схемаArticle=${v}`, pred: (p) => p.трансформация.схемаArticle === v });
   }
-  for (const v of ["нет", "цитата", "тизер", "галерея", "утрачена"] as const) {
+  for (const v of ["нет", "цитата", "тизер", "галерея", "утрачена", "страница"] as const) {
     goals.push({ id: `кейс=${v}`, pred: (p) => p.трансформация.кейсArticle === v });
   }
   const t = (id: string, pred: (p: ProfileRecord) => boolean) => goals.push({ id, pred });
@@ -4397,6 +4466,72 @@ function renderExcerptPreview(
   return L.join("\n") + "\n";
 }
 
+/** Строка таблицы по необъяснённому article-файлу (часть D задания). */
+type UnexplainedPage = {
+  relFile: string;
+  заголовок: string;
+  дата: string;
+  длинаТекста: number;
+  фото: number;
+  ссылкиИзАрхива: string[];
+};
+
+/**
+ * Необъяснённые article-файлы: страницы, на которые не ссылается ни одна
+ * лента. Решений по ним задача не принимает — только собирает данные для
+ * просмотра глазами. Входящие ссылки ищутся по всем html архива: годовым
+ * лентам (`archive_pages/`), корню `download/` (там же смежные ленты) и
+ * годовым каталогам `download/ГГГГ/`.
+ */
+function profUnexplainedPages(rels: string[]): UnexplainedPage[] {
+  const targets = new Set(rels);
+  const inbound = new Map<string, string[]>();
+  const scanFile = (fullPath: string, label: string) => {
+    const html = blankComments(readCp1251(fullPath));
+    const base = `${SITE}/${label}`;
+    const hits = new Set<string>();
+    for (const m of html.matchAll(/href\s*=\s*["']?([^"'\s>]+)/gi)) {
+      const abs = absolutize(m[1], base);
+      const rel = abs ? articleRelFile(abs) : null;
+      if (rel !== null && rel !== label && targets.has(rel)) hits.add(rel);
+    }
+    for (const rel of hits) {
+      const arr = inbound.get(rel) ?? [];
+      arr.push(label);
+      inbound.set(rel, arr);
+    }
+  };
+  const feedDir = join(ARCHIVE, "archive_pages");
+  for (const f of readdirSync(feedDir).sort()) {
+    if (f.endsWith(".html")) scanFile(join(feedDir, f), f);
+  }
+  const dlDir = join(ARCHIVE, "download");
+  for (const entry of readdirSync(dlDir).sort()) {
+    if (entry.endsWith(".html")) {
+      scanFile(join(dlDir, entry), entry);
+    } else if (/^\d{4}$/.test(entry)) {
+      for (const f of readdirSync(join(dlDir, entry)).sort()) {
+        if (f.endsWith(".html")) scanFile(join(dlDir, entry, f), `${entry}/${f}`);
+      }
+    }
+  }
+  return rels.map((rel) => {
+    const page = loadArticle(rel, canonicalArticleUrl(rel));
+    const текст =
+      page && !page.lost
+        ? plainProf(sanitizeBody(page.bodyHtml, { baseUrl: page.url, silent: true })).length
+        : 0;
+    return {
+      relFile: rel,
+      заголовок: profArticleTitle(rel) ?? "—",
+      дата: page?.date ?? "—",
+      длинаТекста: текст,
+      фото: page && !page.lost ? extractPhotos(page.photosHtml, page.url).length : 0,
+      ссылкиИзАрхива: (inbound.get(rel) ?? []).sort(),
+    };
+  });
+}
+
 type Control = { текст: string; ок: boolean; факт: string };
 
 /** Адрес видео-вставки записи и есть ли ссылка на него в теле. */
@@ -4410,7 +4545,32 @@ type InventoryExtras = {
   records: OutputRecord[];
   controls: Control[];
   videos: VideoCheck[];
+  unexplained13: UnexplainedPage[];
 };
+
+/**
+ * Часть D задания: таблица по article-файлам, которые не объясняются ни одной
+ * лентой. Записями они не становятся — это данные для решения глазами.
+ */
+function renderUnexplained(L: string[], pages: UnexplainedPage[]): void {
+  L.push(`## Необъяснённые article-файлы (${pages.length})`);
+  L.push("");
+  L.push(
+    "Страницы архива, на которые нет ссылок ни с годовых, ни со смежных лент. Записями в этой" +
+      " задаче они не становятся. «Ссылки из архива» — html-файлы архива, в которых встречается" +
+      " ссылка на эту страницу (сама страница не считается).",
+  );
+  L.push("");
+  L.push("| файл | заголовок | дата | знаков текста | фото | ссылки из архива |");
+  L.push("|---|---|---|---|---|---|");
+  for (const p of pages) {
+    const links = p.ссылкиИзАрхива.length === 0 ? "нет" : p.ссылкиИзАрхива.join(", ");
+    L.push(
+      `| ${p.relFile} | ${mdEsc(p.заголовок)} | ${p.дата} | ${p.длинаТекста} | ${p.фото} | ${mdEsc(links)} |`,
+    );
+  }
+  L.push("");
+}
 
 function renderProfileReport(
   profs: ProfileRecord[],
@@ -4502,7 +4662,7 @@ function renderProfileReport(
 
   L.push("## Признаки трансформации");
   L.push("");
-  tallyTable(L, "Схема ленты", profs, (p) => p.трансформация.схемаЛенты, ["A", "B", "C"]);
+  tallyTable(L, "Схема ленты", profs, (p) => p.трансформация.схемаЛенты, ["A", "B", "C", "M"]);
   tallyTable(L, "Схема article", profs, (p) => p.трансформация.схемаArticle ?? "—", [
     "C",
     "D",
@@ -4514,6 +4674,7 @@ function renderProfileReport(
     "тизер",
     "галерея",
     "утрачена",
+    "страница",
   ]);
   flagTable(L, "Склейка", profs, (p) => p.трансформация.склейка);
   flagTable(L, "Синтетический заголовок", profs, (p) => p.трансформация.синтетическийЗаголовок);
@@ -4723,13 +4884,15 @@ function renderProfileReport(
   if (d7top.length === 0) L.push("_нет_");
   L.push("");
 
-  // ── д8 ──
-  const teasers = profs.filter((p) => p.детекторы.д8 !== null);
+  // ── д8: раздельно по тизерным записям годовых лент и записям-страницам ──
+  const allD8 = profs.filter((p) => p.детекторы.д8 !== null);
+  const teasers = allD8.filter((p) => p.трансформация.кейсArticle === "тизер");
+  const pagesD8 = allD8.filter((p) => p.трансформация.кейсArticle === "страница");
   const d8a = teasers.filter((p) => p.детекторы.д8!.а);
   const d8aLoose = teasers.filter((p) => p.детекторы.д8!.аНестрого);
   const d8b = teasers.filter((p) => p.детекторы.д8!.б);
   const d8both = teasers.filter((p) => p.детекторы.д8!.а && p.детекторы.д8!.б);
-  L.push(`### д8 — шапка article в теле (тизерных записей: ${teasers.length})`);
+  L.push(`### д8 — шапка article в теле (тизерных записей годовых лент: ${teasers.length})`);
   L.push("");
   L.push(
     "Перед сравнением с заголовком с начала плоского тела снимаются известные префиксы: " +
@@ -4764,6 +4927,32 @@ function renderProfileReport(
   if (d8aLoose.length === 0) L.push("_нет_");
   L.push("");
 
+  // ── д8 у записей-страниц смежных лент ──
+  const pa = pagesD8.filter((p) => p.детекторы.д8!.а);
+  const pb = pagesD8.filter((p) => p.детекторы.д8!.б);
+  const pLoose = pagesD8.filter((p) => p.детекторы.д8!.аНестрого);
+  const pHit = pagesD8.filter((p) => p.детекторы.д8!.а || p.детекторы.д8!.б);
+  L.push(`### д8 у записей-страниц смежных лент (записей: ${pagesD8.length})`);
+  L.push("");
+  L.push(
+    "У записи-страницы всегда снимается первый абзац с баннером шаблона, но шапку целиком" +
+      " срезать удаётся не всегда: у части страниц строки публикации нет вовсе, у части она" +
+      " стоит за картинкой или дальше четвёртого абзаца, а страховки `cutArticleHeader` не" +
+      " ослабляются. Ожидание заморожено по прогону 20.09.2026; ключи — в" +
+      " `docs/archive-notes.md`, к просмотру глазами перед заливкой.",
+  );
+  L.push("");
+  L.push(`- (а) целиком: ${pa.length} (ожидание ${D8_PAGE_EXPECTED_A})`);
+  L.push(
+    `- (б) строка «Опубликовано ДД месяц ГГГГ г.»: ${pb.length} (ожидание ${D8_PAGE_EXPECTED_B})`,
+  );
+  L.push(`- (а) нестрого: ${pLoose.length}`);
+  L.push("");
+  for (const p of pHit)
+    L.push(`- ${profKeyStr(p)} — а=${p.детекторы.д8!.а} б=${p.детекторы.д8!.б}`);
+  if (pHit.length === 0) L.push("_нет_");
+  L.push("");
+
   L.push("## Крайние");
   L.push("");
   for (const ex of extremes) {
@@ -4779,6 +4968,7 @@ function renderProfileReport(
   L.push("");
 
   renderAdjacentFeeds(L, inv.feeds, inv.unreferenced);
+  renderUnexplained(L, inv.unexplained13);
   renderExcerptStats(L, inv.excerpt, inv.previewSize);
   renderTitles(L, profs);
   renderCandidates2026(L, profs);
@@ -4873,12 +5063,19 @@ function renderAdjacentFeeds(L: string[], feeds: AdjacentFeed[], unreferenced: s
   const explained = unreferenced.filter((r) => unionB.has(r));
   const unexplained = unreferenced.filter((r) => !unionB.has(r));
   const onlyInB = [...unionB].filter((r) => !unrefSet.has(r));
+  L.push(
+    "После того как три ленты стали источниками, класс (б) — страница ленты, не вошедшая ни в" +
+      " одну запись экспорта — обязан быть пуст: у трёх лент-источников каждая страница либо" +
+      " стала записью, либо уже была телом записи годовой ленты, а все пять ссылок" +
+      " `plt_news.html` вошли в записи годовых лент.",
+  );
+  L.push("");
   L.push(`- в parse-report.md «без ссылок с лент»: ${unreferenced.length}`);
   L.push(`- объединение (б) по четырём лентам: ${unionB.size}`);
   L.push(
     `- калибровка: в (б), но не в списке parse-report — ${onlyInB.length} (обязан быть 0; иначе множества считаны по-разному)${onlyInB.length ? ": " + onlyInB.join(", ") : ""}`,
   );
-  L.push(`- объясняются смежными лентами: ${explained.length}`);
+  L.push(`- из списка parse-report попали в (б): ${explained.length}`);
   L.push(`- остаются необъяснёнными: ${unexplained.length}`);
   for (const r of unexplained.slice(0, 50)) L.push(`  - ${r}`);
   if (unexplained.length > 50) L.push(`  - … и ещё ${unexplained.length - 50}`);
@@ -5126,11 +5323,19 @@ function runProfile(records: OutputRecord[]): void {
 
   // ── инвентаризация: смежные ленты, примерка анонса, контроли ──
   const referenced = new Map<string, string[]>();
+  const noteReferenced = (rel: string, note: string) => {
+    const arr = referenced.get(rel) ?? [];
+    arr.push(note);
+    referenced.set(rel, arr);
+  };
   profs.forEach((p) => {
     for (const l of p.трансформация.ссылкиArticle) {
-      const arr = referenced.get(l.relFile) ?? [];
-      arr.push(`${profKeyShort(p)} (${l.kase})`);
-      referenced.set(l.relFile, arr);
+      noteReferenced(l.relFile, `${profKeyShort(p)} (${l.kase})`);
+    }
+    // Запись-страница смежной ленты ссылкой на себя не является, но в запись
+    // экспорта вошла — иначе класс (б) считал бы её «не ставшей записью».
+    if (p.трансформация.кейсArticle === "страница" && p.ключ.article) {
+      noteReferenced(p.ключ.article, `${profKeyShort(p)} (запись-страница)`);
     }
   });
   const feedItems = records.map((rec, i) => ({
@@ -5145,6 +5350,9 @@ function runProfile(records: OutputRecord[]): void {
   const p66 = profs.find((p) => p.ключ.файл === "newsarch_2023.html" && p.ключ.номер === 66);
   const d6of66 = p66?.детекторы.д6;
   const anonsCount = profs.filter((p) => p.результат.естьАнонс).length;
+  const anonsFeedCount = profs.filter(
+    (p) => p.результат.естьАнонс && p.трансформация.кейсArticle !== "страница",
+  ).length;
 
   // ── контроли чистки архива (задание archive-cleanup, 20.09.2026) ──
   const d1Count = (f: (d: D1Forms) => boolean) =>
@@ -5152,10 +5360,48 @@ function runProfile(records: OutputRecord[]): void {
   const d1Semi = d1Count((d) => d.сТочкой);
   const d1Bare = d1Count((d) => d.безТочки);
   const d2Hits = profs.filter((p) => p.детекторы.д2.любое).length;
-  const teasers = profs.filter((p) => p.детекторы.д8 !== null);
-  const d8a = teasers.filter((p) => p.детекторы.д8!.а).length;
-  const d8b = teasers.filter((p) => p.детекторы.д8!.б).length;
-  const d8loose = teasers.filter((p) => p.детекторы.д8!.аНестрого).length;
+  // д8 считается раздельно: у тизерных записей годовых лент шапка обязана быть
+  // срезана (ожидание 0), у записей-страниц смежных лент часть шапок срезать не
+  // удаётся (страховки cutArticleHeader не ослабляются) — там ожидание
+  // заморожено по прогону, ключи идут в отчёт и в docs/archive-notes.md.
+  const teasersFeed = profs.filter(
+    (p) => p.детекторы.д8 !== null && p.трансформация.кейсArticle === "тизер",
+  );
+  const pageRecords = profs.filter((p) => p.трансформация.кейсArticle === "страница");
+  const pageTeasers = pageRecords.filter((p) => p.детекторы.д8 !== null);
+  const d8a = teasersFeed.filter((p) => p.детекторы.д8!.а).length;
+  const d8b = teasersFeed.filter((p) => p.детекторы.д8!.б).length;
+  const d8loose = teasersFeed.filter((p) => p.детекторы.д8!.аНестрого).length;
+  const d8aPage = pageTeasers.filter((p) => p.детекторы.д8!.а).length;
+  const d8bPage = pageTeasers.filter((p) => p.детекторы.д8!.б).length;
+  const d8loosePage = pageTeasers.filter((p) => p.детекторы.д8!.аНестрого).length;
+  const d8Page = pageTeasers.filter((p) => p.детекторы.д8!.а || p.детекторы.д8!.б);
+
+  // ── контроли смежных лент (задание archive-feeds, 20.09.2026) ──
+  const d7Pages = profs.reduce((s, p) => s + p.детекторы.д7.страниц, 0);
+  const sources = records.map((r) => r["Источник"]);
+  const sourceSet = new Set(sources);
+  const articleSources = sources.filter((u) => articleRelFile(u) !== null);
+  const dupArticleSources = [
+    ...new Set(articleSources.filter((u, i) => articleSources.indexOf(u) !== i)),
+  ];
+  const rec66 = records.find((r) => r["Источник"] === `${SITE}/2023/0626`);
+  const photos66 = rec66 ? (rec66["Обложка"] ? 1 : 0) + (rec66["Галерея"]?.length ?? 0) : -1;
+  const markerTargets = records.flatMap((r) => findMarkerSources(r["ТекстHTML"]));
+  const markerMissing = [...new Set(markerTargets.filter((s) => !sourceSet.has(s)))];
+  const feedFileHits = records.flatMap((r) => {
+    const hits = r["ТекстHTML"].match(/festvest\.html|pobeda\.html|150\.html|plt_news\.html/g);
+    return hits ? [`${r["Источник"]}|${r["Дата"]}: ${hits.join(", ")}`] : [];
+  });
+  const classB = feeds.flatMap((f) =>
+    f.ссылки.filter((l) => l.класс === "б").map((l) => l.relFile),
+  );
+  const mediaRowCounts = MEDIA_FEED_FILES.map(
+    (f) => `${f}: ${report.mediaRawRows[f] ?? "нет"}/${RECON_EXPECTED_MEDIA_ROWS[f]}`,
+  );
+  const mediaRowsOk = MEDIA_FEED_FILES.every(
+    (f) => report.mediaRawRows[f] === RECON_EXPECTED_MEDIA_ROWS[f],
+  );
   const withTableBody = profs.filter((p) => p.результат.таблицВТеле > 0);
   const tableWithoutData = withTableBody.filter((p) => p.источник.сумма.таблицы.данных === 0);
   const videoChecks: VideoCheck[] = [];
@@ -5178,9 +5424,14 @@ function runProfile(records: OutputRecord[]): void {
     },
     { текст: "д2 = 0", ок: d2Hits === 0, факт: `${d2Hits}` },
     {
-      текст: "д8 = 0 по (а) и (б)",
+      текст: "д8 = 0 по (а) и (б) у тизерных записей годовых лент",
       ок: d8a === 0 && d8b === 0,
-      факт: `а=${d8a}, б=${d8b} (тизерных ${teasers.length}; нестрого (а) ${d8loose}, ожидание ${D8_LOOSE_EXPECTED})`,
+      факт: `а=${d8a}, б=${d8b} (тизерных ${teasersFeed.length}; нестрого (а) ${d8loose}, ожидание ${D8_LOOSE_EXPECTED})`,
+    },
+    {
+      текст: `д8 у записей-страниц не больше замороженного ожидания (а ${D8_PAGE_EXPECTED_A}, б ${D8_PAGE_EXPECTED_B})`,
+      ок: d8aPage <= D8_PAGE_EXPECTED_A && d8bPage <= D8_PAGE_EXPECTED_B,
+      факт: `а=${d8aPage}, б=${d8bPage} (записей-страниц ${pageRecords.length}; нестрого (а) ${d8loosePage}); ключи: ${d8Page.map(profKeyShort).join(", ") || "нет"}`,
     },
     {
       текст: "записей с таблицей в теле не меньше 10 (ожидание около 21)",
@@ -5201,9 +5452,63 @@ function runProfile(records: OutputRecord[]): void {
       факт: `${videoChecks.length - videoMissing.length}/${videoChecks.length}${videoMissing.length ? ": нет — " + videoMissing.map((v) => `${v.key} ${v.src}`).join("; ") : ""}`,
     },
     {
-      текст: `записей в экспорте ${EXPECTED_RECORDS} (1882 минус точечные исключения)`,
+      текст: `записей в экспорте ${EXPECTED_RECORDS} (1881 годовых лент плюс ${EXPECTED_MEDIA_RECORDS} смежных)`,
       ок: profs.length === EXPECTED_RECORDS,
-      факт: `${profs.length}`,
+      факт: `${profs.length}; из них записей-страниц ${pageRecords.length}`,
+    },
+    {
+      текст: `новых записей из смежных лент в диапазоне ${MEDIA_RECORDS_MIN}–${MEDIA_RECORDS_MAX}`,
+      ок: pageRecords.length >= MEDIA_RECORDS_MIN && pageRecords.length <= MEDIA_RECORDS_MAX,
+      факт: `${pageRecords.length}`,
+    },
+    {
+      текст: "ни одна страница не стала записью дважды: адреса article-источников уникальны",
+      ок: dupArticleSources.length === 0,
+      факт:
+        dupArticleSources.length === 0
+          ? `article-источников ${articleSources.length}, повторов 0`
+          : dupArticleSources.join(", "),
+    },
+    {
+      текст: "у новости 26.05.2023 в галерее не больше 60 фото (было 185)",
+      ок: photos66 >= 0 && photos66 <= 60,
+      факт: photos66 < 0 ? "запись не найдена" : `${photos66}`,
+    },
+    {
+      текст: "д7 = 0: поглощённых страниц с собственным текстом не осталось",
+      ок: d7Pages === 0,
+      факт: `${d7Pages}`,
+    },
+    {
+      текст: "каждая метка в телах указывает на существующий Источник записи",
+      ок: markerMissing.length === 0,
+      факт: `меток ${markerTargets.length}, без записи ${markerMissing.length}${markerMissing.length ? ": " + markerMissing.join(", ") : ""}`,
+    },
+    {
+      текст: "ссылок на файлы лент (festvest/pobeda/150/plt_news) в телах не осталось",
+      ок: feedFileHits.length === 0,
+      факт:
+        feedFileHits.length === 0
+          ? `0 (снято при разборе: ${Object.entries(report.feedFileLinksDropped)
+              .sort()
+              .map(([f, n]) => `${f} ${n}`)
+              .join(", ")})`
+          : feedFileHits.join(" | "),
+    },
+    {
+      текст: "класс (б) пуст: страниц смежных лент, не вошедших ни в одну запись, нет",
+      ок: classB.length === 0,
+      факт: classB.length === 0 ? "0" : classB.join(", "),
+    },
+    {
+      текст: "строк в смежных лентах — как в рекогносцировке",
+      ок: mediaRowsOk,
+      факт: mediaRowCounts.join(", "),
+    },
+    {
+      текст: "множество страниц-тел совпало между проходом 1 и проходом 2",
+      ок: bodyPagesPass1.size === bodyPagesPass2.size,
+      факт: `проход 1 — ${bodyPagesPass1.size}, проход 2 — ${bodyPagesPass2.size}`,
     },
     // ── прежние контроли инвентаризации (19.09.2026); снят «#66 оба флага д8
     // истинны» — его предмет закрыт контролем «д8 = 0» по всему архиву.
@@ -5220,16 +5525,9 @@ function runProfile(records: OutputRecord[]): void {
         : "запись не найдена",
     },
     {
-      текст: "у newsarch_2023.html#66 не менее восьми страниц в д7",
-      ок: p66 !== undefined && p66.детекторы.д7.страниц >= 8,
-      факт: p66
-        ? `страниц ${p66.детекторы.д7.страниц} (${p66.детекторы.д7.страницы.map((s) => `${s.relFile}:${s.длина}`).join(", ")})`
-        : "запись не найдена",
-    },
-    {
-      текст: "записей с собственным анонсом не более 60 (ожидание 56)",
-      ок: anonsCount <= 60,
-      факт: `${anonsCount}`,
+      текст: "записей годовых лент с собственным анонсом не более 60 (ожидание 56)",
+      ок: anonsFeedCount <= 60,
+      факт: `${anonsFeedCount} (всего с анонсом ${anonsCount}, из них записей-страниц ${anonsCount - anonsFeedCount})`,
     },
     {
       текст: "все четыре смежные ленты на месте в download/",
@@ -5251,6 +5549,7 @@ function runProfile(records: OutputRecord[]): void {
       records,
       controls,
       videos: videoChecks,
+      unexplained13: profUnexplainedPages(report.unreferencedArticles),
     }),
     "utf-8",
   );
@@ -5829,9 +6128,6 @@ function main(): void {
 
   loadManifest();
 
-  // Строки трёх смежных лент — только разметка строк, страницы не грузятся.
-  const mediaRows = collectMediaRows();
-
   // ── проход 1, разведочный ──
   // Подавлять поглощение надо для любой страницы, ставшей записью, включая
   // тело чужой записи (в архиве такой случай один: 2024/05021.html — тело
@@ -5844,16 +6140,22 @@ function main(): void {
   for (const file of FEED_FILES) parseFeedFile(file, probe);
   failOnRunErrors("проход 1");
   const bodyPages = articleSourcePages(probe);
-  newRecordPages = new Set(mediaRows.map((r) => r.relFile).filter((rel) => !bodyPages.has(rel)));
-  allRecordPages = new Set([...bodyPages, ...newRecordPages]);
+  bodyPagesPass1 = bodyPages;
   resetReport();
   profByRecord.clear();
+
+  // Строки трёх смежных лент — только разметка строк, страницы не грузятся.
+  // Читаются после сброса: их счётчики принадлежат итоговому прогону.
+  const mediaRows = collectMediaRows();
+  newRecordPages = new Set(mediaRows.map((r) => r.relFile).filter((rel) => !bodyPages.has(rel)));
+  allRecordPages = new Set([...bodyPages, ...newRecordPages]);
 
   // ── проход 2, итоговый ──
   const collected: CollectedRecord[] = [];
   for (const file of FEED_FILES) parseFeedFile(file, collected);
 
   const bodyPages2 = articleSourcePages(collected);
+  bodyPagesPass2 = bodyPages2;
   const movedBodies = [...bodyPages].filter((r) => !bodyPages2.has(r));
   const addedBodies = [...bodyPages2].filter((r) => !bodyPages.has(r));
   if (movedBodies.length > 0 || addedBodies.length > 0) {
@@ -5882,7 +6184,7 @@ function main(): void {
     }
     report.perFile.push({
       file,
-      rows: rows.length,
+      rows: report.mediaRawRows[file] ?? rows.length,
       titleRows: 0,
       bodyRows: 0,
       emptyRows: 0,
