@@ -17,10 +17,11 @@
 | `bun run format`          | `prettier --write .`                 |
 | `bun run charter:check`   | сверка выгрузки Устава с PDF         |
 
-База на 20.09.2026: `bun test` — 495 тестов в 41 файле, 3227 вызовов
-`expect()`, 0 падений. Из них в `scripts/` — 101 тест в шести файлах:
-`css-extract` 19, `css-rule-forms` 11, `snapshot-align` 10,
-`snapshot-compare` 11, `snapshot-locate` 25, `ssr-snapshot` 25. `bun run lint`
+База на 20.09.2026 (после PR «смежные ленты»): `bun test` — 507 тестов в
+42 файлах, 3255 вызовов `expect()`, 0 падений. Из них в `scripts/` — 113
+тестов в семи файлах: `archive-markers` 12, `css-extract` 19,
+`css-rule-forms` 11, `snapshot-align` 10, `snapshot-compare` 11,
+`snapshot-locate` 25, `ssr-snapshot` 25. `bun run lint`
 — 0 ошибок, 6 предупреждений `react-refresh/only-export-components` в
 `src/components/ui/` (`badge.tsx`, `button.tsx`, `form.tsx`,
 `navigation-menu.tsx`, `sidebar.tsx`, `toggle.tsx`). Lint сравнивается списком
@@ -80,13 +81,17 @@
 - **`bun run migrate:archive`** (`scripts/migrate-archive.ts`) — мигратор
   архива легаси, см. `docs/archive-notes.md`.
 - **`scripts/parse-archive.ts`** — разбор выгрузки архива. Запускается
-  `node`, не `bun` (нужен `TextDecoder` windows-1251). `--profile=ПАПКА` пишет
-  профиль и раздел «Контроли»: семь контролей чистки архива (д1 = 0 по обеим
-  формам, д2 = 0, д8 = 0 по (а) и (б), таблиц в теле ≥ 10, `<table` только у
-  записей с таблицами данных, адреса видео в телах, записей = 1882 − точечные
-  исключения) и четыре прежних (д6 и д7 у `newsarch_2023.html#66`, анонсов
-  ≤ 60, четыре смежные ленты на месте); любой НЕТ — exit 1 после записи
-  файлов. `--self-test` — 44 кейса на буквальном входе и выходе.
+  `node`, не `bun` (нужен `TextDecoder` windows-1251). Разбирает 26 годовых
+  лент из `archive_pages/` и три смежные ленты вёрстки `media` из `download/`
+  (`festvest.html`, `pobeda.html`, `150.html`); идёт двумя проходами —
+  разведочный даёт множество страниц, уже ставших телом записи, его счётчики
+  сбрасываются. `--profile=ПАПКА` пишет профиль и раздел «Контроли» —
+  20 контролей, любой НЕТ — exit 1 после записи файлов. `--self-test` —
+  51 кейс на буквальном входе и выходе.
+- **`scripts/archive-markers.ts`** — общий модуль парсера и мигратора: форма
+  метки `archive-record:ИСТОЧНИК`, её замена на `/news/СЛАГ`, проверка
+  остатка. Покрыт `scripts/archive-markers.test.ts`. Импортируется из
+  `parse-archive.ts` строго с расширением `.ts` (его запускает `node`).
 - **`scripts/dedupe-cover.ts`** — поиск и удаление дублей обложки. Без
   `--dry-run` физически удаляет объекты S3 — при локальной работе запрещено.
 - **`scripts/backfill-document-fields.ts`** — дозаполнение полей документов.
