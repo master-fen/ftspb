@@ -409,19 +409,124 @@ function blankComments(html: string): string {
   return html.replace(/<!--[\s\S]*?-->/g, (m) => m.replace(/[^\n]/g, " "));
 }
 
+/** Именованные сущности, которые декодируются в плоских полях (заголовок, анонс) и в профиле. */
+const NAMED_ENTITIES: Record<string, string> = {
+  nbsp: " ",
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+  laquo: "«",
+  raquo: "»",
+  mdash: "—",
+  ndash: "–",
+  hellip: "…",
+  bull: "•",
+  middot: "·",
+  sect: "§",
+  para: "¶",
+  copy: "©",
+  reg: "®",
+  trade: "™",
+  deg: "°",
+  plusmn: "±",
+  times: "×",
+  divide: "÷",
+  frac12: "½",
+  frac14: "¼",
+  sup2: "²",
+  sup3: "³",
+  dagger: "†",
+  permil: "‰",
+  lsquo: "‘",
+  rsquo: "’",
+  ldquo: "“",
+  rdquo: "”",
+  bdquo: "„",
+  shy: "",
+  euro: "€",
+  pound: "£",
+  ouml: "ö",
+};
+
+/**
+ * Переопределение HTML5 для числовых ссылок 128–159: браузер отдаёт символы
+ * cp1252 (`&#149;` → «•»), а не управляющие C1.
+ */
+const C1_OVERRIDES: Record<number, string> = {
+  128: "€",
+  130: "‚",
+  131: "ƒ",
+  132: "„",
+  133: "…",
+  134: "†",
+  135: "‡",
+  136: "ˆ",
+  137: "‰",
+  138: "Š",
+  139: "‹",
+  140: "Œ",
+  142: "Ž",
+  145: "‘",
+  146: "’",
+  147: "“",
+  148: "”",
+  149: "•",
+  150: "–",
+  151: "—",
+  152: "˜",
+  153: "™",
+  154: "š",
+  155: "›",
+  156: "œ",
+  158: "ž",
+  159: "Ÿ",
+};
+
+function safeCodePoint(cp: number): string {
+  const c1 = C1_OVERRIDES[cp];
+  if (c1 !== undefined) return c1;
+  if (cp === 0 || (cp >= 0xd800 && cp <= 0xdfff)) return "�";
+  try {
+    return String.fromCodePoint(cp);
+  } catch {
+    return "�";
+  }
+}
+
+/**
+ * Одна сущность: числовая (`&#149`, `&#x2026`) или именованная, с `;` либо
+ * без неё — без `;` только если дальше не буква и не цифра.
+ */
+const ENTITY_RE = /&(#[xX][0-9a-fA-F]+|#\d+|[a-zA-Z][a-zA-Z0-9]*)(;|(?![a-zA-Z0-9;]))/g;
+
+/** Имя сущности (без `&`) известно: числовое либо есть в словаре (регистр точный). */
+const isKnownEntity = (name: string): boolean =>
+  name[0] === "#" || NAMED_ENTITIES[name] !== undefined;
+
+/**
+ * Декодирование сущностей в плоском тексте. Обе формы — с `;` и без неё
+ * (лента старого сайта могла обрезать анонс на сущности): имя без `;`
+ * декодируется, только если оно есть в словаре и за ним не буква и не цифра
+ * («&hellipsis», «P&G», «&foo» не трогаются); тот же порядок для числовых.
+ * Один проход: «&amp;hellip;» даёт «&hellip;» и повторно не декодируется.
+ */
+function decodeEntities(s: string): string {
+  return s.replace(ENTITY_RE, (whole: string, name: string) => {
+    if (name[0] === "#") {
+      const cp = /^#[xX]/.test(name) ? parseInt(name.slice(2), 16) : Number(name.slice(1));
+      return Number.isFinite(cp) ? safeCodePoint(cp) : whole;
+    }
+    const known = NAMED_ENTITIES[name];
+    return known !== undefined ? known : whole;
+  });
+}
+
 function stripTags(html: string): string {
   // `<` не перед латинской буквой/`/`/`!` — не тег, а опечатка легаси
   // (`<Завершилось …` в заголовках 2016–2022 браузер рендерит как текст).
-  return html
-    .replace(/<\/?[a-zA-Z!][^>]*>/g, " ")
-    .replace(/</g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&laquo;/g, "«")
-    .replace(/&raquo;/g, "»")
-    .replace(/&amp;/g, "&")
-    .replace(/&quot;/g, '"')
-    .replace(/&mdash;/g, "—")
-    .replace(/&ndash;/g, "–")
+  return decodeEntities(html.replace(/<\/?[a-zA-Z!][^>]*>/g, " ").replace(/</g, " "))
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -1538,67 +1643,15 @@ function renderReport(records: OutputRecord[]): string {
  * parse-report.md при прогоне с флагом и без.
  */
 
-const NAMED_ENTITIES: Record<string, string> = {
-  nbsp: " ",
-  amp: "&",
-  lt: "<",
-  gt: ">",
-  quot: '"',
-  apos: "'",
-  laquo: "«",
-  raquo: "»",
-  mdash: "—",
-  ndash: "–",
-  hellip: "…",
-  bull: "•",
-  middot: "·",
-  sect: "§",
-  para: "¶",
-  copy: "©",
-  reg: "®",
-  trade: "™",
-  deg: "°",
-  plusmn: "±",
-  times: "×",
-  divide: "÷",
-  frac12: "½",
-  frac14: "¼",
-  sup2: "²",
-  sup3: "³",
-  dagger: "†",
-  permil: "‰",
-  lsquo: "‘",
-  rsquo: "’",
-  ldquo: "“",
-  rdquo: "”",
-  bdquo: "„",
-  shy: "",
-  euro: "€",
-  pound: "£",
-};
-
-function safeCodePoint(cp: number): string {
-  try {
-    return String.fromCodePoint(cp);
-  } catch {
-    return "�";
-  }
-}
-
 /**
  * Единая нормализация профиля (п.0 ТЗ): снять теги → декодировать сущности
  * (именованные и числовые) → схлопнуть пробелы → trim. Все длины и сравнения
- * профиля считаются только через неё. stripTags боевого пути не трогается.
+ * профиля считаются только через неё. С починкой A1 (чистка архива) боевой
+ * stripTags декодирует тем же словарём decodeEntities — отдельная копия
+ * нормализации больше не нужна, профиль зовёт его же.
  */
 function plainProf(html: string): string {
-  return html
-    .replace(/<\/?[a-zA-Z!][^>]*>/g, " ")
-    .replace(/</g, " ")
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, h: string) => safeCodePoint(parseInt(h, 16)))
-    .replace(/&#(\d+);/g, (_, d: string) => safeCodePoint(Number(d)))
-    .replace(/&([a-zA-Z]+);/g, (m: string, name: string) => NAMED_ENTITIES[name.toLowerCase()] ?? m)
-    .replace(/\s+/g, " ")
-    .trim();
+  return stripTags(html);
 }
 
 /** Белый список санитайзера — всё прочее в источнике «выброшенный тег». */
@@ -2010,7 +2063,23 @@ function mergeSrcFeatures(a: SrcFeatures, b: SrcFeatures): SrcFeatures {
 // ───────────────────────── профиль: детекторы д1–д5 ─────────────────────────
 
 /** д1: остаточные HTML-сущности в плоских полях (по СЫРЫМ строкам, без plain). */
-const D1_RE = /&[a-zA-Z]+;|&#\d+;|&#x[0-9a-fA-F]+;/;
+type D1Forms = { сТочкой: boolean; безТочки: boolean };
+
+/**
+ * д1: остаточные HTML-сущности в плоском поле (по СЫРОЙ строке, без plain),
+ * по формам: с `;` — любое имя и любые числовые (неизвестное имя с `;` —
+ * подозрительный токен); без `;` — только словарные имена и числовые.
+ */
+function d1Forms(s: string): D1Forms {
+  const out: D1Forms = { сТочкой: false, безТочки: false };
+  for (const m of s.matchAll(ENTITY_RE)) {
+    if (m[2] === ";") out.сТочкой = true;
+    else if (isKnownEntity(m[1])) out.безТочки = true;
+  }
+  return out;
+}
+
+const d1Any = (f: D1Forms): boolean => f.сТочкой || f.безТочки;
 
 const D2_SUBSTRINGS = [
   "<!--",
@@ -2469,7 +2538,14 @@ type ResultFeatures = {
 };
 
 type Detectors = {
-  д1: { заголовок: boolean; анонс: boolean; документы: boolean; любое: boolean };
+  д1: {
+    заголовок: boolean;
+    анонс: boolean;
+    документы: boolean;
+    любое: boolean;
+    /** По формам записи (с `;` и без неё) — для заголовка и анонса. */
+    формы: { заголовок: D1Forms; анонс: D1Forms };
+  };
   д2: { тело: boolean; поля: boolean; любое: boolean };
   д3: { а: boolean | null; б: boolean; в: string[]; г: boolean | null; любое: boolean };
   д4: boolean;
@@ -2559,11 +2635,15 @@ function profResultFeatures(rec: OutputRecord): ResultFeatures {
 function profDetectors(rec: OutputRecord, cap: ProfCapture): Detectors {
   const body = rec["ТекстHTML"];
   const pBody = plainProf(body);
+  const д1заголовок = d1Forms(rec["Заголовок"]);
+  const д1анонс: D1Forms =
+    rec["Анонс"] !== undefined ? d1Forms(rec["Анонс"]) : { сТочкой: false, безТочки: false };
   const д1 = {
-    заголовок: D1_RE.test(rec["Заголовок"]),
-    анонс: rec["Анонс"] !== undefined && D1_RE.test(rec["Анонс"]),
-    документы: (rec["Документы"] ?? []).some((d) => D1_RE.test(d)),
+    заголовок: d1Any(д1заголовок),
+    анонс: d1Any(д1анонс),
+    документы: (rec["Документы"] ?? []).some((d) => d1Any(d1Forms(d))),
     любое: false,
+    формы: { заголовок: д1заголовок, анонс: д1анонс },
   };
   д1.любое = д1.заголовок || д1.анонс || д1.документы;
 
@@ -3316,6 +3396,75 @@ function detectorSection(
   return hits.length;
 }
 
+type EntityCell = { вхождений: number; записи: Set<number> };
+type EntityRow = { сТочкой: EntityCell; безТочки: EntityCell };
+
+/** Инвентарь сущностей одного поля по записям: имя → счёт по формам (вхождений и записей). */
+function tallyEntities(texts: Array<string | undefined>): Map<string, EntityRow> {
+  const rows = new Map<string, EntityRow>();
+  texts.forEach((text, idx) => {
+    if (!text) return;
+    for (const m of text.matchAll(ENTITY_RE)) {
+      const row = rows.get(m[1]) ?? {
+        сТочкой: { вхождений: 0, записи: new Set<number>() },
+        безТочки: { вхождений: 0, записи: new Set<number>() },
+      };
+      const cell = m[2] === ";" ? row.сТочкой : row.безТочки;
+      cell.вхождений += 1;
+      cell.записи.add(idx);
+      rows.set(m[1], row);
+    }
+  });
+  return rows;
+}
+
+/**
+ * Раздел «Сущности»: все встреченные имена по формам, отдельно для заголовков,
+ * анонсов и тел; имена вне словаря — отдельной строкой (их надо добавить в
+ * NAMED_ENTITIES либо признать не-сущностью, как «Play&Stay;»).
+ */
+function renderEntityInventory(L: string[], records: OutputRecord[]): void {
+  L.push("### Сущности: имена по формам (с `;` / без `;`)");
+  L.push("");
+  L.push(
+    "Без `;` считаются любые токены `&имя` — в том числе не-сущности вроде «S&K»; " +
+      "словарные они или нет, видно по колонке. Обрезанная сущность — словарное имя без `;`.",
+  );
+  L.push("");
+  const scopes: Array<[string, Array<string | undefined>]> = [
+    ["заголовки", records.map((r) => r["Заголовок"])],
+    ["анонсы", records.map((r) => r["Анонс"])],
+    ["тела", records.map((r) => r["ТекстHTML"])],
+  ];
+  for (const [scope, texts] of scopes) {
+    const rows = tallyEntities(texts);
+    const names = [...rows.keys()].sort();
+    L.push(`#### ${scope}: имён ${names.length}`);
+    L.push("");
+    L.push("| имя | в словаре | с `;`: вхождений / записей | без `;`: вхождений / записей |");
+    L.push("|---|---|---|---|");
+    for (const name of names) {
+      const r = rows.get(name)!;
+      L.push(
+        `| ${mdEsc(name)} | ${isKnownEntity(name) ? "да" : "нет"} | ${r.сТочкой.вхождений} / ${r.сТочкой.записи.size} | ${r.безТочки.вхождений} / ${r.безТочки.записи.size} |`,
+      );
+    }
+    if (names.length === 0) L.push("| _нет_ | | | |");
+    L.push("");
+    const list = (pred: (n: string) => boolean) => names.filter(pred).join(", ") || "нет";
+    L.push(
+      `- имена вне словаря с \`;\` (добавить в словарь либо признать не-сущностью): ${list((n) => !isKnownEntity(n) && rows.get(n)!.сТочкой.вхождений > 0)}`,
+    );
+    L.push(
+      `- токены вне словаря без \`;\` (не-сущности, не трогаются): ${list((n) => !isKnownEntity(n) && rows.get(n)!.безТочки.вхождений > 0)}`,
+    );
+    L.push(
+      `- словарные имена без \`;\` (обрезанные сущности): ${list((n) => isKnownEntity(n) && rows.get(n)!.безТочки.вхождений > 0)}`,
+    );
+    L.push("");
+  }
+}
+
 /** Ключ ProfileRecord для списков инвентаризации (без заголовка). */
 const profKeyShort = (p: ProfileRecord): string => `${p.ключ.файл}#${p.ключ.номер}`;
 
@@ -3627,8 +3776,28 @@ function renderProfileReport(
   L.push("");
   detectorSection(L, "д1 — HTML-сущности в плоских полях", profs, (p) => p.детекторы.д1.любое);
   detectorSection(L, "д1: в заголовке", profs, (p) => p.детекторы.д1.заголовок);
+  detectorSection(
+    L,
+    "д1: в заголовке, форма с `;`",
+    profs,
+    (p) => p.детекторы.д1.формы.заголовок.сТочкой,
+  );
+  detectorSection(
+    L,
+    "д1: в заголовке, форма без `;`",
+    profs,
+    (p) => p.детекторы.д1.формы.заголовок.безТочки,
+  );
   detectorSection(L, "д1: в анонсе", profs, (p) => p.детекторы.д1.анонс);
+  detectorSection(L, "д1: в анонсе, форма с `;`", profs, (p) => p.детекторы.д1.формы.анонс.сТочкой);
+  detectorSection(
+    L,
+    "д1: в анонсе, форма без `;`",
+    profs,
+    (p) => p.детекторы.д1.формы.анонс.безТочки,
+  );
   detectorSection(L, "д1: в документах", profs, (p) => p.детекторы.д1.документы);
+  renderEntityInventory(L, inv.records);
   detectorSection(L, "д2 — обрывки Dreamweaver-комментариев", profs, (p) => p.детекторы.д2.любое);
   detectorSection(L, "д2: в теле", profs, (p) => p.детекторы.д2.тело);
   detectorSection(L, "д2: в плоских полях", profs, (p) => p.детекторы.д2.поля);
@@ -3986,7 +4155,11 @@ function renderTitles(L: string[], profs: ProfileRecord[]): void {
   if (long.length === 0) L.push("_нет_");
   L.push("");
   const ent = profs.filter((p) => p.детекторы.д1.заголовок);
-  L.push(`### С HTML-сущностями (д1 в заголовке): ${ent.length}`);
+  const entSemi = profs.filter((p) => p.детекторы.д1.формы.заголовок.сТочкой).length;
+  const entBare = profs.filter((p) => p.детекторы.д1.формы.заголовок.безТочки).length;
+  L.push(
+    `### С HTML-сущностями (д1 в заголовке): ${ent.length} (форма с \`;\` — ${entSemi}, без \`;\` — ${entBare})`,
+  );
   L.push("");
   for (const p of ent) L.push(`- ${profKeyStr(p)}`);
   if (ent.length === 0) L.push("_нет_");
@@ -4405,8 +4578,8 @@ function runSelfTest(): number {
     {
       name: "профиль: «&hellip;» в заголовке → д1",
       input: d1Input,
-      output: String(D1_RE.test(d1Input)),
-      ok: D1_RE.test(d1Input),
+      output: JSON.stringify(d1Forms(d1Input)),
+      ok: d1Forms(d1Input).сТочкой && !d1Forms(d1Input).безТочки,
     },
     (() => {
       // Анонс = тизер, тело начинается с того же текста (кейс Игнатовой).
