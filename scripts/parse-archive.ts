@@ -201,6 +201,12 @@ type ReportBag = {
   syntheticTitles: string[];
   dedupedFull: string[];
   sameTitleDateDiffBody: string[];
+  /** Тизерные страницы схемы D, у которых шапка срезана. */
+  headerCut: number;
+  /** Вместе с шапкой срезан повтор заголовка сразу после строки публикации. */
+  headerRepeatCut: string[];
+  /** Схема D, шапка не распознана — тело оставлено целиком. */
+  headerNotCut: string[];
   winOpenNonImage: number;
   normalizedHits: number;
   internalLinks: number;
@@ -227,6 +233,9 @@ const report: ReportBag = {
   syntheticTitles: [],
   dedupedFull: [],
   sameTitleDateDiffBody: [],
+  headerCut: 0,
+  headerRepeatCut: [],
+  headerNotCut: [],
   winOpenNonImage: 0,
   normalizedHits: 0,
   internalLinks: 0,
@@ -959,6 +968,10 @@ type ArticlePage = {
   lost: boolean;
   /** Схема вёрстки article: C — ряды ленточной таблицы, D — регион Edit02. Для профиля. */
   layout: "C" | "D" | null;
+  /** Схема D: шапка страницы срезана из bodyHtml (cutArticleHeader). */
+  headerCut: boolean;
+  /** Вместе с шапкой срезан повтор заголовка сразу после строки публикации. */
+  repeatCut: boolean;
 };
 
 const articleCache = new Map<string, ArticlePage | null>();
@@ -999,10 +1012,70 @@ function articleRegion(raw: string): string {
   return raw.slice(start, end);
 }
 
+/** Нормализация для сравнения текстов: нижний регистр, ё→е, всё кроме букв и цифр — один пробел. */
+function normText(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/ё/g, "е")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+}
+
+/**
+ * Строка публикации в шапке article-страницы: «Опубликовано»/«Обновлено»,
+ * затем дата словом («30 августа 2023 г.», «25 сентября 2019 года») либо
+ * цифрами («20.03.2022»); между ними — пробелы, `<br>`, `<i>`.
+ */
+const PUBLISHED_LINE_RE =
+  /(?:Опубликовано|Обновлено)(?:\s|<br\s*\/?>|<\/?i>)*(?:\d{1,2}\s+[а-яё]+\s+\d{4}|\d{1,2}\.\d{2}\.\d{4})/i;
+/** Сколько первых абзацев региона просматривается в поисках строки публикации. */
+const HEADER_MAX_PARAS = 4;
+/** Стоп задания: тело тизера после срезки шапки короче этого — срезано лишнее. */
+const HEADER_CUT_MIN_BODY = 200;
+
+type HeaderCut = { html: string; cut: boolean; repeat: boolean };
+
+/**
+ * Шапка article-страницы схемы D — по данным всех 56 тизерных страниц:
+ * `<p class="Header_BlueBack">` с баннером-marquee → `<p>` с заголовком
+ * страницы (незакрытый, бывают `<h1>`, `<b>`) → `<p>` со строкой публикации.
+ * Шапка — регион до начала абзаца, следующего за строкой публикации; если
+ * этот абзац слово в слово повторяет заголовок страницы (повтор-лид у двух
+ * страниц 2023 года), он тоже срезается (`repeat`). Сторожа: первый абзац —
+ * баннер, в шапке нет `<img` и `<table`, строка публикации — среди первых
+ * HEADER_MAX_PARAS абзацев; иначе регион не режется (`cut: false`).
+ */
+function cutArticleHeader(regionHtml: string): HeaderCut {
+  const none: HeaderCut = { html: regionHtml, cut: false, repeat: false };
+  const starts = [...regionHtml.matchAll(/<p\b[^>]*>/gi)].map((m) => m.index);
+  if (starts.length < 2) return none;
+  const segment = (i: number): string =>
+    regionHtml.slice(starts[i], i + 1 < starts.length ? starts[i + 1] : regionHtml.length);
+  if (!/^<p\b[^>]*class="Header_BlueBack"/i.test(segment(0))) return none;
+  for (let i = 1; i < Math.min(starts.length, HEADER_MAX_PARAS); i++) {
+    if (!PUBLISHED_LINE_RE.test(segment(i))) continue;
+    let end = i + 1 < starts.length ? starts[i + 1] : regionHtml.length;
+    if (/<img\b|<table\b/i.test(regionHtml.slice(0, end))) return none;
+    let repeat = false;
+    if (i + 1 < starts.length) {
+      const titleText = normText(stripTags(regionHtml.slice(starts[1], starts[i])));
+      const nextText = normText(stripTags(segment(i + 1)));
+      if (titleText !== "" && nextText === titleText) {
+        repeat = true;
+        end = i + 2 < starts.length ? starts[i + 2] : regionHtml.length;
+      }
+    }
+    return { html: regionHtml.slice(end), cut: true, repeat };
+  }
+  return none;
+}
+
 /**
  * Содержательная часть article-страницы: ряды ленточной таблицы (обёртка
  * схемы C), а если их нет (схема D) — правая колонка от маркера Edit02 до
- * футера.
+ * футера без шапки (cutArticleHeader). Фото и объём (plainLength) — по
+ * региону с шапкой: галереи и классификация тизер/галерея от срезки не
+ * зависят.
  */
 function loadArticle(relFile: string, url: string): ArticlePage | null {
   const cached = articleCache.get(relFile);
@@ -1025,6 +1098,8 @@ function loadArticle(relFile: string, url: string): ArticlePage | null {
       date: null,
       lost: true,
       layout: null,
+      headerCut: false,
+      repeatCut: false,
     };
     articleCache.set(relFile, page);
     return page;
@@ -1034,16 +1109,24 @@ function loadArticle(relFile: string, url: string): ArticlePage | null {
   const html = blankComments(articleRegion(raw));
 
   const chunks = splitChunks(html, relFile);
-  let bodyHtml: string;
+  let fullBody: string; // содержательная часть с шапкой — фото и объём
+  let bodyHtml: string; // то, что идёт в тело записи
   let layout: "C" | "D";
+  let headerCut = false;
+  let repeatCut = false;
   if (chunks.some((c) => c.kind === "body")) {
-    bodyHtml = chunks
+    fullBody = chunks
       .filter((c) => c.kind === "body")
       .map((c) => c.cell)
       .join("\n");
+    bodyHtml = fullBody;
     layout = "C";
   } else {
-    bodyHtml = html;
+    fullBody = html;
+    const cut = cutArticleHeader(html);
+    bodyHtml = cut.html;
+    headerCut = cut.cut;
+    repeatCut = cut.repeat;
     layout = "D";
   }
 
@@ -1051,11 +1134,13 @@ function loadArticle(relFile: string, url: string): ArticlePage | null {
     relFile,
     url,
     bodyHtml,
-    plainLength: stripTags(bodyHtml).length,
-    photosHtml: bodyHtml,
+    plainLength: stripTags(fullBody).length,
+    photosHtml: fullBody,
     date: articleDate(html, relFile),
     lost: false,
     layout,
+    headerCut,
+    repeatCut,
   };
   articleCache.set(relFile, page);
   return page;
@@ -1338,6 +1423,19 @@ function buildRecord(item: FeedItem): OutputRecord | null {
     const feedPlain = stripTags(sanitizeBody(feedBody, { baseUrl: feedUrl }));
     anons = removeLinkSentence(feedPlain) || undefined;
     source = teaser.page.url;
+    if (teaser.page.layout === "D") {
+      const label = `${context}: «${title}» → ${teaser.relFile}`;
+      if (teaser.page.headerCut) report.headerCut += 1;
+      else report.headerNotCut.push(label);
+      if (teaser.page.repeatCut) report.headerRepeatCut.push(label);
+    }
+    // Стоп задания: тело тизера после срезки шапки короче порога — срезано лишнее.
+    const bodyPlainLen = stripTags(bodyHtmlOut).length;
+    if (bodyPlainLen < HEADER_CUT_MIN_BODY) {
+      runErrors.push(
+        `${context}: «${title}» → ${teaser.relFile}: тело после срезки шапки короче ${HEADER_CUT_MIN_BODY} знаков (${bodyPlainLen})`,
+      );
+    }
   } else {
     bodyHtmlOut = sanitizeBody(feedBody, { baseUrl: feedUrl });
     anons = undefined;
@@ -1614,6 +1712,14 @@ function renderReport(records: OutputRecord[]): string {
   );
   section("Исправления дат", report.dateFixes);
   section("Записи с годом ≠ году файла", report.foreignYear);
+  L.push("## Шапка article-страницы у тизерных записей (схема D)");
+  L.push("");
+  L.push(
+    `Срезана (баннер, заголовок страницы, строка публикации): ${report.headerCut}. Фото и объём страницы считаются по региону с шапкой.`,
+  );
+  L.push("");
+  section("Срезан и повтор заголовка сразу после строки публикации", report.headerRepeatCut);
+  section("Шапка не распознана (тело оставлено целиком)", report.headerNotCut);
   L.push(`## Article-ссылки: кейсы`);
   L.push("");
   L.push(
@@ -2258,14 +2364,12 @@ const D8_PUBLISHED_RE = /Опубликовано \d+ [а-я]+ \d{4} г\./;
 /** д8(а): голова заголовка — слова до накопления этого числа знаков. */
 const D8_HEAD_MIN = 20;
 
-/** Нормализация д8: нижний регистр, ё→е, всё кроме букв и цифр — один пробел. */
-function profD8Norm(s: string): string {
-  return s
-    .toLowerCase()
-    .replace(/ё/g, "е")
-    .replace(/[^\p{L}\p{N}]+/gu, " ")
-    .trim();
-}
+/**
+ * д8(а) нестрого: ожидаемое число после срезки шапки — лид-предложения,
+ * повторяющие начало заголовка (2023/0626, 2023/0527). Печатается всегда;
+ * рост в будущих прогонах — повод посмотреть глазами, не дефект.
+ */
+const D8_LOOSE_EXPECTED = 2;
 
 /** Голова заголовка: слова до накопления ≥ D8_HEAD_MIN знаков; короткий заголовок — целиком. */
 function profTitleHead(normTitle: string): string {
@@ -2282,24 +2386,26 @@ function profTitleHead(normTitle: string): string {
 const startsWithWords = (text: string, prefix: string): boolean =>
   prefix !== "" && (text === prefix || text.startsWith(`${prefix} `));
 
-type D8 = { а: boolean; аСтрого: boolean; б: boolean };
+type D8 = { а: boolean; аНестрого: boolean; б: boolean };
 
 /**
  * д8 — шапка article в теле тизерной записи, два флага по отдельности:
- * (а) плоское тело — после снятия D8_JUNK_PREFIXES — начинается с головы
- * заголовка записи либо заголовка article-страницы (<title>); аСтрого —
- * с заголовка целиком (справочно); (б) тело содержит строку
+ * (а) плоское тело — после снятия D8_JUNK_PREFIXES — начинается с заголовка
+ * записи либо заголовка article-страницы (<title>) целиком; аНестрого —
+ * с головы заголовка (≥ D8_HEAD_MIN знаков): после срезки шапки срабатывает
+ * на лид-предложениях, повторяющих начало заголовка, поэтому печатается
+ * справочно с ожиданием D8_LOOSE_EXPECTED; (б) тело содержит строку
  * «Опубликовано ДД месяц ГГГГ г.».
  */
 function profD8(bodyPlain: string, titles: string[]): D8 {
-  let b = profD8Norm(bodyPlain);
+  let b = normText(bodyPlain);
   for (const junk of D8_JUNK_PREFIXES) {
     if (startsWithWords(b, junk)) b = b.slice(junk.length).trim();
   }
-  const norms = titles.map(profD8Norm).filter((t) => t !== "");
+  const norms = titles.map(normText).filter((t) => t !== "");
   return {
-    а: norms.some((t) => startsWithWords(b, profTitleHead(t))),
-    аСтрого: norms.some((t) => startsWithWords(b, t)),
+    а: norms.some((t) => startsWithWords(b, t)),
+    аНестрого: norms.some((t) => startsWithWords(b, profTitleHead(t))),
     б: D8_PUBLISHED_RE.test(bodyPlain),
   };
 }
@@ -3945,7 +4051,7 @@ function renderProfileReport(
   // ── д8 ──
   const teasers = profs.filter((p) => p.детекторы.д8 !== null);
   const d8a = teasers.filter((p) => p.детекторы.д8!.а);
-  const d8aStrict = teasers.filter((p) => p.детекторы.д8!.аСтрого);
+  const d8aLoose = teasers.filter((p) => p.детекторы.д8!.аНестрого);
   const d8b = teasers.filter((p) => p.детекторы.д8!.б);
   const d8both = teasers.filter((p) => p.детекторы.д8!.а && p.детекторы.д8!.б);
   L.push(`### д8 — шапка article в теле (тизерных записей: ${teasers.length})`);
@@ -3957,27 +4063,30 @@ function renderProfileReport(
   );
   L.push("");
   L.push(
-    `- (а) тело начинается с заголовка записи или <title> article-страницы (голова заголовка ≥${D8_HEAD_MIN} знаков по границе слова): ${d8a.length}; строго с заголовка целиком: ${d8aStrict.length}`,
+    `- (а) тело начинается с заголовка записи или <title> article-страницы целиком: ${d8a.length}`,
   );
   L.push(`- (б) тело содержит строку «Опубликовано ДД месяц ГГГГ г.»: ${d8b.length}`);
   L.push(`- оба флага: ${d8both.length}`);
+  L.push(
+    `- (а) нестрого — с головы заголовка ≥${D8_HEAD_MIN} знаков по границе слова: ${d8aLoose.length} (ожидание ${D8_LOOSE_EXPECTED}: лид-предложения, повторяющие начало заголовка; рост — повод посмотреть, не дефект)`,
+  );
   L.push("");
-  L.push("До 10 ключей (а):");
+  L.push("Тизерные записи с флагом (а) или (б):");
   L.push("");
-  for (const p of d8a.slice(0, 10)) L.push(`- ${profKeyStr(p)}`);
-  if (d8a.length === 0) L.push("_нет_");
-  L.push("");
-  L.push("До 10 ключей (б):");
-  L.push("");
-  for (const p of d8b.slice(0, 10)) L.push(`- ${profKeyStr(p)}`);
-  if (d8b.length === 0) L.push("_нет_");
-  L.push("");
-  L.push("Тизерные записи без флага (а) или без флага (б):");
-  L.push("");
-  const d8miss = teasers.filter((p) => !(p.детекторы.д8!.а && p.детекторы.д8!.б));
-  for (const p of d8miss)
+  const d8hit = teasers.filter((p) => p.детекторы.д8!.а || p.детекторы.д8!.б);
+  for (const p of d8hit)
     L.push(`- ${profKeyStr(p)} — а=${p.детекторы.д8!.а} б=${p.детекторы.д8!.б}`);
-  if (d8miss.length === 0) L.push("_нет_");
+  if (d8hit.length === 0) L.push("_нет_");
+  L.push("");
+  L.push(
+    "Нестрогие (а) — ключ и первые 200 знаков тела (глазами: живой текст, не остаток шаблона):",
+  );
+  L.push("");
+  for (const p of d8aLoose) {
+    const idx = profs.indexOf(p);
+    L.push(`- ${profKeyStr(p)}: ${mdEsc(plainProf(inv.records[idx]["ТекстHTML"]).slice(0, 200))}`);
+  }
+  if (d8aLoose.length === 0) L.push("_нет_");
   L.push("");
 
   L.push("## Крайние");
@@ -4374,7 +4483,7 @@ function runProfile(records: OutputRecord[]): void {
       факт: p66
         ? p66.детекторы.д8 === null
           ? "запись не тизерная"
-          : `а=${p66.детекторы.д8.а} (строго ${p66.детекторы.д8.аСтрого}), б=${p66.детекторы.д8.б}`
+          : `а=${p66.детекторы.д8.а} (нестрого ${p66.детекторы.д8.аНестрого}), б=${p66.детекторы.д8.б}`
         : "запись не найдена",
     },
     {
@@ -4693,10 +4802,10 @@ function runSelfTest(): number {
     (() => {
       const out = profD8(d8Body, d8Titles);
       return {
-        name: "инвентаризация: д8 — остаток Dreamweaver и баннер сняты, голова заголовка совпала (а), строго нет, «Опубликовано … г.» есть (б)",
+        name: "инвентаризация: д8 — остаток Dreamweaver и баннер сняты, полный заголовок не совпал (а=false), голова совпала (нестрого), «Опубликовано … г.» есть (б)",
         input: `тело: ${d8Body} | заголовки: ${d8Titles.join(" || ")}`,
         output: JSON.stringify(out),
-        ok: out.а && !out.аСтрого && out.б,
+        ok: !out.а && out.аНестрого && out.б,
       };
     })(),
     (() => {
@@ -4705,7 +4814,7 @@ function runSelfTest(): number {
         name: "инвентаризация: д8 — обычное тело: (а) false, «Опубликовано: дд.мм.гггг» не считается (б)",
         input: `тело: ${d8Plain} | заголовки: Турнир выходного дня`,
         output: JSON.stringify(out),
-        ok: !out.а && !out.аСтрого && !out.б,
+        ok: !out.а && !out.аНестрого && !out.б,
       };
     })(),
     (() => {
@@ -4901,6 +5010,50 @@ function runSelfTest(): number {
       sanitizeBody(iframeInput, ctx),
       "<p>Смотрите ролик</p>",
     ),
+    ...(() => {
+      const banner =
+        `\r\n      <p class="Header_BlueBack"><marquee behavior="alternate" direction="right"> <span style="color:#f25100">` +
+        `<a href=http://www.tennisfed.spb.ru/festvest.html>ФЕСТИВАЛЬ ТЕННИСНЫХ ГОРОДОВ</a></span></marquee></p>\r\n`;
+      const headerTitle = `<p align=center class=lgtxt>\r\nЗаголовок страницы\r\n<br />\r\nвторая строка\r\n`;
+      const published = `<p class=mdtxt align=right><i>Опубликовано\r\n<br>\r\n30 августа 2023 г.\r\n</i>\r\n<br />\r\n`;
+      const updated = `<p class=mdtxt align=right><i>Обновлено\r\n<br>\r\n21 февраля 2024 г.\r\n</i>\r\n`;
+      const numeric = `<p class=mdtxt align=right><i>Опубликовано\r\n<br>\r\n20.03.2022\r\n</i>\r\n`;
+      const text = `<p class=mdtxt align=left>\r\nТекст статьи.`;
+      const repeatPara = `<p align=center>\r\nЗаголовок страницы\r\n<br />\r\nвторая строка\r\n`;
+      const leadPara = `<p align=center>\r\nЗаголовок страницы вторая строка открыта для всех.\r\n`;
+      const c1 = cutArticleHeader(banner + headerTitle + published + text);
+      const c2 = cutArticleHeader(banner + headerTitle + updated + text);
+      const c3 = cutArticleHeader(banner + headerTitle + numeric + text);
+      const c4 = cutArticleHeader(banner + headerTitle + text);
+      const c5 = cutArticleHeader(banner + headerTitle + published + repeatPara + text);
+      const c6 = cutArticleHeader(banner + headerTitle + published + leadPara + text);
+      return [
+        {
+          name: "чистка: шапка article (баннер, заголовок, «Опубликовано … г.») срезана до текста",
+          input: JSON.stringify(banner + headerTitle + published + text),
+          output: JSON.stringify(c1),
+          ok: c1.html === text && c1.cut && !c1.repeat,
+        },
+        {
+          name: "чистка: «Обновлено … г.» и «Опубликовано 20.03.2022» — тоже шапка",
+          input: JSON.stringify([updated, numeric]),
+          output: JSON.stringify([c2, c3]),
+          ok: c2.html === text && c2.cut && c3.html === text && c3.cut,
+        },
+        {
+          name: "чистка: без строки публикации шапка не режется",
+          input: JSON.stringify(banner + headerTitle + text),
+          output: JSON.stringify(c4),
+          ok: c4.html === banner + headerTitle + text && !c4.cut,
+        },
+        {
+          name: "чистка: точный повтор заголовка после строки публикации срезан, лид с теми же словами — нет",
+          input: JSON.stringify([repeatPara, leadPara]),
+          output: JSON.stringify([c5, c6]),
+          ok: c5.html === text && c5.repeat && c6.html === leadPara + text && c6.cut && !c6.repeat,
+        },
+      ];
+    })(),
   ];
   for (const c of cleanupCases) {
     if (!c.ok) failed += 1;
