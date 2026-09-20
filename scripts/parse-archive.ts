@@ -200,6 +200,8 @@ type ReportBag = {
   unreferencedArticles: string[];
   syntheticTitles: string[];
   dedupedFull: string[];
+  /** Точечные исключения по ключу источника (MANUAL_EXCLUSIONS). */
+  manualExclusions: string[];
   sameTitleDateDiffBody: string[];
   /** Тизерные страницы схемы D, у которых шапка срезана. */
   headerCut: number;
@@ -234,6 +236,7 @@ const report: ReportBag = {
   unreferencedArticles: [],
   syntheticTitles: [],
   dedupedFull: [],
+  manualExclusions: [],
   sameTitleDateDiffBody: [],
   headerCut: 0,
   headerRepeatCut: [],
@@ -1835,6 +1838,25 @@ function listUnreferencedArticles(): void {
  * одинаковыми (заголовок, дата), но разными телами НЕ дедуплицируются — они
  * печатаются в отчёт для ревью глазами (Neva Cup и повторы с разным текстом).
  */
+/**
+ * Точечные исключения записей по ключу источника (файл ленты, заголовок,
+ * дата) — общее правило дедупликации (полный дубль = заголовок + дата + SHA-1
+ * тела) не ослабляется. Каждое исключение обязано совпасть ровно с одной
+ * записью, иначе прогон падает: молчаливое «не нашлось» скрыло бы сдвиг данных.
+ */
+const MANUAL_EXCLUSIONS: Array<{ file: string; title: string; date: string; reason: string }> = [
+  {
+    file: "newsarch_2008.html",
+    title: "С НОВЫМ ГОДОМ!",
+    date: "2007-12-29",
+    reason:
+      "повтор записи 29.12.2007 из newsarch_2007.html на стыке годовых файлов (Срез 19, " +
+      "02.09.2026); тела различаются только пустой ссылкой «.» на golf.html в последнем " +
+      "абзаце копии 2008 — дедупликация по SHA-1 тела её не ловит; по её правилу остаётся " +
+      "более ранний файл",
+  },
+];
+
 function dedupeRecords(collected: CollectedRecord[]): OutputRecord[] {
   const sha1 = (s: string) => createHash("sha1").update(s, "utf8").digest("hex");
   const norm = (t: string) => t.trim().replace(/\s+/g, " ");
@@ -1842,8 +1864,24 @@ function dedupeRecords(collected: CollectedRecord[]): OutputRecord[] {
   const byFull = new Map<string, CollectedRecord>();
   const byTitleDate = new Map<string, Array<CollectedRecord & { hash: string }>>();
   const out: OutputRecord[] = [];
+  const excludedHits = new Map<(typeof MANUAL_EXCLUSIONS)[number], number>();
 
   for (const item of collected) {
+    const exclusion = MANUAL_EXCLUSIONS.find(
+      (x) =>
+        x.file === item.file &&
+        norm(item.rec["Заголовок"]) === norm(x.title) &&
+        item.rec["Дата"] === x.date,
+    );
+    if (exclusion) {
+      excludedHits.set(exclusion, (excludedHits.get(exclusion) ?? 0) + 1);
+      report.manualExclusions.push(
+        `«${item.rec["Заголовок"]}» (${item.rec["Дата"]}) из ${item.file} (Источник: ${item.rec["Источник"]}) — исключена: ${exclusion.reason}`,
+      );
+      const pf = report.perFile.find((f) => f.file === item.file);
+      if (pf) pf.records -= 1;
+      continue;
+    }
     const hash = sha1(item.rec["ТекстHTML"]);
     const tdKey = `${norm(item.rec["Заголовок"])}|${item.rec["Дата"]}`;
     const fullKey = `${tdKey}|${hash}`;
@@ -1863,6 +1901,15 @@ function dedupeRecords(collected: CollectedRecord[]): OutputRecord[] {
     arr.push({ ...item, hash });
     byTitleDate.set(tdKey, arr);
     out.push(item.rec);
+  }
+
+  for (const x of MANUAL_EXCLUSIONS) {
+    const n = excludedHits.get(x) ?? 0;
+    if (n !== 1) {
+      throw new Error(
+        `точечное исключение «${x.title}» (${x.date}, ${x.file}) совпало с ${n} записями, ожидалась ровно одна`,
+      );
+    }
   }
 
   for (const group of byTitleDate.values()) {
@@ -1912,6 +1959,7 @@ function renderReport(records: OutputRecord[]): string {
   L.push("Отрицательная дельта по файлу — запись, удалённая дедупликацией межфайловых полных");
   L.push("повторов (побеждает более ранний файл ленты; см. раздел «Дедупликация межфайловых");
   L.push("повторов» ниже): счёт файла уменьшается на каждый проигравший дубль.");
+  L.push("Точечные исключения по ключу источника (раздел ниже) тоже уменьшают счёт своего файла.");
   L.push("");
 
   const section = (title: string, rows: string[], empty = "нет") => {
@@ -1928,6 +1976,7 @@ function renderReport(records: OutputRecord[]): string {
   L.push("число записей он не влияет: 56 тел − 50 заголовков = 6 склеек в 2006.");
   L.push("");
   section("Склейки", report.merges);
+  section("Точечные исключения по ключу источника", report.manualExclusions);
   section("Дедупликация межфайловых повторов", report.dedupedFull);
   section(
     "Совпадение заголовка и даты при разных телах (НЕ дедуплицировано, для ревью)",
