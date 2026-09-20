@@ -200,12 +200,22 @@ type ReportBag = {
   unreferencedArticles: string[];
   syntheticTitles: string[];
   dedupedFull: string[];
+  /** Точечные исключения по ключу источника (MANUAL_EXCLUSIONS). */
+  manualExclusions: string[];
   sameTitleDateDiffBody: string[];
+  /** Тизерные страницы схемы D, у которых шапка срезана. */
+  headerCut: number;
+  /** Вместе с шапкой срезан повтор заголовка сразу после строки публикации. */
+  headerRepeatCut: string[];
+  /** Схема D, шапка не распознана — тело оставлено целиком. */
+  headerNotCut: string[];
   winOpenNonImage: number;
   normalizedHits: number;
   internalLinks: number;
   externalLinks: number;
   droppedBadProtoLinks: number;
+  /** Видео-вставок (iframe) в телах, заменённых ссылкой «Видео». */
+  videoLinks: number;
   teaserCount: number;
   galleryCount: number;
   quoteCount: number;
@@ -226,12 +236,17 @@ const report: ReportBag = {
   unreferencedArticles: [],
   syntheticTitles: [],
   dedupedFull: [],
+  manualExclusions: [],
   sameTitleDateDiffBody: [],
+  headerCut: 0,
+  headerRepeatCut: [],
+  headerNotCut: [],
   winOpenNonImage: 0,
   normalizedHits: 0,
   internalLinks: 0,
   externalLinks: 0,
   droppedBadProtoLinks: 0,
+  videoLinks: 0,
   teaserCount: 0,
   galleryCount: 0,
   quoteCount: 0,
@@ -280,6 +295,8 @@ type ProfCapture = {
   previewReplaced: number;
   photoFeed: ProfPhotoSrc;
   photoArticle: ProfPhotoSrc;
+  /** Адреса видео-вставок в источниках тела (ленточный фрагмент и тизерная страница). */
+  videoSrcs: string[];
 };
 
 function newProfCapture(item: FeedItem, feedUrl: string): ProfCapture {
@@ -303,6 +320,7 @@ function newProfCapture(item: FeedItem, feedUrl: string): ProfCapture {
     previewReplaced: 0,
     photoFeed: { taken: 0, dup: 0, unresolved: 0 },
     photoArticle: { taken: 0, dup: 0, unresolved: 0 },
+    videoSrcs: [],
   };
 }
 
@@ -404,24 +422,134 @@ function lineOf(text: string, pos: number): number {
   return line;
 }
 
-/** Комментарии → пробелы той же длины: позиции и номера строк не плывут. */
+/**
+ * Комментарии → пробелы той же длины: позиции и номера строк не плывут.
+ * Осиротевший `-->` без парного `<!--` (опечатка легаси в newsarch_2017.html;
+ * браузер показывал его буквально) после основной замены комментарию
+ * принадлежать не может — тоже затирается.
+ */
 function blankComments(html: string): string {
-  return html.replace(/<!--[\s\S]*?-->/g, (m) => m.replace(/[^\n]/g, " "));
+  return html.replace(/<!--[\s\S]*?-->/g, (m) => m.replace(/[^\n]/g, " ")).replace(/-->/g, "   ");
+}
+
+/** Именованные сущности, которые декодируются в плоских полях (заголовок, анонс) и в профиле. */
+const NAMED_ENTITIES: Record<string, string> = {
+  nbsp: " ",
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+  laquo: "«",
+  raquo: "»",
+  mdash: "—",
+  ndash: "–",
+  hellip: "…",
+  bull: "•",
+  middot: "·",
+  sect: "§",
+  para: "¶",
+  copy: "©",
+  reg: "®",
+  trade: "™",
+  deg: "°",
+  plusmn: "±",
+  times: "×",
+  divide: "÷",
+  frac12: "½",
+  frac14: "¼",
+  sup2: "²",
+  sup3: "³",
+  dagger: "†",
+  permil: "‰",
+  lsquo: "‘",
+  rsquo: "’",
+  ldquo: "“",
+  rdquo: "”",
+  bdquo: "„",
+  shy: "",
+  euro: "€",
+  pound: "£",
+  ouml: "ö",
+};
+
+/**
+ * Переопределение HTML5 для числовых ссылок 128–159: браузер отдаёт символы
+ * cp1252 (`&#149;` → «•»), а не управляющие C1.
+ */
+const C1_OVERRIDES: Record<number, string> = {
+  128: "€",
+  130: "‚",
+  131: "ƒ",
+  132: "„",
+  133: "…",
+  134: "†",
+  135: "‡",
+  136: "ˆ",
+  137: "‰",
+  138: "Š",
+  139: "‹",
+  140: "Œ",
+  142: "Ž",
+  145: "‘",
+  146: "’",
+  147: "“",
+  148: "”",
+  149: "•",
+  150: "–",
+  151: "—",
+  152: "˜",
+  153: "™",
+  154: "š",
+  155: "›",
+  156: "œ",
+  158: "ž",
+  159: "Ÿ",
+};
+
+function safeCodePoint(cp: number): string {
+  const c1 = C1_OVERRIDES[cp];
+  if (c1 !== undefined) return c1;
+  if (cp === 0 || (cp >= 0xd800 && cp <= 0xdfff)) return "�";
+  try {
+    return String.fromCodePoint(cp);
+  } catch {
+    return "�";
+  }
+}
+
+/**
+ * Одна сущность: числовая (`&#149`, `&#x2026`) или именованная, с `;` либо
+ * без неё — без `;` только если дальше не буква и не цифра.
+ */
+const ENTITY_RE = /&(#[xX][0-9a-fA-F]+|#\d+|[a-zA-Z][a-zA-Z0-9]*)(;|(?![a-zA-Z0-9;]))/g;
+
+/** Имя сущности (без `&`) известно: числовое либо есть в словаре (регистр точный). */
+const isKnownEntity = (name: string): boolean =>
+  name[0] === "#" || NAMED_ENTITIES[name] !== undefined;
+
+/**
+ * Декодирование сущностей в плоском тексте. Обе формы — с `;` и без неё
+ * (лента старого сайта могла обрезать анонс на сущности): имя без `;`
+ * декодируется, только если оно есть в словаре и за ним не буква и не цифра
+ * («&hellipsis», «P&G», «&foo» не трогаются); тот же порядок для числовых.
+ * Один проход: «&amp;hellip;» даёт «&hellip;» и повторно не декодируется.
+ */
+function decodeEntities(s: string): string {
+  return s.replace(ENTITY_RE, (whole: string, name: string) => {
+    if (name[0] === "#") {
+      const cp = /^#[xX]/.test(name) ? parseInt(name.slice(2), 16) : Number(name.slice(1));
+      return Number.isFinite(cp) ? safeCodePoint(cp) : whole;
+    }
+    const known = NAMED_ENTITIES[name];
+    return known !== undefined ? known : whole;
+  });
 }
 
 function stripTags(html: string): string {
   // `<` не перед латинской буквой/`/`/`!` — не тег, а опечатка легаси
   // (`<Завершилось …` в заголовках 2016–2022 браузер рендерит как текст).
-  return html
-    .replace(/<\/?[a-zA-Z!][^>]*>/g, " ")
-    .replace(/</g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&laquo;/g, "«")
-    .replace(/&raquo;/g, "»")
-    .replace(/&amp;/g, "&")
-    .replace(/&quot;/g, '"')
-    .replace(/&mdash;/g, "—")
-    .replace(/&ndash;/g, "–")
+  return decodeEntities(html.replace(/<\/?[a-zA-Z!][^>]*>/g, " ").replace(/</g, " "))
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -717,30 +845,170 @@ const BLOCK_TAGS = new Set([
   "form",
 ]);
 
-type SanitizeCtx = { baseUrl: string; silent?: boolean };
+type SanitizeCtx = {
+  baseUrl: string;
+  silent?: boolean;
+  /** Видео-вставки (`<iframe src>`) становятся ссылкой «Видео» — только для тела записи, не для анонса. */
+  videoLinks?: boolean;
+};
+
+// ───────────────────────── таблицы: разбор и признак «данных» ─────────────────────────
+
+/** Ячейка «с числом»: plain непуст и целиком из цифр/пунктуации счёта. */
+const NUMERIC_CELL_RE = /^[\d\s.,:;/()–-]+$/;
+/** Доля числовых ячеек, начиная с которой таблица — «данных», а не вёрстки. */
+const DATA_TABLE_RATIO = 0.3;
+
+type TableInfo = {
+  /** Индекс `<table` во фрагменте. */
+  start: number;
+  /** Индекс сразу после `</table>`; у незакрытой таблицы легаси — конец фрагмента. */
+  end: number;
+  /** 0 — верхний уровень. */
+  depth: number;
+  rows: number;
+  cols: number;
+  data: boolean;
+  /** Таблиц непосредственно внутри. */
+  nested: number;
+};
 
 /**
- * Тело новости → белый список p, br, a[href], b/strong, i/em.
- * Таблицы вёрстки разворачиваются в последовательность абзацев (границы
- * ячеек/рядов/абзацев — разрывы), script/style, on*-атрибуты и inline-стили удаляются,
- * фото-разметка и служебные фразы изъяты до вызова. В href допускаются
- * только http/https/mailto: прочие протоколы (javascript:, data:,
- * vbscript:) и неабсолютизируемые ссылки заменяются текстом ссылки.
+ * Таблицы фрагмента: границы, глубина, строки×столбцы и класс «данных/вёрстки»
+ * по доле числовых ячеек ≥ DATA_TABLE_RATIO. Вложенность учитывается стеком:
+ * текст вложенной таблицы не считается ячейкой внешней. Один признак и для
+ * профиля (--profile), и для санитайзера — счёт и поведение не расходятся.
  */
-function sanitizeBody(html: string, ctx: SanitizeCtx): string {
-  const work = html
-    // `<` без последующей латинской буквы/`/`/`!` — литеральный символ
-    // (опечатки вида «<Завершился …»), не начало тега.
-    .replace(/<(?![a-zA-Z/!])/g, "&lt;")
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<script[^>]*>/gi, " ")
-    // Фото-обёртка целиком (<a …><img …></a> без текста) — иначе от неё
-    // остаётся пустой якорь либо ложно срабатывает счётчик javascript-ссылок.
-    .replace(/<a[^>]*>\s*<img[^>]*>\s*<\/a>/gi, " ")
-    .replace(/<img[^>]*>/gi, " ")
-    .replace(/Кликните на фото для увеличения/gi, " ");
+function analyzeTables(html: string): TableInfo[] {
+  type Frame = TableInfo & {
+    cellsInRow: number;
+    totalCells: number;
+    numericCells: number;
+    cellBuf: string;
+    cellOpen: boolean;
+  };
+  const done: TableInfo[] = [];
+  const stack: Frame[] = [];
+  const closeCell = (f: Frame) => {
+    if (!f.cellOpen) return;
+    const t = stripTags(f.cellBuf);
+    f.totalCells += 1;
+    if (t !== "" && NUMERIC_CELL_RE.test(t)) f.numericCells += 1;
+    f.cellOpen = false;
+    f.cellBuf = "";
+  };
+  const endRow = (f: Frame) => {
+    f.cols = Math.max(f.cols, f.cellsInRow);
+    f.cellsInRow = 0;
+  };
+  const finish = (f: Frame, end: number) => {
+    closeCell(f);
+    endRow(f);
+    done.push({
+      start: f.start,
+      end,
+      depth: f.depth,
+      rows: f.rows,
+      cols: f.cols,
+      data: f.totalCells > 0 && f.numericCells / f.totalCells >= DATA_TABLE_RATIO,
+      nested: f.nested,
+    });
+  };
+  const tagRe = /<(\/?)(table|tr|td|th)\b[^>]*>/gi;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = tagRe.exec(html))) {
+    const top = stack[stack.length - 1];
+    if (top && top.cellOpen) top.cellBuf += html.slice(last, m.index);
+    last = m.index + m[0].length;
+    const closing = m[1] === "/";
+    const tag = m[2].toLowerCase();
+    if (tag === "table") {
+      if (!closing) {
+        if (top) top.nested += 1;
+        stack.push({
+          start: m.index,
+          end: -1,
+          depth: stack.length,
+          rows: 0,
+          cols: 0,
+          data: false,
+          nested: 0,
+          cellsInRow: 0,
+          totalCells: 0,
+          numericCells: 0,
+          cellBuf: "",
+          cellOpen: false,
+        });
+      } else {
+        const f = stack.pop();
+        if (f) finish(f, last);
+      }
+      continue;
+    }
+    const f = stack[stack.length - 1];
+    if (!f) continue;
+    if (tag === "tr") {
+      closeCell(f);
+      endRow(f);
+      if (!closing) f.rows += 1;
+    } else {
+      // td | th
+      closeCell(f);
+      if (!closing) {
+        f.cellOpen = true;
+        f.cellsInRow += 1;
+      }
+    }
+  }
+  // Незакрытые <table> легаси — досчитываем как закрытые до конца фрагмента.
+  while (stack.length) finish(stack.pop()!, html.length);
+  return done.sort((a, b) => a.start - b.start);
+}
 
+// ───────────────────────── санитайзер: конвейер ─────────────────────────
+
+/**
+ * Предобработка фрагмента перед разбором: опечатки `<`, script/style,
+ * фото-разметка, служебные фразы, видео-вставки. Видео-вставка (`<iframe
+ * src>`, на легаси — ролики YouTube) при `videoLinks` становится ссылкой
+ * «Видео» на адрес ролика как в источнике — единственная настоящая потеря
+ * содержания архива; без `videoLinks` (путь анонса) выбрасывается, как и
+ * раньше. Других вставок (embed/object/video) в архиве нет.
+ */
+/** Видео-вставка: `<iframe … src=АДРЕС …>…</iframe>`. */
+const IFRAME_RE = /<iframe\b[^>]*\bsrc\s*=\s*["']?([^"'\s>]+)["']?[^>]*>[\s\S]*?<\/iframe>/gi;
+/** Адреса видео-вставок фрагмента (профиль: контроль «адрес есть в теле записи»). */
+const videoSrcsOf = (html: string): string[] => [...html.matchAll(IFRAME_RE)].map((m) => m[1]);
+
+function prepareHtml(html: string, ctx: SanitizeCtx): string {
+  return (
+    html
+      // `<` без последующей латинской буквы/`/`/`!` — литеральный символ
+      // (опечатки вида «<Завершился …»), не начало тега.
+      .replace(/<(?![a-zA-Z/!])/g, "&lt;")
+      .replace(/<script[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style[\s\S]*?<\/style>/gi, " ")
+      .replace(/<script[^>]*>/gi, " ")
+      // Фото-обёртка целиком (<a …><img …></a> без текста) — иначе от неё
+      // остаётся пустой якорь либо ложно срабатывает счётчик javascript-ссылок.
+      .replace(/<a[^>]*>\s*<img[^>]*>\s*<\/a>/gi, " ")
+      .replace(/<img[^>]*>/gi, " ")
+      .replace(/Кликните на фото для увеличения/gi, " ")
+      .replace(IFRAME_RE, (_whole: string, src: string) => {
+        if (!ctx.videoLinks) return " ";
+        if (!ctx.silent) report.videoLinks += 1;
+        return ` <a href="${src.replace(/"/g, "&quot;")}">Видео</a> `;
+      })
+  );
+}
+
+/**
+ * Инлайн-конвейер: фрагмент → абзацы (без обёртки `<p>`) с белым списком
+ * a[href], b/strong, i/em, `<br>`; границы блочных тегов (в том числе
+ * ячеек и рядов таблиц) — разрывы абзацев, прочие теги выбрасываются.
+ */
+function inlineParagraphs(work: string, ctx: SanitizeCtx): string[] {
   type Para = string[];
   const paras: Para[] = [];
   let current: Para = [];
@@ -828,8 +1096,95 @@ function sanitizeBody(html: string, ctx: SanitizeCtx): string {
     // все прочие теги (span, font, div-атрибуты и т.д.) просто выбрасываются
   }
   flush();
+  return paras.map((p) => p[0]);
+}
 
-  return paras.map((p) => `<p>${p[0]}</p>`).join("\n");
+/** Атрибуты ячейки, которые принимает сайт: colspan/rowspan с целым больше единицы. */
+function spanAttrs(tag: string): string {
+  let out = "";
+  for (const m of tag.matchAll(/\b(colspan|rowspan)\s*=\s*["']?(\d+)/gi)) {
+    if (Number(m[2]) > 1) out += ` ${m[1].toLowerCase()}="${Number(m[2])}"`;
+  }
+  return out;
+}
+
+/**
+ * Таблица данных → разметка из тегов, которые принимает сайт
+ * (src/server/sanitize.ts): table, caption, thead, tbody, tfoot, tr, th, td;
+ * у ячеек — только colspan/rowspan. Содержимое ячейки и подписи — тем же
+ * инлайн-конвейером, блочные границы внутри ячейки — `<br>`. Незакрытые
+ * структурные теги закрываются в конце.
+ */
+function sanitizeTable(tableHtml: string, ctx: SanitizeCtx): string {
+  const out: string[] = [];
+  const open: string[] = [];
+  let cell: { tag: string; attrs: string; from: number } | null = null;
+  const closeCell = (to: number) => {
+    if (!cell) return;
+    const inner = inlineParagraphs(tableHtml.slice(cell.from, to), ctx).join("<br>");
+    out.push(`<${cell.tag}${cell.attrs}>${inner}</${cell.tag}>`);
+    cell = null;
+  };
+  const closeTo = (tag: string) => {
+    const idx = open.lastIndexOf(tag);
+    if (idx === -1) return;
+    while (open.length > idx) out.push(`</${open.pop()}>`);
+  };
+  const tagRe = /<(\/?)(table|caption|thead|tbody|tfoot|tr|th|td)\b[^>]*>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = tagRe.exec(tableHtml))) {
+    const closing = m[1] === "/";
+    const tag = m[2].toLowerCase();
+    closeCell(m.index);
+    if (tag === "td" || tag === "th" || tag === "caption") {
+      if (!closing) {
+        cell = {
+          tag,
+          attrs: tag === "caption" ? "" : spanAttrs(m[0]),
+          from: m.index + m[0].length,
+        };
+      }
+      continue;
+    }
+    if (closing) {
+      closeTo(tag);
+    } else {
+      out.push(`<${tag}>`);
+      open.push(tag);
+    }
+  }
+  closeCell(tableHtml.length);
+  while (open.length) out.push(`</${open.pop()}>`);
+  return out.join("");
+}
+
+/**
+ * Тело новости → блоки: абзацы `<p>` (белый список a[href], b/strong, i/em,
+ * `<br>`) и таблицы данных. Фрагмент режется по границам таблиц данных без
+ * вложенных таблиц (analyzeTables — тот же признак, что считает профиль);
+ * куски между ними идут инлайн-конвейером, где макетные таблицы и таблицы
+ * данных с вложенными разворачиваются в абзацы (границы ячеек/рядов —
+ * разрывы). Таблица данных внутри макетной остаётся таблицей: внешняя
+ * разворачивается вокруг неё. script/style, on*-атрибуты и inline-стили
+ * удаляются, фото-разметка и служебные фразы изъяты до разбора. В href
+ * допускаются только http/https/mailto: прочие протоколы (javascript:,
+ * data:, vbscript:) и неабсолютизируемые ссылки заменяются текстом ссылки.
+ */
+function sanitizeBody(html: string, ctx: SanitizeCtx): string {
+  const work = prepareHtml(html, ctx);
+  const blocks: string[] = [];
+  const pushParas = (fragment: string) => {
+    for (const p of inlineParagraphs(fragment, ctx)) blocks.push(`<p>${p}</p>`);
+  };
+  let pos = 0;
+  for (const t of analyzeTables(work)) {
+    if (!t.data || t.nested > 0 || t.start < pos) continue;
+    pushParas(work.slice(pos, t.start));
+    blocks.push(sanitizeTable(work.slice(t.start, t.end), ctx));
+    pos = t.end;
+  }
+  pushParas(work.slice(pos));
+  return blocks.join("\n");
 }
 
 // ───────────────────────── article-страницы ─────────────────────────
@@ -844,6 +1199,10 @@ type ArticlePage = {
   lost: boolean;
   /** Схема вёрстки article: C — ряды ленточной таблицы, D — регион Edit02. Для профиля. */
   layout: "C" | "D" | null;
+  /** Схема D: шапка страницы срезана из bodyHtml (cutArticleHeader). */
+  headerCut: boolean;
+  /** Вместе с шапкой срезан повтор заголовка сразу после строки публикации. */
+  repeatCut: boolean;
 };
 
 const articleCache = new Map<string, ArticlePage | null>();
@@ -863,9 +1222,91 @@ function articleDate(text: string, relFile: string): string | null {
 }
 
 /**
+ * Регион содержимого article-страницы по маркерам Dreamweaver. Маркеры лежат
+ * внутри комментариев `<!-- InstanceBeginEditable name="Edit02" -->` и
+ * `<!-- InstanceEndEditable -->`; регион — между комментариями целиком.
+ * Срез от индекса самого маркера оставлял хвост ` -->` открывающего
+ * комментария текстом в начале тела (д2 у 56 тизерных записей) и голову
+ * `<!-- ` закрывающего — в конце. Без маркеров — правая колонка от
+ * `<td width="821"` до конца файла.
+ */
+function articleRegion(raw: string): string {
+  const beginMark = raw.indexOf('InstanceBeginEditable name="Edit02"');
+  const endMark = beginMark >= 0 ? raw.indexOf("InstanceEndEditable", beginMark) : -1;
+  if (beginMark < 0 || endMark <= beginMark) {
+    return raw.slice(Math.max(raw.indexOf('<td width="821"'), 0));
+  }
+  const beginClose = raw.indexOf("-->", beginMark);
+  const start = beginClose >= 0 && beginClose < endMark ? beginClose + 3 : beginMark;
+  const endOpen = raw.lastIndexOf("<!--", endMark);
+  const end = endOpen >= start ? endOpen : endMark;
+  return raw.slice(start, end);
+}
+
+/** Нормализация для сравнения текстов: нижний регистр, ё→е, всё кроме букв и цифр — один пробел. */
+function normText(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/ё/g, "е")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+}
+
+/**
+ * Строка публикации в шапке article-страницы: «Опубликовано»/«Обновлено»,
+ * затем дата словом («30 августа 2023 г.», «25 сентября 2019 года») либо
+ * цифрами («20.03.2022»); между ними — пробелы, `<br>`, `<i>`.
+ */
+const PUBLISHED_LINE_RE =
+  /(?:Опубликовано|Обновлено)(?:\s|<br\s*\/?>|<\/?i>)*(?:\d{1,2}\s+[а-яё]+\s+\d{4}|\d{1,2}\.\d{2}\.\d{4})/i;
+/** Сколько первых абзацев региона просматривается в поисках строки публикации. */
+const HEADER_MAX_PARAS = 4;
+/** Стоп задания: тело тизера после срезки шапки короче этого — срезано лишнее. */
+const HEADER_CUT_MIN_BODY = 200;
+
+type HeaderCut = { html: string; cut: boolean; repeat: boolean };
+
+/**
+ * Шапка article-страницы схемы D — по данным всех 56 тизерных страниц:
+ * `<p class="Header_BlueBack">` с баннером-marquee → `<p>` с заголовком
+ * страницы (незакрытый, бывают `<h1>`, `<b>`) → `<p>` со строкой публикации.
+ * Шапка — регион до начала абзаца, следующего за строкой публикации; если
+ * этот абзац слово в слово повторяет заголовок страницы (повтор-лид у двух
+ * страниц 2023 года), он тоже срезается (`repeat`). Сторожа: первый абзац —
+ * баннер, в шапке нет `<img` и `<table`, строка публикации — среди первых
+ * HEADER_MAX_PARAS абзацев; иначе регион не режется (`cut: false`).
+ */
+function cutArticleHeader(regionHtml: string): HeaderCut {
+  const none: HeaderCut = { html: regionHtml, cut: false, repeat: false };
+  const starts = [...regionHtml.matchAll(/<p\b[^>]*>/gi)].map((m) => m.index);
+  if (starts.length < 2) return none;
+  const segment = (i: number): string =>
+    regionHtml.slice(starts[i], i + 1 < starts.length ? starts[i + 1] : regionHtml.length);
+  if (!/^<p\b[^>]*class="Header_BlueBack"/i.test(segment(0))) return none;
+  for (let i = 1; i < Math.min(starts.length, HEADER_MAX_PARAS); i++) {
+    if (!PUBLISHED_LINE_RE.test(segment(i))) continue;
+    let end = i + 1 < starts.length ? starts[i + 1] : regionHtml.length;
+    if (/<img\b|<table\b/i.test(regionHtml.slice(0, end))) return none;
+    let repeat = false;
+    if (i + 1 < starts.length) {
+      const titleText = normText(stripTags(regionHtml.slice(starts[1], starts[i])));
+      const nextText = normText(stripTags(segment(i + 1)));
+      if (titleText !== "" && nextText === titleText) {
+        repeat = true;
+        end = i + 2 < starts.length ? starts[i + 2] : regionHtml.length;
+      }
+    }
+    return { html: regionHtml.slice(end), cut: true, repeat };
+  }
+  return none;
+}
+
+/**
  * Содержательная часть article-страницы: ряды ленточной таблицы (обёртка
  * схемы C), а если их нет (схема D) — правая колонка от маркера Edit02 до
- * футера.
+ * футера без шапки (cutArticleHeader). Фото и объём (plainLength) — по
+ * региону с шапкой: галереи и классификация тизер/галерея от срезки не
+ * зависят.
  */
 function loadArticle(relFile: string, url: string): ArticlePage | null {
   const cached = articleCache.get(relFile);
@@ -888,31 +1329,35 @@ function loadArticle(relFile: string, url: string): ArticlePage | null {
       date: null,
       lost: true,
       layout: null,
+      headerCut: false,
+      repeatCut: false,
     };
     articleCache.set(relFile, page);
     return page;
   }
 
   // Регион контента ищем по маркерам-комментариям ДО их вычистки.
-  const beginMark = raw.indexOf('InstanceBeginEditable name="Edit02"');
-  const endMark = beginMark >= 0 ? raw.indexOf("InstanceEndEditable", beginMark) : -1;
-  const region =
-    beginMark >= 0 && endMark > beginMark
-      ? raw.slice(beginMark, endMark)
-      : raw.slice(Math.max(raw.indexOf('<td width="821"'), 0));
-  const html = blankComments(region);
+  const html = blankComments(articleRegion(raw));
 
   const chunks = splitChunks(html, relFile);
-  let bodyHtml: string;
+  let fullBody: string; // содержательная часть с шапкой — фото и объём
+  let bodyHtml: string; // то, что идёт в тело записи
   let layout: "C" | "D";
+  let headerCut = false;
+  let repeatCut = false;
   if (chunks.some((c) => c.kind === "body")) {
-    bodyHtml = chunks
+    fullBody = chunks
       .filter((c) => c.kind === "body")
       .map((c) => c.cell)
       .join("\n");
+    bodyHtml = fullBody;
     layout = "C";
   } else {
-    bodyHtml = html;
+    fullBody = html;
+    const cut = cutArticleHeader(html);
+    bodyHtml = cut.html;
+    headerCut = cut.cut;
+    repeatCut = cut.repeat;
     layout = "D";
   }
 
@@ -920,11 +1365,13 @@ function loadArticle(relFile: string, url: string): ArticlePage | null {
     relFile,
     url,
     bodyHtml,
-    plainLength: stripTags(bodyHtml).length,
-    photosHtml: bodyHtml,
+    plainLength: stripTags(fullBody).length,
+    photosHtml: fullBody,
     date: articleDate(html, relFile),
     lost: false,
     layout,
+    headerCut,
+    repeatCut,
   };
   articleCache.set(relFile, page);
   return page;
@@ -1043,7 +1490,10 @@ function buildRecord(item: FeedItem): OutputRecord | null {
     }
   }
   // Фрагмент ленты для профиля — то, что дальше реально идёт в конвейер.
-  if (cap) cap.feedFragment = feedBody;
+  if (cap) {
+    cap.feedFragment = feedBody;
+    cap.videoSrcs.push(...videoSrcsOf(feedBody));
+  }
 
   // ── article-ссылки: три кейса (цитата / тизер / галерея) ──
   type LinkInfo = {
@@ -1138,6 +1588,7 @@ function buildRecord(item: FeedItem): OutputRecord | null {
       cap.teaserRelFile = teaser.relFile;
       cap.teaserUrl = teaser.page.url;
       cap.teaserBodyHtml = teaser.page.bodyHtml;
+      cap.videoSrcs.push(...videoSrcsOf(teaser.page.bodyHtml));
     }
   }
 
@@ -1203,12 +1654,25 @@ function buildRecord(item: FeedItem): OutputRecord | null {
   let anons: string | undefined;
   let source: string;
   if (teaser && teaser.page && articleBody !== null) {
-    bodyHtmlOut = sanitizeBody(articleBody, { baseUrl: teaser.page.url });
+    bodyHtmlOut = sanitizeBody(articleBody, { baseUrl: teaser.page.url, videoLinks: true });
     const feedPlain = stripTags(sanitizeBody(feedBody, { baseUrl: feedUrl }));
     anons = removeLinkSentence(feedPlain) || undefined;
     source = teaser.page.url;
+    if (teaser.page.layout === "D") {
+      const label = `${context}: «${title}» → ${teaser.relFile}`;
+      if (teaser.page.headerCut) report.headerCut += 1;
+      else report.headerNotCut.push(label);
+      if (teaser.page.repeatCut) report.headerRepeatCut.push(label);
+    }
+    // Стоп задания: тело тизера после срезки шапки короче порога — срезано лишнее.
+    const bodyPlainLen = stripTags(bodyHtmlOut).length;
+    if (bodyPlainLen < HEADER_CUT_MIN_BODY) {
+      runErrors.push(
+        `${context}: «${title}» → ${teaser.relFile}: тело после срезки шапки короче ${HEADER_CUT_MIN_BODY} знаков (${bodyPlainLen})`,
+      );
+    }
   } else {
-    bodyHtmlOut = sanitizeBody(feedBody, { baseUrl: feedUrl });
+    bodyHtmlOut = sanitizeBody(feedBody, { baseUrl: feedUrl, videoLinks: true });
     anons = undefined;
     source = feedUrl;
   }
@@ -1383,6 +1847,28 @@ function listUnreferencedArticles(): void {
  * одинаковыми (заголовок, дата), но разными телами НЕ дедуплицируются — они
  * печатаются в отчёт для ревью глазами (Neva Cup и повторы с разным текстом).
  */
+/**
+ * Точечные исключения записей по ключу источника (файл ленты, заголовок,
+ * дата) — общее правило дедупликации (полный дубль = заголовок + дата + SHA-1
+ * тела) не ослабляется. Каждое исключение обязано совпасть ровно с одной
+ * записью, иначе прогон падает: молчаливое «не нашлось» скрыло бы сдвиг данных.
+ */
+const MANUAL_EXCLUSIONS: Array<{ file: string; title: string; date: string; reason: string }> = [
+  {
+    file: "newsarch_2008.html",
+    title: "С НОВЫМ ГОДОМ!",
+    date: "2007-12-29",
+    reason:
+      "повтор записи 29.12.2007 из newsarch_2007.html на стыке годовых файлов (Срез 19, " +
+      "02.09.2026); тела различаются только пустой ссылкой «.» на golf.html в последнем " +
+      "абзаце копии 2008 — дедупликация по SHA-1 тела её не ловит; по её правилу остаётся " +
+      "более ранний файл",
+  },
+];
+
+/** Ожидаемое число записей экспорта: 1882 по рекогносцировке минус точечные исключения. */
+const EXPECTED_RECORDS = 1882 - MANUAL_EXCLUSIONS.length;
+
 function dedupeRecords(collected: CollectedRecord[]): OutputRecord[] {
   const sha1 = (s: string) => createHash("sha1").update(s, "utf8").digest("hex");
   const norm = (t: string) => t.trim().replace(/\s+/g, " ");
@@ -1390,8 +1876,24 @@ function dedupeRecords(collected: CollectedRecord[]): OutputRecord[] {
   const byFull = new Map<string, CollectedRecord>();
   const byTitleDate = new Map<string, Array<CollectedRecord & { hash: string }>>();
   const out: OutputRecord[] = [];
+  const excludedHits = new Map<(typeof MANUAL_EXCLUSIONS)[number], number>();
 
   for (const item of collected) {
+    const exclusion = MANUAL_EXCLUSIONS.find(
+      (x) =>
+        x.file === item.file &&
+        norm(item.rec["Заголовок"]) === norm(x.title) &&
+        item.rec["Дата"] === x.date,
+    );
+    if (exclusion) {
+      excludedHits.set(exclusion, (excludedHits.get(exclusion) ?? 0) + 1);
+      report.manualExclusions.push(
+        `«${item.rec["Заголовок"]}» (${item.rec["Дата"]}) из ${item.file} (Источник: ${item.rec["Источник"]}) — исключена: ${exclusion.reason}`,
+      );
+      const pf = report.perFile.find((f) => f.file === item.file);
+      if (pf) pf.records -= 1;
+      continue;
+    }
     const hash = sha1(item.rec["ТекстHTML"]);
     const tdKey = `${norm(item.rec["Заголовок"])}|${item.rec["Дата"]}`;
     const fullKey = `${tdKey}|${hash}`;
@@ -1411,6 +1913,15 @@ function dedupeRecords(collected: CollectedRecord[]): OutputRecord[] {
     arr.push({ ...item, hash });
     byTitleDate.set(tdKey, arr);
     out.push(item.rec);
+  }
+
+  for (const x of MANUAL_EXCLUSIONS) {
+    const n = excludedHits.get(x) ?? 0;
+    if (n !== 1) {
+      throw new Error(
+        `точечное исключение «${x.title}» (${x.date}, ${x.file}) совпало с ${n} записями, ожидалась ровно одна`,
+      );
+    }
   }
 
   for (const group of byTitleDate.values()) {
@@ -1460,6 +1971,7 @@ function renderReport(records: OutputRecord[]): string {
   L.push("Отрицательная дельта по файлу — запись, удалённая дедупликацией межфайловых полных");
   L.push("повторов (побеждает более ранний файл ленты; см. раздел «Дедупликация межфайловых");
   L.push("повторов» ниже): счёт файла уменьшается на каждый проигравший дубль.");
+  L.push("Точечные исключения по ключу источника (раздел ниже) тоже уменьшают счёт своего файла.");
   L.push("");
 
   const section = (title: string, rows: string[], empty = "нет") => {
@@ -1476,6 +1988,7 @@ function renderReport(records: OutputRecord[]): string {
   L.push("число записей он не влияет: 56 тел − 50 заголовков = 6 склеек в 2006.");
   L.push("");
   section("Склейки", report.merges);
+  section("Точечные исключения по ключу источника", report.manualExclusions);
   section("Дедупликация межфайловых повторов", report.dedupedFull);
   section(
     "Совпадение заголовка и даты при разных телах (НЕ дедуплицировано, для ревью)",
@@ -1483,6 +1996,14 @@ function renderReport(records: OutputRecord[]): string {
   );
   section("Исправления дат", report.dateFixes);
   section("Записи с годом ≠ году файла", report.foreignYear);
+  L.push("## Шапка article-страницы у тизерных записей (схема D)");
+  L.push("");
+  L.push(
+    `Срезана (баннер, заголовок страницы, строка публикации): ${report.headerCut}. Фото и объём страницы считаются по региону с шапкой.`,
+  );
+  L.push("");
+  section("Срезан и повтор заголовка сразу после строки публикации", report.headerRepeatCut);
+  section("Шапка не распознана (тело оставлено целиком)", report.headerNotCut);
   L.push(`## Article-ссылки: кейсы`);
   L.push("");
   L.push(
@@ -1513,6 +2034,7 @@ function renderReport(records: OutputRecord[]): string {
   L.push(
     `- ссылок с недопустимым протоколом/битым href (заменены текстом): ${report.droppedBadProtoLinks}`,
   );
+  L.push(`- видео-вставок (iframe) в телах, заменённых ссылкой «Видео»: ${report.videoLinks}`);
   L.push("");
   return L.join("\n") + "\n";
 }
@@ -1526,67 +2048,15 @@ function renderReport(records: OutputRecord[]): string {
  * parse-report.md при прогоне с флагом и без.
  */
 
-const NAMED_ENTITIES: Record<string, string> = {
-  nbsp: " ",
-  amp: "&",
-  lt: "<",
-  gt: ">",
-  quot: '"',
-  apos: "'",
-  laquo: "«",
-  raquo: "»",
-  mdash: "—",
-  ndash: "–",
-  hellip: "…",
-  bull: "•",
-  middot: "·",
-  sect: "§",
-  para: "¶",
-  copy: "©",
-  reg: "®",
-  trade: "™",
-  deg: "°",
-  plusmn: "±",
-  times: "×",
-  divide: "÷",
-  frac12: "½",
-  frac14: "¼",
-  sup2: "²",
-  sup3: "³",
-  dagger: "†",
-  permil: "‰",
-  lsquo: "‘",
-  rsquo: "’",
-  ldquo: "“",
-  rdquo: "”",
-  bdquo: "„",
-  shy: "",
-  euro: "€",
-  pound: "£",
-};
-
-function safeCodePoint(cp: number): string {
-  try {
-    return String.fromCodePoint(cp);
-  } catch {
-    return "�";
-  }
-}
-
 /**
  * Единая нормализация профиля (п.0 ТЗ): снять теги → декодировать сущности
  * (именованные и числовые) → схлопнуть пробелы → trim. Все длины и сравнения
- * профиля считаются только через неё. stripTags боевого пути не трогается.
+ * профиля считаются только через неё. С починкой A1 (чистка архива) боевой
+ * stripTags декодирует тем же словарём decodeEntities — отдельная копия
+ * нормализации больше не нужна, профиль зовёт его же.
  */
 function plainProf(html: string): string {
-  return html
-    .replace(/<\/?[a-zA-Z!][^>]*>/g, " ")
-    .replace(/</g, " ")
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, h: string) => safeCodePoint(parseInt(h, 16)))
-    .replace(/&#(\d+);/g, (_, d: string) => safeCodePoint(Number(d)))
-    .replace(/&([a-zA-Z]+);/g, (m: string, name: string) => NAMED_ENTITIES[name.toLowerCase()] ?? m)
-    .replace(/\s+/g, " ")
-    .trim();
+  return stripTags(html);
 }
 
 /** Белый список санитайзера — всё прочее в источнике «выброшенный тег». */
@@ -1601,113 +2071,42 @@ function profDroppedTags(html: string): Record<string, number> {
   return Object.fromEntries(Object.entries(counts).sort(([a], [b]) => (a < b ? -1 : 1)));
 }
 
-/** Ячейка «с числом»: plain непуст и целиком из цифр/пунктуации счёта. */
-const NUMERIC_CELL_RE = /^[\d\s.,:;/()–-]+$/;
-
-type ProfTables = { всего: number; данных: number; вёрстки: number; макс: string | null };
+type ProfTables = {
+  всего: number;
+  данных: number;
+  вёрстки: number;
+  макс: string | null;
+  /** Таблиц на глубине ≥ 1 (внутри другой таблицы) — A7. */
+  вложенных: number;
+  /** Максимальная глубина: 1 — таблицы без вложенности, 0 — таблиц нет. */
+  глубина: number;
+  /** Таблиц данных, внутри которых есть другая таблица — в теле разворачиваются (A4). */
+  данныхСВложенными: number;
+};
 
 /**
- * Таблицы фрагмента: строки×столбцы и классификация «данных/вёрстки» по доле
- * числовых ячеек ≥ 0,3. Вложенность учитывается стеком: текст вложенной
- * таблицы не считается ячейкой внешней.
+ * Сводка таблиц фрагмента для профиля — по общему analyzeTables: тот же
+ * признак «данных/вёрстки», что и у санитайзера, счёт и поведение не
+ * расходятся.
  */
 function profAnalyzeTables(html: string): ProfTables {
-  type Frame = {
-    rows: number;
-    cellsInRow: number;
-    maxCols: number;
-    totalCells: number;
-    numericCells: number;
-    cellBuf: string;
-    cellOpen: boolean;
-  };
-  const done: Array<{ rows: number; cols: number; data: boolean }> = [];
-  const stack: Frame[] = [];
-  const closeCell = (f: Frame) => {
-    if (!f.cellOpen) return;
-    const t = plainProf(f.cellBuf);
-    f.totalCells += 1;
-    if (t !== "" && NUMERIC_CELL_RE.test(t)) f.numericCells += 1;
-    f.cellOpen = false;
-    f.cellBuf = "";
-  };
-  const endRow = (f: Frame) => {
-    f.maxCols = Math.max(f.maxCols, f.cellsInRow);
-    f.cellsInRow = 0;
-  };
-  const tagRe = /<(\/?)(table|tr|td|th)\b[^>]*>/gi;
-  let last = 0;
-  let m: RegExpExecArray | null;
-  while ((m = tagRe.exec(html))) {
-    const top = stack[stack.length - 1];
-    if (top && top.cellOpen) top.cellBuf += html.slice(last, m.index);
-    last = m.index + m[0].length;
-    const closing = m[1] === "/";
-    const tag = m[2].toLowerCase();
-    if (tag === "table") {
-      if (!closing) {
-        stack.push({
-          rows: 0,
-          cellsInRow: 0,
-          maxCols: 0,
-          totalCells: 0,
-          numericCells: 0,
-          cellBuf: "",
-          cellOpen: false,
-        });
-      } else {
-        const f = stack.pop();
-        if (f) {
-          closeCell(f);
-          endRow(f);
-          done.push({
-            rows: f.rows,
-            cols: f.maxCols,
-            data: f.totalCells > 0 && f.numericCells / f.totalCells >= 0.3,
-          });
-        }
-      }
-      continue;
-    }
-    const f = stack[stack.length - 1];
-    if (!f) continue;
-    if (tag === "tr") {
-      closeCell(f);
-      endRow(f);
-      if (!closing) f.rows += 1;
-    } else {
-      // td | th
-      closeCell(f);
-      if (!closing) {
-        f.cellOpen = true;
-        f.cellsInRow += 1;
-      }
-    }
-  }
-  // Незакрытые <table> легаси — досчитываем как закрытые.
-  while (stack.length) {
-    const f = stack.pop()!;
-    closeCell(f);
-    endRow(f);
-    done.push({
-      rows: f.rows,
-      cols: f.maxCols,
-      data: f.totalCells > 0 && f.numericCells / f.totalCells >= 0.3,
-    });
-  }
+  const tables = analyzeTables(html);
   let макс: string | null = null;
   let maxArea = -1;
-  for (const t of done) {
+  for (const t of tables) {
     if (t.rows * t.cols > maxArea) {
       maxArea = t.rows * t.cols;
       макс = `${t.rows}×${t.cols}`;
     }
   }
   return {
-    всего: done.length,
-    данных: done.filter((t) => t.data).length,
-    вёрстки: done.filter((t) => !t.data).length,
+    всего: tables.length,
+    данных: tables.filter((t) => t.data).length,
+    вёрстки: tables.filter((t) => !t.data).length,
     макс,
+    вложенных: tables.filter((t) => t.depth > 0).length,
+    глубина: tables.reduce((d, t) => Math.max(d, t.depth + 1), 0),
+    данныхСВложенными: tables.filter((t) => t.data && t.nested > 0).length,
   };
 }
 
@@ -1958,6 +2357,9 @@ function mergeSrcFeatures(a: SrcFeatures, b: SrcFeatures): SrcFeatures {
       вёрстки: a.таблицы.вёрстки + b.таблицы.вёрстки,
       макс:
         parseМакс(a.таблицы.макс) >= parseМакс(b.таблицы.макс) ? a.таблицы.макс : b.таблицы.макс,
+      вложенных: a.таблицы.вложенных + b.таблицы.вложенных,
+      глубина: Math.max(a.таблицы.глубина, b.таблицы.глубина),
+      данныхСВложенными: a.таблицы.данныхСВложенными + b.таблицы.данныхСВложенными,
     },
     выравнивание: {
       center: a.выравнивание.center + b.выравнивание.center,
@@ -1998,7 +2400,23 @@ function mergeSrcFeatures(a: SrcFeatures, b: SrcFeatures): SrcFeatures {
 // ───────────────────────── профиль: детекторы д1–д5 ─────────────────────────
 
 /** д1: остаточные HTML-сущности в плоских полях (по СЫРЫМ строкам, без plain). */
-const D1_RE = /&[a-zA-Z]+;|&#\d+;|&#x[0-9a-fA-F]+;/;
+type D1Forms = { сТочкой: boolean; безТочки: boolean };
+
+/**
+ * д1: остаточные HTML-сущности в плоском поле (по СЫРОЙ строке, без plain),
+ * по формам: с `;` — любое имя и любые числовые (неизвестное имя с `;` —
+ * подозрительный токен); без `;` — только словарные имена и числовые.
+ */
+function d1Forms(s: string): D1Forms {
+  const out: D1Forms = { сТочкой: false, безТочки: false };
+  for (const m of s.matchAll(ENTITY_RE)) {
+    if (m[2] === ";") out.сТочкой = true;
+    else if (isKnownEntity(m[1])) out.безТочки = true;
+  }
+  return out;
+}
+
+const d1Any = (f: D1Forms): boolean => f.сТочкой || f.безТочки;
 
 const D2_SUBSTRINGS = [
   "<!--",
@@ -2163,14 +2581,13 @@ const D8_PUBLISHED_RE = /Опубликовано \d+ [а-я]+ \d{4} г\./;
 /** д8(а): голова заголовка — слова до накопления этого числа знаков. */
 const D8_HEAD_MIN = 20;
 
-/** Нормализация д8: нижний регистр, ё→е, всё кроме букв и цифр — один пробел. */
-function profD8Norm(s: string): string {
-  return s
-    .toLowerCase()
-    .replace(/ё/g, "е")
-    .replace(/[^\p{L}\p{N}]+/gu, " ")
-    .trim();
-}
+/**
+ * д8(а) нестрого: ожидаемое число после срезки шапки — лид-предложения,
+ * повторяющие начало заголовка (2023/06151, 2023/0527; у 2023/0626 такой же
+ * лид скрыт снятием префикса-баннера). Печатается всегда; рост в будущих
+ * прогонах — повод посмотреть глазами, не дефект.
+ */
+const D8_LOOSE_EXPECTED = 2;
 
 /** Голова заголовка: слова до накопления ≥ D8_HEAD_MIN знаков; короткий заголовок — целиком. */
 function profTitleHead(normTitle: string): string {
@@ -2187,24 +2604,26 @@ function profTitleHead(normTitle: string): string {
 const startsWithWords = (text: string, prefix: string): boolean =>
   prefix !== "" && (text === prefix || text.startsWith(`${prefix} `));
 
-type D8 = { а: boolean; аСтрого: boolean; б: boolean };
+type D8 = { а: boolean; аНестрого: boolean; б: boolean };
 
 /**
  * д8 — шапка article в теле тизерной записи, два флага по отдельности:
- * (а) плоское тело — после снятия D8_JUNK_PREFIXES — начинается с головы
- * заголовка записи либо заголовка article-страницы (<title>); аСтрого —
- * с заголовка целиком (справочно); (б) тело содержит строку
+ * (а) плоское тело — после снятия D8_JUNK_PREFIXES — начинается с заголовка
+ * записи либо заголовка article-страницы (<title>) целиком; аНестрого —
+ * с головы заголовка (≥ D8_HEAD_MIN знаков): после срезки шапки срабатывает
+ * на лид-предложениях, повторяющих начало заголовка, поэтому печатается
+ * справочно с ожиданием D8_LOOSE_EXPECTED; (б) тело содержит строку
  * «Опубликовано ДД месяц ГГГГ г.».
  */
 function profD8(bodyPlain: string, titles: string[]): D8 {
-  let b = profD8Norm(bodyPlain);
+  let b = normText(bodyPlain);
   for (const junk of D8_JUNK_PREFIXES) {
     if (startsWithWords(b, junk)) b = b.slice(junk.length).trim();
   }
-  const norms = titles.map(profD8Norm).filter((t) => t !== "");
+  const norms = titles.map(normText).filter((t) => t !== "");
   return {
-    а: norms.some((t) => startsWithWords(b, profTitleHead(t))),
-    аСтрого: norms.some((t) => startsWithWords(b, t)),
+    а: norms.some((t) => startsWithWords(b, t)),
+    аНестрого: norms.some((t) => startsWithWords(b, profTitleHead(t))),
     б: D8_PUBLISHED_RE.test(bodyPlain),
   };
 }
@@ -2454,10 +2873,19 @@ type ResultFeatures = {
   пустыхP: number;
   br3Подряд: number;
   nbsp3Подряд: number;
+  /** Тегов `<table` в теле записи (после A4 — таблицы данных). */
+  таблицВТеле: number;
 };
 
 type Detectors = {
-  д1: { заголовок: boolean; анонс: boolean; документы: boolean; любое: boolean };
+  д1: {
+    заголовок: boolean;
+    анонс: boolean;
+    документы: boolean;
+    любое: boolean;
+    /** По формам записи (с `;` и без неё) — для заголовка и анонса. */
+    формы: { заголовок: D1Forms; анонс: D1Forms };
+  };
   д2: { тело: boolean; поля: boolean; любое: boolean };
   д3: { а: boolean | null; б: boolean; в: string[]; г: boolean | null; любое: boolean };
   д4: boolean;
@@ -2541,17 +2969,22 @@ function profResultFeatures(rec: OutputRecord): ResultFeatures {
     пустыхP: (body.match(/<p>\s*<\/p>/g) ?? []).length,
     br3Подряд: (body.match(/(?:<br>\s*){3,}/g) ?? []).length,
     nbsp3Подряд: (body.match(/(?:&nbsp;\s*){3,}/g) ?? []).length,
+    таблицВТеле: (body.match(/<table\b/g) ?? []).length,
   };
 }
 
 function profDetectors(rec: OutputRecord, cap: ProfCapture): Detectors {
   const body = rec["ТекстHTML"];
   const pBody = plainProf(body);
+  const д1заголовок = d1Forms(rec["Заголовок"]);
+  const д1анонс: D1Forms =
+    rec["Анонс"] !== undefined ? d1Forms(rec["Анонс"]) : { сТочкой: false, безТочки: false };
   const д1 = {
-    заголовок: D1_RE.test(rec["Заголовок"]),
-    анонс: rec["Анонс"] !== undefined && D1_RE.test(rec["Анонс"]),
-    документы: (rec["Документы"] ?? []).some((d) => D1_RE.test(d)),
+    заголовок: d1Any(д1заголовок),
+    анонс: d1Any(д1анонс),
+    документы: (rec["Документы"] ?? []).some((d) => d1Any(d1Forms(d))),
     любое: false,
+    формы: { заголовок: д1заголовок, анонс: д1анонс },
   };
   д1.любое = д1.заголовок || д1.анонс || д1.документы;
 
@@ -2587,7 +3020,9 @@ function profDetectors(rec: OutputRecord, cap: ProfCapture): Detectors {
       tmpDocs,
       true,
     );
-    const sanFeed = plainProf(sanitizeBody(feedPrepared, { baseUrl: cap.feedUrl, silent: true }));
+    const sanFeed = plainProf(
+      sanitizeBody(feedPrepared, { baseUrl: cap.feedUrl, silent: true, videoLinks: true }),
+    );
     let sanArt: string | null = null;
     if (cap.teaserBodyHtml !== null && cap.teaserUrl !== null) {
       const artPrepared = extractDocuments(
@@ -2597,7 +3032,9 @@ function profDetectors(rec: OutputRecord, cap: ProfCapture): Detectors {
         tmpDocs,
         true,
       );
-      sanArt = plainProf(sanitizeBody(artPrepared, { baseUrl: cap.teaserUrl, silent: true }));
+      sanArt = plainProf(
+        sanitizeBody(artPrepared, { baseUrl: cap.teaserUrl, silent: true, videoLinks: true }),
+      );
     }
     а = pBody !== sanFeed && (sanArt === null || pBody !== sanArt);
   }
@@ -3105,6 +3542,15 @@ function srcScopeSection(
     },
     ["нет таблиц", "только вёрстки", "только данных", "данных и вёрстки"],
   );
+  L.push("### Вложенные таблицы (A7)");
+  L.push("");
+  L.push(
+    `- записей с таблицей внутри другой таблицы: ${have.filter((p) => g(p).таблицы.вложенных > 0).length}; вложенных таблиц всего: ${have.reduce((s, p) => s + g(p).таблицы.вложенных, 0)}; максимальная глубина: ${have.reduce((d, p) => Math.max(d, g(p).таблицы.глубина), 0)} (1 — без вложенности)`,
+  );
+  L.push(
+    `- записей с таблицей данных, внутри которой есть другая таблица (в теле разворачивается): ${have.filter((p) => g(p).таблицы.данныхСВложенными > 0).length}`,
+  );
+  L.push("");
   counterTable(L, "center-теги", have, (p) => g(p).выравнивание.center);
   counterTable(L, "align=center", have, (p) => g(p).выравнивание.alignCenter);
   counterTable(L, "атрибуты style", have, (p) => g(p).выравнивание.style);
@@ -3304,6 +3750,75 @@ function detectorSection(
   return hits.length;
 }
 
+type EntityCell = { вхождений: number; записи: Set<number> };
+type EntityRow = { сТочкой: EntityCell; безТочки: EntityCell };
+
+/** Инвентарь сущностей одного поля по записям: имя → счёт по формам (вхождений и записей). */
+function tallyEntities(texts: Array<string | undefined>): Map<string, EntityRow> {
+  const rows = new Map<string, EntityRow>();
+  texts.forEach((text, idx) => {
+    if (!text) return;
+    for (const m of text.matchAll(ENTITY_RE)) {
+      const row = rows.get(m[1]) ?? {
+        сТочкой: { вхождений: 0, записи: new Set<number>() },
+        безТочки: { вхождений: 0, записи: new Set<number>() },
+      };
+      const cell = m[2] === ";" ? row.сТочкой : row.безТочки;
+      cell.вхождений += 1;
+      cell.записи.add(idx);
+      rows.set(m[1], row);
+    }
+  });
+  return rows;
+}
+
+/**
+ * Раздел «Сущности»: все встреченные имена по формам, отдельно для заголовков,
+ * анонсов и тел; имена вне словаря — отдельной строкой (их надо добавить в
+ * NAMED_ENTITIES либо признать не-сущностью, как «Play&Stay;»).
+ */
+function renderEntityInventory(L: string[], records: OutputRecord[]): void {
+  L.push("### Сущности: имена по формам (с `;` / без `;`)");
+  L.push("");
+  L.push(
+    "Без `;` считаются любые токены `&имя` — в том числе не-сущности вроде «S&K»; " +
+      "словарные они или нет, видно по колонке. Обрезанная сущность — словарное имя без `;`.",
+  );
+  L.push("");
+  const scopes: Array<[string, Array<string | undefined>]> = [
+    ["заголовки", records.map((r) => r["Заголовок"])],
+    ["анонсы", records.map((r) => r["Анонс"])],
+    ["тела", records.map((r) => r["ТекстHTML"])],
+  ];
+  for (const [scope, texts] of scopes) {
+    const rows = tallyEntities(texts);
+    const names = [...rows.keys()].sort();
+    L.push(`#### ${scope}: имён ${names.length}`);
+    L.push("");
+    L.push("| имя | в словаре | с `;`: вхождений / записей | без `;`: вхождений / записей |");
+    L.push("|---|---|---|---|");
+    for (const name of names) {
+      const r = rows.get(name)!;
+      L.push(
+        `| ${mdEsc(name)} | ${isKnownEntity(name) ? "да" : "нет"} | ${r.сТочкой.вхождений} / ${r.сТочкой.записи.size} | ${r.безТочки.вхождений} / ${r.безТочки.записи.size} |`,
+      );
+    }
+    if (names.length === 0) L.push("| _нет_ | | | |");
+    L.push("");
+    const list = (pred: (n: string) => boolean) => names.filter(pred).join(", ") || "нет";
+    L.push(
+      `- имена вне словаря с \`;\` (добавить в словарь либо признать не-сущностью): ${list((n) => !isKnownEntity(n) && rows.get(n)!.сТочкой.вхождений > 0)}`,
+    );
+    L.push(
+      `- токены вне словаря без \`;\` (не-сущности, не трогаются): ${list((n) => !isKnownEntity(n) && rows.get(n)!.безТочки.вхождений > 0)}`,
+    );
+    L.push(
+      `- словарные имена без \`;\` (обрезанные сущности): ${list((n) => isKnownEntity(n) && rows.get(n)!.безТочки.вхождений > 0)}`,
+    );
+    L.push("");
+  }
+}
+
 /** Ключ ProfileRecord для списков инвентаризации (без заголовка). */
 const profKeyShort = (p: ProfileRecord): string => `${p.ключ.файл}#${p.ключ.номер}`;
 
@@ -3458,6 +3973,9 @@ function renderExcerptPreview(
 
 type Control = { текст: string; ок: boolean; факт: string };
 
+/** Адрес видео-вставки записи и есть ли ссылка на него в теле. */
+type VideoCheck = { key: string; src: string; ok: boolean };
+
 type InventoryExtras = {
   feeds: AdjacentFeed[];
   unreferenced: string[];
@@ -3465,6 +3983,7 @@ type InventoryExtras = {
   previewSize: number;
   records: OutputRecord[];
   controls: Control[];
+  videos: VideoCheck[];
 };
 
 function renderProfileReport(
@@ -3543,6 +4062,17 @@ function renderProfileReport(
   counterTable(L, "Пустые <p></p>", profs, (p) => p.результат.пустыхP);
   counterTable(L, "≥3 <br> подряд", profs, (p) => p.результат.br3Подряд);
   counterTable(L, "≥3 &nbsp; подряд", profs, (p) => p.результат.nbsp3Подряд);
+  counterTable(L, "Таблиц в теле записи (A4)", profs, (p) => p.результат.таблицВТеле);
+  const withTables = profs.filter((p) => p.результат.таблицВТеле > 0);
+  L.push(`### Записи с таблицей в теле: ${withTables.length}`);
+  L.push("");
+  for (const p of withTables) {
+    L.push(
+      `- ${profKeyStr(p)} — таблиц в теле ${p.результат.таблицВТеле}, таблиц данных в источнике ${p.источник.сумма.таблицы.данных}`,
+    );
+  }
+  if (withTables.length === 0) L.push("_нет_");
+  L.push("");
 
   L.push("## Признаки трансформации");
   L.push("");
@@ -3615,8 +4145,28 @@ function renderProfileReport(
   L.push("");
   detectorSection(L, "д1 — HTML-сущности в плоских полях", profs, (p) => p.детекторы.д1.любое);
   detectorSection(L, "д1: в заголовке", profs, (p) => p.детекторы.д1.заголовок);
+  detectorSection(
+    L,
+    "д1: в заголовке, форма с `;`",
+    profs,
+    (p) => p.детекторы.д1.формы.заголовок.сТочкой,
+  );
+  detectorSection(
+    L,
+    "д1: в заголовке, форма без `;`",
+    profs,
+    (p) => p.детекторы.д1.формы.заголовок.безТочки,
+  );
   detectorSection(L, "д1: в анонсе", profs, (p) => p.детекторы.д1.анонс);
+  detectorSection(L, "д1: в анонсе, форма с `;`", profs, (p) => p.детекторы.д1.формы.анонс.сТочкой);
+  detectorSection(
+    L,
+    "д1: в анонсе, форма без `;`",
+    profs,
+    (p) => p.детекторы.д1.формы.анонс.безТочки,
+  );
   detectorSection(L, "д1: в документах", profs, (p) => p.детекторы.д1.документы);
+  renderEntityInventory(L, inv.records);
   detectorSection(L, "д2 — обрывки Dreamweaver-комментариев", profs, (p) => p.детекторы.д2.любое);
   detectorSection(L, "д2: в теле", profs, (p) => p.детекторы.д2.тело);
   detectorSection(L, "д2: в плоских полях", profs, (p) => p.детекторы.д2.поля);
@@ -3750,7 +4300,7 @@ function renderProfileReport(
   // ── д8 ──
   const teasers = profs.filter((p) => p.детекторы.д8 !== null);
   const d8a = teasers.filter((p) => p.детекторы.д8!.а);
-  const d8aStrict = teasers.filter((p) => p.детекторы.д8!.аСтрого);
+  const d8aLoose = teasers.filter((p) => p.детекторы.д8!.аНестрого);
   const d8b = teasers.filter((p) => p.детекторы.д8!.б);
   const d8both = teasers.filter((p) => p.детекторы.д8!.а && p.детекторы.д8!.б);
   L.push(`### д8 — шапка article в теле (тизерных записей: ${teasers.length})`);
@@ -3762,27 +4312,30 @@ function renderProfileReport(
   );
   L.push("");
   L.push(
-    `- (а) тело начинается с заголовка записи или <title> article-страницы (голова заголовка ≥${D8_HEAD_MIN} знаков по границе слова): ${d8a.length}; строго с заголовка целиком: ${d8aStrict.length}`,
+    `- (а) тело начинается с заголовка записи или <title> article-страницы целиком: ${d8a.length}`,
   );
   L.push(`- (б) тело содержит строку «Опубликовано ДД месяц ГГГГ г.»: ${d8b.length}`);
   L.push(`- оба флага: ${d8both.length}`);
+  L.push(
+    `- (а) нестрого — с головы заголовка ≥${D8_HEAD_MIN} знаков по границе слова: ${d8aLoose.length} (ожидание ${D8_LOOSE_EXPECTED}: лид-предложения, повторяющие начало заголовка; рост — повод посмотреть, не дефект)`,
+  );
   L.push("");
-  L.push("До 10 ключей (а):");
+  L.push("Тизерные записи с флагом (а) или (б):");
   L.push("");
-  for (const p of d8a.slice(0, 10)) L.push(`- ${profKeyStr(p)}`);
-  if (d8a.length === 0) L.push("_нет_");
-  L.push("");
-  L.push("До 10 ключей (б):");
-  L.push("");
-  for (const p of d8b.slice(0, 10)) L.push(`- ${profKeyStr(p)}`);
-  if (d8b.length === 0) L.push("_нет_");
-  L.push("");
-  L.push("Тизерные записи без флага (а) или без флага (б):");
-  L.push("");
-  const d8miss = teasers.filter((p) => !(p.детекторы.д8!.а && p.детекторы.д8!.б));
-  for (const p of d8miss)
+  const d8hit = teasers.filter((p) => p.детекторы.д8!.а || p.детекторы.д8!.б);
+  for (const p of d8hit)
     L.push(`- ${profKeyStr(p)} — а=${p.детекторы.д8!.а} б=${p.детекторы.д8!.б}`);
-  if (d8miss.length === 0) L.push("_нет_");
+  if (d8hit.length === 0) L.push("_нет_");
+  L.push("");
+  L.push(
+    "Нестрогие (а) — ключ и первые 200 знаков тела (глазами: живой текст, не остаток шаблона):",
+  );
+  L.push("");
+  for (const p of d8aLoose) {
+    const idx = profs.indexOf(p);
+    L.push(`- ${profKeyStr(p)}: ${mdEsc(plainProf(inv.records[idx]["ТекстHTML"]).slice(0, 200))}`);
+  }
+  if (d8aLoose.length === 0) L.push("_нет_");
   L.push("");
 
   L.push("## Крайние");
@@ -3804,6 +4357,20 @@ function renderProfileReport(
   renderTitles(L, profs);
   renderCandidates2026(L, profs);
   renderYearSummary(L, profs);
+
+  L.push("## Видео-вставки (A5)");
+  L.push("");
+  L.push(
+    "Адреса `<iframe src>` из ленточного фрагмента и тела тизерной страницы записи; «в теле» — " +
+      "ссылка с этим адресом есть в ТекстHTML. Одна вставка на ленте и на тизерной странице одной " +
+      "записи считается дважды.",
+  );
+  L.push("");
+  L.push("| ключ | адрес | в теле |");
+  L.push("|---|---|---|");
+  for (const v of inv.videos) L.push(`| ${v.key} | ${mdEsc(v.src)} | ${v.ok ? "да" : "НЕТ"} |`);
+  if (inv.videos.length === 0) L.push("| _нет_ | | |");
+  L.push("");
 
   L.push("## Контроли");
   L.push("");
@@ -3974,7 +4541,11 @@ function renderTitles(L: string[], profs: ProfileRecord[]): void {
   if (long.length === 0) L.push("_нет_");
   L.push("");
   const ent = profs.filter((p) => p.детекторы.д1.заголовок);
-  L.push(`### С HTML-сущностями (д1 в заголовке): ${ent.length}`);
+  const entSemi = profs.filter((p) => p.детекторы.д1.формы.заголовок.сТочкой).length;
+  const entBare = profs.filter((p) => p.детекторы.д1.формы.заголовок.безТочки).length;
+  L.push(
+    `### С HTML-сущностями (д1 в заголовке): ${ent.length} (форма с \`;\` — ${entSemi}, без \`;\` — ${entBare})`,
+  );
   L.push("");
   for (const p of ent) L.push(`- ${profKeyStr(p)}`);
   if (ent.length === 0) L.push("_нет_");
@@ -4148,7 +4719,68 @@ function runProfile(records: OutputRecord[]): void {
   const p66 = profs.find((p) => p.ключ.файл === "newsarch_2023.html" && p.ключ.номер === 66);
   const d6of66 = p66?.детекторы.д6;
   const anonsCount = profs.filter((p) => p.результат.естьАнонс).length;
+
+  // ── контроли чистки архива (задание archive-cleanup, 20.09.2026) ──
+  const d1Count = (f: (d: D1Forms) => boolean) =>
+    profs.filter((p) => f(p.детекторы.д1.формы.заголовок) || f(p.детекторы.д1.формы.анонс)).length;
+  const d1Semi = d1Count((d) => d.сТочкой);
+  const d1Bare = d1Count((d) => d.безТочки);
+  const d2Hits = profs.filter((p) => p.детекторы.д2.любое).length;
+  const teasers = profs.filter((p) => p.детекторы.д8 !== null);
+  const d8a = teasers.filter((p) => p.детекторы.д8!.а).length;
+  const d8b = teasers.filter((p) => p.детекторы.д8!.б).length;
+  const d8loose = teasers.filter((p) => p.детекторы.д8!.аНестрого).length;
+  const withTableBody = profs.filter((p) => p.результат.таблицВТеле > 0);
+  const tableWithoutData = withTableBody.filter((p) => p.источник.сумма.таблицы.данных === 0);
+  const videoChecks: VideoCheck[] = [];
+  profs.forEach((p, i) => {
+    for (const src of profByRecord.get(records[i])!.videoSrcs) {
+      videoChecks.push({
+        key: profKeyShort(p),
+        src,
+        ok: records[i]["ТекстHTML"].includes(`href="${src}"`),
+      });
+    }
+  });
+  const videoMissing = videoChecks.filter((v) => !v.ok);
+
   const controls: Control[] = [
+    {
+      текст: "д1 = 0 по обеим формам (заголовки и анонсы)",
+      ок: d1Semi === 0 && d1Bare === 0,
+      факт: `с \`;\` ${d1Semi}, без \`;\` ${d1Bare}`,
+    },
+    { текст: "д2 = 0", ок: d2Hits === 0, факт: `${d2Hits}` },
+    {
+      текст: "д8 = 0 по (а) и (б)",
+      ок: d8a === 0 && d8b === 0,
+      факт: `а=${d8a}, б=${d8b} (тизерных ${teasers.length}; нестрого (а) ${d8loose}, ожидание ${D8_LOOSE_EXPECTED})`,
+    },
+    {
+      текст: "записей с таблицей в теле не меньше 10 (ожидание около 21)",
+      ок: withTableBody.length >= 10,
+      факт: `${withTableBody.length}`,
+    },
+    {
+      текст: "тег <table не встречается в телах записей, у которых таблиц данных нет",
+      ок: tableWithoutData.length === 0,
+      факт:
+        tableWithoutData.length === 0
+          ? `нарушений 0 из ${withTableBody.length} записей с таблицей`
+          : tableWithoutData.map(profKeyShort).join(", "),
+    },
+    {
+      текст: "все адреса видео-вставок присутствуют в телах своих записей",
+      ок: videoChecks.length > 0 && videoMissing.length === 0,
+      факт: `${videoChecks.length - videoMissing.length}/${videoChecks.length}${videoMissing.length ? ": нет — " + videoMissing.map((v) => `${v.key} ${v.src}`).join("; ") : ""}`,
+    },
+    {
+      текст: `записей в экспорте ${EXPECTED_RECORDS} (1882 минус точечные исключения)`,
+      ок: profs.length === EXPECTED_RECORDS,
+      факт: `${profs.length}`,
+    },
+    // ── прежние контроли инвентаризации (19.09.2026); снят «#66 оба флага д8
+    // истинны» — его предмет закрыт контролем «д8 = 0» по всему архиву.
     {
       текст: "newsarch_2023.html#66 в д6 с дельтой 31 день (лента 26.05.2023, статья 26.06.2023)",
       ок:
@@ -4167,21 +4799,6 @@ function runProfile(records: OutputRecord[]): void {
       факт: p66
         ? `страниц ${p66.детекторы.д7.страниц} (${p66.детекторы.д7.страницы.map((s) => `${s.relFile}:${s.длина}`).join(", ")})`
         : "запись не найдена",
-    },
-    {
-      текст: "у newsarch_2023.html#66 оба флага д8 истинны",
-      ок:
-        p66 !== undefined && p66.детекторы.д8 !== null && p66.детекторы.д8.а && p66.детекторы.д8.б,
-      факт: p66
-        ? p66.детекторы.д8 === null
-          ? "запись не тизерная"
-          : `а=${p66.детекторы.д8.а} (строго ${p66.детекторы.д8.аСтрого}), б=${p66.детекторы.д8.б}`
-        : "запись не найдена",
-    },
-    {
-      текст: "записей в экспорте 1882",
-      ок: profs.length === 1882,
-      факт: `${profs.length}`,
     },
     {
       текст: "записей с собственным анонсом не более 60 (ожидание 56)",
@@ -4207,6 +4824,7 @@ function runProfile(records: OutputRecord[]): void {
       previewSize: previewPicks.length,
       records,
       controls,
+      videos: videoChecks,
     }),
     "utf-8",
   );
@@ -4393,8 +5011,8 @@ function runSelfTest(): number {
     {
       name: "профиль: «&hellip;» в заголовке → д1",
       input: d1Input,
-      output: String(D1_RE.test(d1Input)),
-      ok: D1_RE.test(d1Input),
+      output: JSON.stringify(d1Forms(d1Input)),
+      ok: d1Forms(d1Input).сТочкой && !d1Forms(d1Input).безТочки,
     },
     (() => {
       // Анонс = тизер, тело начинается с того же текста (кейс Игнатовой).
@@ -4494,10 +5112,10 @@ function runSelfTest(): number {
     (() => {
       const out = profD8(d8Body, d8Titles);
       return {
-        name: "инвентаризация: д8 — остаток Dreamweaver и баннер сняты, голова заголовка совпала (а), строго нет, «Опубликовано … г.» есть (б)",
+        name: "инвентаризация: д8 — остаток Dreamweaver и баннер сняты, полный заголовок не совпал (а=false), голова совпала (нестрого), «Опубликовано … г.» есть (б)",
         input: `тело: ${d8Body} | заголовки: ${d8Titles.join(" || ")}`,
         output: JSON.stringify(out),
-        ok: out.а && !out.аСтрого && out.б,
+        ok: !out.а && out.аНестрого && out.б,
       };
     })(),
     (() => {
@@ -4506,7 +5124,7 @@ function runSelfTest(): number {
         name: "инвентаризация: д8 — обычное тело: (а) false, «Опубликовано: дд.мм.гггг» не считается (б)",
         input: `тело: ${d8Plain} | заголовки: Турнир выходного дня`,
         output: JSON.stringify(out),
-        ok: !out.а && !out.аСтрого && !out.б,
+        ok: !out.а && !out.аНестрого && !out.б,
       };
     })(),
     (() => {
@@ -4566,7 +5184,195 @@ function runSelfTest(): number {
     console.log(`  выход: ${c.output}`);
   }
 
-  const total = cases.length + profCases.length + invCases.length;
+  // ── кейсы чистки архива (A1–A5): буквальный вход и выход через боевые функции ──
+  const videoCtx: SanitizeCtx = { baseUrl: `${SITE}/news.html`, videoLinks: true };
+  const dataTableInput =
+    `<table border="1" style="x"><tr><th style="a" colspan="2">Итог</th></tr>` +
+    `<tr><td onclick="steal()"><font color="red">1</font></td>` +
+    `<td><div align="center"><strong>С. Кузнецова</strong></div></td></tr></table>`;
+  const dataTableExpected = `<table><tr><th colspan="2">Итог</th></tr><tr><td>1</td><td><strong>С. Кузнецова</strong></td></tr></table>`;
+  const sectionsTableInput =
+    `<table><caption>Итоги</caption><thead><tr><th>№</th><th>Очки</th></tr></thead>` +
+    `<tbody><tr><td><span class="x">1</span></td><td>30<img src="a.gif"></td></tr></tbody></table>`;
+  const sectionsTableExpected = `<table><caption>Итоги</caption><thead><tr><th>№</th><th>Очки</th></tr></thead><tbody><tr><td>1</td><td>30</td></tr></tbody></table>`;
+  const layoutTableInput = `<table><tr><td>первый абзац текста</td><td>второй абзац</td></tr></table>`;
+  const nestedDataInput = `<table><tr><td>1</td><td><table><tr><td>2</td></tr></table></td></tr></table>`;
+  const iframeInput = `<p>Смотрите ролик<br><iframe width="420" src="https://www.youtube.com/embed/mh6TPzzAq30" frameborder="0" allowfullscreen></iframe></p>`;
+  const videoAnchor = `<a href="https://www.youtube.com/embed/mh6TPzzAq30">Видео</a>`;
+  const orphanInput = "a<!-- x -->b -->c";
+  const regionInput = `<html><!-- InstanceBeginEditable name="Edit02" -->\r\n<p>тело</p>\r\n<!-- InstanceEndEditable --></div>`;
+  const noMarkersInput = `<td width="821"><p>x</p>`;
+  const lit = (name: string, input: string, output: string, expected: string) => ({
+    name,
+    input,
+    output,
+    ok: output === expected,
+  });
+
+  const cleanupCases: Array<{ name: string; input: string; output: string; ok: boolean }> = [
+    lit(
+      "чистка: «&hellip» без точки с запятой в конце заголовка → «…»",
+      "ЛИХОВЦЕВОЙ&hellip",
+      stripTags("ЛИХОВЦЕВОЙ&hellip"),
+      "ЛИХОВЦЕВОЙ…",
+    ),
+    lit(
+      "чистка: «&hellip» в середине текста → «…»",
+      "И ОПЯТЬ&hellip ИТОГИ",
+      stripTags("И ОПЯТЬ&hellip ИТОГИ"),
+      "И ОПЯТЬ… ИТОГИ",
+    ),
+    lit(
+      "чистка: «&hellip;» с точкой с запятой → «…»",
+      "ИТОГИ&hellip;",
+      stripTags("ИТОГИ&hellip;"),
+      "ИТОГИ…",
+    ),
+    lit(
+      "чистка: «&hellipsis» — не сущность, остаётся",
+      "см. &hellipsis дальше",
+      stripTags("см. &hellipsis дальше"),
+      "см. &hellipsis дальше",
+    ),
+    lit("чистка: «P&G» остаётся", "P&G", stripTags("P&G"), "P&G"),
+    lit(
+      "чистка: «&laquo» без точки с запятой → «",
+      "&laquoСПОРТ&raquo",
+      stripTags("&laquoСПОРТ&raquo"),
+      "«СПОРТ»",
+    ),
+    lit(
+      "чистка: неизвестное имя «&foo» остаётся в обеих формах",
+      "a &foo b &foo; c",
+      stripTags("a &foo b &foo; c"),
+      "a &foo b &foo; c",
+    ),
+    lit(
+      "чистка: числовые формы «&#149;» → «•», «&#8230;» → «…», «&#x2026» → «…»",
+      "a&#149;b &#8230; c&#x2026",
+      stripTags("a&#149;b &#8230; c&#x2026"),
+      "a•b … c…",
+    ),
+    (() => {
+      const out = blankComments(orphanInput);
+      return {
+        name: "чистка: осиротевший «-->» затирается, парный комментарий — целиком, длина прежняя",
+        input: orphanInput,
+        output: JSON.stringify(out),
+        ok:
+          !out.includes("-->") &&
+          !out.includes("<!--") &&
+          out.length === orphanInput.length &&
+          out.replace(/\s+/g, " ") === "a b c",
+      };
+    })(),
+    lit(
+      "чистка: регион article без хвостов комментариев маркеров",
+      regionInput,
+      JSON.stringify(articleRegion(regionInput)),
+      JSON.stringify("\r\n<p>тело</p>\r\n"),
+    ),
+    lit(
+      'чистка: article без маркеров — от <td width="821" до конца',
+      noMarkersInput,
+      articleRegion(noMarkersInput),
+      noMarkersInput,
+    ),
+    lit(
+      "чистка: таблица данных остаётся таблицей (colspan), без style/onclick/font",
+      dataTableInput,
+      sanitizeBody(dataTableInput, ctx),
+      dataTableExpected,
+    ),
+    lit(
+      "чистка: caption/thead/tbody сохраняются, span и img внутри ячеек — нет",
+      sectionsTableInput,
+      sanitizeBody(sectionsTableInput, ctx),
+      sectionsTableExpected,
+    ),
+    lit(
+      "чистка: макетная таблица разворачивается в абзацы",
+      layoutTableInput,
+      sanitizeBody(layoutTableInput, ctx),
+      "<p>первый абзац текста</p>\n<p>второй абзац</p>",
+    ),
+    lit(
+      "чистка: таблица данных с вложенной таблицей разворачивается (вложенная без своих вложенных — остаётся)",
+      nestedDataInput,
+      sanitizeBody(nestedDataInput, ctx),
+      "<p>1</p>\n<table><tr><td>2</td></tr></table>",
+    ),
+    (() => {
+      const out = sanitizeBody(iframeInput, videoCtx);
+      return {
+        name: "чистка: iframe → ссылка «Видео» в теле",
+        input: iframeInput,
+        output: out,
+        ok:
+          out.includes(videoAnchor) &&
+          !out.includes("iframe") &&
+          stripTags(out) === "Смотрите ролик Видео",
+      };
+    })(),
+    lit(
+      "чистка: iframe без videoLinks выброшен (путь анонса)",
+      iframeInput,
+      sanitizeBody(iframeInput, ctx),
+      "<p>Смотрите ролик</p>",
+    ),
+    ...(() => {
+      const banner =
+        `\r\n      <p class="Header_BlueBack"><marquee behavior="alternate" direction="right"> <span style="color:#f25100">` +
+        `<a href=http://www.tennisfed.spb.ru/festvest.html>ФЕСТИВАЛЬ ТЕННИСНЫХ ГОРОДОВ</a></span></marquee></p>\r\n`;
+      const headerTitle = `<p align=center class=lgtxt>\r\nЗаголовок страницы\r\n<br />\r\nвторая строка\r\n`;
+      const published = `<p class=mdtxt align=right><i>Опубликовано\r\n<br>\r\n30 августа 2023 г.\r\n</i>\r\n<br />\r\n`;
+      const updated = `<p class=mdtxt align=right><i>Обновлено\r\n<br>\r\n21 февраля 2024 г.\r\n</i>\r\n`;
+      const numeric = `<p class=mdtxt align=right><i>Опубликовано\r\n<br>\r\n20.03.2022\r\n</i>\r\n`;
+      const text = `<p class=mdtxt align=left>\r\nТекст статьи.`;
+      const repeatPara = `<p align=center>\r\nЗаголовок страницы\r\n<br />\r\nвторая строка\r\n`;
+      const leadPara = `<p align=center>\r\nЗаголовок страницы вторая строка открыта для всех.\r\n`;
+      const c1 = cutArticleHeader(banner + headerTitle + published + text);
+      const c2 = cutArticleHeader(banner + headerTitle + updated + text);
+      const c3 = cutArticleHeader(banner + headerTitle + numeric + text);
+      const c4 = cutArticleHeader(banner + headerTitle + text);
+      const c5 = cutArticleHeader(banner + headerTitle + published + repeatPara + text);
+      const c6 = cutArticleHeader(banner + headerTitle + published + leadPara + text);
+      return [
+        {
+          name: "чистка: шапка article (баннер, заголовок, «Опубликовано … г.») срезана до текста",
+          input: JSON.stringify(banner + headerTitle + published + text),
+          output: JSON.stringify(c1),
+          ok: c1.html === text && c1.cut && !c1.repeat,
+        },
+        {
+          name: "чистка: «Обновлено … г.» и «Опубликовано 20.03.2022» — тоже шапка",
+          input: JSON.stringify([updated, numeric]),
+          output: JSON.stringify([c2, c3]),
+          ok: c2.html === text && c2.cut && c3.html === text && c3.cut,
+        },
+        {
+          name: "чистка: без строки публикации шапка не режется",
+          input: JSON.stringify(banner + headerTitle + text),
+          output: JSON.stringify(c4),
+          ok: c4.html === banner + headerTitle + text && !c4.cut,
+        },
+        {
+          name: "чистка: точный повтор заголовка после строки публикации срезан, лид с теми же словами — нет",
+          input: JSON.stringify([repeatPara, leadPara]),
+          output: JSON.stringify([c5, c6]),
+          ok: c5.html === text && c5.repeat && c6.html === leadPara + text && c6.cut && !c6.repeat,
+        },
+      ];
+    })(),
+  ];
+  for (const c of cleanupCases) {
+    if (!c.ok) failed += 1;
+    console.log(`[${c.ok ? "OK" : "FAIL"}] ${c.name}`);
+    console.log(`  вход:  ${c.input}`);
+    console.log(`  выход: ${c.output}`);
+  }
+
+  const total = cases.length + profCases.length + invCases.length + cleanupCases.length;
   console.log(`\nСамотест: ${total - failed}/${total} прошло`);
   return failed === 0 ? 0 : 1;
 }
