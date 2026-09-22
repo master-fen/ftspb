@@ -308,6 +308,14 @@ type ReportBag = {
   mediaNoCover: string[];
   /** Записи-страницы, у которых шапка страницы осталась в теле. */
   mediaHeaderNotCut: string[];
+  /**
+   * Видимый текст каждой снятой ссылки на поглощённую страницу: «остаток
+   * навигации галереи» ищется именно здесь, а не в готовом теле — в теле цифры
+   * неотличимы от цен и дат.
+   */
+  absorbedLinkTexts: string[];
+  /** Ссылки на файлы годовых лент в телах: адрес, видимый текст, вердикт. */
+  feedFileLinks: string[];
 };
 
 const report: ReportBag = {
@@ -350,6 +358,8 @@ const report: ReportBag = {
   mediaShortBody: [],
   mediaNoCover: [],
   mediaHeaderNotCut: [],
+  absorbedLinkTexts: [],
+  feedFileLinks: [],
 };
 
 /** Свежий отчёт: проход 1 — разведочный, его счётчики в итог не идут (см. main). */
@@ -820,6 +830,89 @@ function splitChunks(html: string, file: string): Chunk[] {
   return chunks;
 }
 
+// ───────────────────────── якоря годовых лент ─────────────────────────
+
+/**
+ * Якорь `<a name="X">` внутри ряда годовой ленты — единственный адрес, по
+ * которому легаси ссылается на одну новость ленты: у ленты один файл на год.
+ * `newsarch_2013.html#100let` указывает на одну запись, тот же файл без якоря
+ * — на всю ленту.
+ */
+const FEED_ANCHOR_RE = /<a\s[^>]*name\s*=\s*["']?([^"'\s>]+)/gi;
+
+/** Ключ карты якорей: «newsarch_2013.html#100let». */
+const feedAnchorKey = (file: string, name: string): string => `${file}#${name}`;
+
+type FeedAnchorOwner = {
+  file: string;
+  /** Индекс ряда (chunk) файла ленты, внутри которого стоит якорь. */
+  chunk: number;
+  kind: Chunk["kind"];
+};
+
+/** Якорь → ряд ленты, которому он принадлежит. Заполняется loadFeedAnchors(). */
+const feedAnchorOwner = new Map<string, FeedAnchorOwner>();
+/** Имя якоря встретилось в файле больше одного раза — цель неоднозначна. */
+const feedAnchorAmbiguous = new Set<string>();
+/** Якорь стоит вне рядов ленты (навигация страницы) — записи не принадлежит. */
+const feedAnchorOutside = new Set<string>();
+
+/**
+ * Предпроход по файлам годовых лент: где стоит каждый якорь. Идёт до прохода 1,
+ * потому что ссылка на якорь чужой ленты встречается раньше, чем эта лента
+ * разбирается. `splitChunks` умеет писать в `runErrors`; здесь её вывод
+ * откатывается, иначе нераспознанный ряд был бы напечатан трижды (предпроход и
+ * оба прохода).
+ */
+function loadFeedAnchors(): void {
+  const errorsBefore = runErrors.length;
+  for (const file of FEED_FILES) {
+    const html = blankComments(readCp1251(join(ARCHIVE, "archive_pages", file)));
+    const chunks = splitChunks(html, file);
+    const seen = new Set<string>();
+    FEED_ANCHOR_RE.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = FEED_ANCHOR_RE.exec(html))) {
+      const at = m.index;
+      const key = feedAnchorKey(file, m[1]);
+      if (seen.has(key)) {
+        feedAnchorAmbiguous.add(key);
+        feedAnchorOwner.delete(key);
+        continue;
+      }
+      seen.add(key);
+      const idx = chunks.findIndex((c) => at >= c.start && at < c.end);
+      if (idx < 0 || chunks[idx].kind === "empty") {
+        feedAnchorOutside.add(key);
+        continue;
+      }
+      feedAnchorOwner.set(key, { file, chunk: idx, kind: chunks[idx].kind });
+    }
+  }
+  runErrors.length = errorsBefore;
+}
+
+/**
+ * Ключ якоря, на который указывает ссылка, если она ведёт на файл ленты и
+ * несёт непустой фрагмент. Ссылка на файл ленты без якоря — `null`.
+ */
+function feedAnchorOfLink(internalPath: string, abs: string): string | null {
+  const file = internalPath.replace(/^\//, "");
+  if (!FEED_FILES.includes(file)) return null;
+  const hash = new URL(abs).hash.replace(/^#/, "");
+  if (!hash) return null;
+  try {
+    return feedAnchorKey(file, decodeURIComponent(hash));
+  } catch {
+    return feedAnchorKey(file, hash);
+  }
+}
+
+/** Ссылка ведёт на файл годовой ленты (с якорем или без)? */
+function isFeedFileLink(internalPath: string): boolean {
+  return FEED_FILES.includes(internalPath.replace(/^\//, ""));
+}
+
 // ───────────────────────── даты ─────────────────────────
 
 const DATE_SPAN_RE =
@@ -1241,6 +1334,22 @@ function inlineParagraphs(work: string, ctx: SanitizeCtx): string[] {
         // Ссылка на страницу, ставшую записью — всё равно, отдельной записью
         // смежной ленты или телом записи годовой ленты: адрес новой записи
         // знает не разбор, а мигратор — в тело идёт метка на её `Источник`.
+        // Замер: ссылка на файл годовой ленты. Однозначной её делает якорь,
+        // указывающий на один ряд ленты; без якоря цель — вся лента.
+        if (internalPath !== null && isFeedFileLink(internalPath) && !ctx.silent) {
+          const anchorKey = feedAnchorOfLink(internalPath, abs);
+          const verdict =
+            anchorKey === null
+              ? "без якоря — цель неоднозначна"
+              : feedAnchorOwner.has(anchorKey)
+                ? `якорь ${anchorKey} → ряд ${feedAnchorOwner.get(anchorKey)!.chunk} (${feedAnchorOwner.get(anchorKey)!.kind})`
+                : feedAnchorAmbiguous.has(anchorKey)
+                  ? `якорь ${anchorKey} встречается в файле дважды — цель неоднозначна`
+                  : feedAnchorOutside.has(anchorKey)
+                    ? `якорь ${anchorKey} стоит вне рядов ленты`
+                    : `якоря ${anchorKey} в файле нет`;
+          report.feedFileLinks.push(`${ctx.baseUrl} → ${abs} | ${verdict}`);
+        }
         const targetRel = internalPath !== null ? articleRelFile(abs) : null;
         if (targetRel !== null && allRecordPages.has(targetRel)) {
           if (!ctx.silent) report.recordMarkers += 1;
@@ -1827,7 +1936,12 @@ function buildRecord(item: FeedItem): OutputRecord | null {
       (whole, href: string, inner: string) => {
         const abs = absolutize(href, feedUrl);
         const rel = abs ? articleRelFile(abs) : null;
-        return rel && absorbedRel.has(rel) ? inner : whole;
+        if (!rel || !absorbedRel.has(rel)) return whole;
+        const text = stripTags(inner);
+        if (text !== "") {
+          report.absorbedLinkTexts.push(`${context}: «${title}» → ${rel} | «${text}»`);
+        }
+        return inner;
       },
     );
 
@@ -2531,6 +2645,29 @@ function renderReport(records: OutputRecord[]): string {
   section("Записи-страницы без обложки", report.mediaNoCover);
   section("Записи-страницы, у которых шапка страницы осталась в теле", report.mediaHeaderNotCut);
   section("Ссылки на страницу-запись: поглощения нет", report.markerLinks);
+
+  // ── замер: видимый текст снятых ссылок на поглощённые страницы ──
+  // Остаток навигации галереи («Фотогалерея 1», «2», «далее») виден только
+  // здесь: в готовом теле такая цифра неотличима от цены и даты.
+  const navForms = new Map<string, number>();
+  for (const row of report.absorbedLinkTexts) {
+    const text = row.slice(row.indexOf("| «") + 3, row.length - 1);
+    navForms.set(text, (navForms.get(text) ?? 0) + 1);
+  }
+  L.push(
+    `## Видимый текст снятых ссылок на поглощённые страницы (${report.absorbedLinkTexts.length})`,
+  );
+  L.push("");
+  L.push(`Различных форм текста: ${navForms.size}. Формы, встреченные больше одного раза:`);
+  L.push("");
+  const repeated = [...navForms]
+    .filter(([, n]) => n > 1)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  if (repeated.length === 0) L.push("_нет_");
+  else for (const [text, n] of repeated) L.push(`- ${n} × «${text}»`);
+  L.push("");
+  section("Снятые ссылки на поглощённые страницы поимённо", report.absorbedLinkTexts);
+  section("Ссылки на файлы годовых лент в телах", report.feedFileLinks);
 
   return L.join("\n") + "\n";
 }
@@ -6357,6 +6494,7 @@ function main(): void {
   }
 
   loadManifest();
+  loadFeedAnchors();
 
   // ── проход 1, разведочный ──
   // Подавлять поглощение надо для любой страницы, ставшей записью, включая
