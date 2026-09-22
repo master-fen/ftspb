@@ -150,11 +150,11 @@ describe("только добавить: что пропускается", () =>
 
   test("порядок выгрузки сохраняется в обоих списках", () => {
     const items = [
-      { slug: "a" },
-      { slug: "est-1" },
-      { slug: "b" },
-      { slug: "est-2" },
-      { slug: "c" },
+      plan("a", "Первая", "2024-03-01"),
+      plan("est-1", "Уже есть", "2024-01-01"),
+      plan("b", "Вторая", "2024-03-02"),
+      plan("est-2", "Мягко удалена", "2024-01-02"),
+      plan("c", "Третья", "2024-03-03"),
     ];
     const got = partitionAddOnly(items, existing);
     expect(got.insert.map((x) => x.slug)).toEqual(["a", "b", "c"]);
