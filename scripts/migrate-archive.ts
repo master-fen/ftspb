@@ -968,7 +968,9 @@ async function main() {
       // выгрузки пропускается целиком, на сайте остаётся версия схемы.
       // Без ключа карта не передаётся, и поведение прежнее: справка
       // печатается (printTitleDateOverlap выше), запись добавляется.
-      const byTitleDate = skipTitleDate ? indexByTitleDate(existing) : undefined;
+      const byTitleDate = skipTitleDate
+        ? indexByTitleDate(existing, new Set(identities.map((i) => i.slug)))
+        : undefined;
       const part = partitionAddOnly(identities, bySlug, byTitleDate);
       working = part.insert;
       skippedRows = part.skipped;

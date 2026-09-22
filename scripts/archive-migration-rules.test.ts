@@ -255,6 +255,20 @@ describe("пропуск совпадений «заголовок + дата» 
     expect(got.insert.map((x) => x.slug)).toEqual(["styortaya"]);
   });
 
+  test("новость под слагом, который занимает сама выгрузка, версией сайта не считается", () => {
+    // След прошлого прогона архива: та же пара «заголовок + дата», но слаг —
+    // из выгрузки. Пропускать по ней нельзя, иначе запись потерялась бы.
+    const prev = [row("match-gorodov", "Матч городов", "2026-05-11")];
+    const idx = indexByTitleDate(prev, new Set(["match-gorodov"]));
+    expect(idx.size).toBe(0);
+    const got = partitionAddOnly(
+      [plan("match-gorodov-2", "Матч городов", "2026-05-11")],
+      new Map(prev.map((r) => [r.slug, r])),
+      idx,
+    );
+    expect(got.insert.map((x) => x.slug)).toEqual(["match-gorodov-2"]);
+  });
+
   test("совпадение по слагу сильнее: причина остаётся active", () => {
     const got = partitionAddOnly([plan("est-1", "Уже есть", "2024-01-01")], bySlug, byTitleDate);
     expect(got.skipped.map((x) => x.reason)).toEqual(["active"]);

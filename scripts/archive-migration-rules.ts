@@ -152,15 +152,21 @@ export type AddOnlyPartition<T> = {
 
 /**
  * Карта «заголовок + дата → новость схемы» для пропуска по --skip-title-date.
- * Мягко удалённые новости в карту не идут: версии сайта у такой пары нет —
- * человек её стёр, и архивную запись вместо неё оставляем.
+ *
+ * Не идут в карту:
+ *   - мягко удалённые: версии сайта у такой пары нет, человек её стёр, и
+ *     архивную запись вместо неё оставляем;
+ *   - новости, чей слаг выгрузка и так занимает (`exportSlugs`): это след
+ *     прошлого прогона архива, а не версия сайта. Условие то же, что у
+ *     справки (titleDateOverlap), и означает буквально «под другим слагом».
  */
 export function indexByTitleDate(
   rows: ReadonlyArray<ExistingNewsRow>,
+  exportSlugs: ReadonlySet<string> = new Set(),
 ): Map<string, ExistingNewsRow> {
   const map = new Map<string, ExistingNewsRow>();
   for (const row of rows) {
-    if (row.deletedAt != null) continue;
+    if (row.deletedAt != null || exportSlugs.has(row.slug)) continue;
     const key = titleDateKey(row.title, row.publishedAt);
     if (!map.has(key)) map.set(key, row);
   }
