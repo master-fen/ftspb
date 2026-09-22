@@ -37,7 +37,7 @@ import { readFileSync, readdirSync, existsSync, mkdirSync, writeFileSync } from 
 import { join } from "node:path";
 import process from "node:process";
 // Расширение обязательно: node раздевает типы сам, но путь не дорезолвит.
-import { findMarkerSources, markerHref } from "./archive-markers.ts";
+import { RECORD_MARKER_SCHEME, findMarkerSources, markerHref } from "./archive-markers.ts";
 
 // ───────────────────────── аргументы ─────────────────────────
 
@@ -308,6 +308,8 @@ type ReportBag = {
   mediaNoCover: string[];
   /** Записи-страницы, у которых шапка страницы осталась в теле. */
   mediaHeaderNotCut: string[];
+  /** Записи-страницы, у которых заголовочный блок срезан правилом cutPageTitleBlock. */
+  mediaHeaderCutExtra: string[];
   /**
    * Видимый текст каждой снятой ссылки на поглощённую страницу: «остаток
    * навигации галереи» ищется именно здесь, а не в готовом теле — в теле цифры
@@ -316,6 +318,10 @@ type ReportBag = {
   absorbedLinkTexts: string[];
   /** Ссылки на файлы годовых лент в телах: адрес, видимый текст, вердикт. */
   feedFileLinks: string[];
+  /** Снятые остатки навигации галереи: запись → тексты убранных строк. */
+  navRemnants: string[];
+  /** Якорь ленты, дописанный в `Источник` записи-цели. */
+  feedAnchorSources: string[];
 };
 
 const report: ReportBag = {
@@ -358,8 +364,11 @@ const report: ReportBag = {
   mediaShortBody: [],
   mediaNoCover: [],
   mediaHeaderNotCut: [],
+  mediaHeaderCutExtra: [],
   absorbedLinkTexts: [],
   feedFileLinks: [],
+  navRemnants: [],
+  feedAnchorSources: [],
 };
 
 /** Свежий отчёт: проход 1 — разведочный, его счётчики в итог не идут (см. main). */
@@ -858,6 +867,16 @@ const feedAnchorAmbiguous = new Set<string>();
 const feedAnchorOutside = new Set<string>();
 
 /**
+ * Якоря, на которые в телах прохода 2 встала метка. По ним после прохода
+ * поле `Источник` записи-цели дописывается якорем: адрес метки и `Источник`
+ * обязаны совпасть буквально, иначе метка не разрешится.
+ */
+const referencedFeedAnchors = new Set<string>();
+
+/** Якорь → запись, ряд которой его содержит. Заполняется в parseFeedFile. */
+const recordByFeedAnchor = new Map<string, OutputRecord>();
+
+/**
  * Предпроход по файлам годовых лент: где стоит каждый якорь. Идёт до прохода 1,
  * потому что ссылка на якорь чужой ленты встречается раньше, чем эта лента
  * разбирается. `splitChunks` умеет писать в `runErrors`; здесь её вывод
@@ -1334,21 +1353,34 @@ function inlineParagraphs(work: string, ctx: SanitizeCtx): string[] {
         // Ссылка на страницу, ставшую записью — всё равно, отдельной записью
         // смежной ленты или телом записи годовой ленты: адрес новой записи
         // знает не разбор, а мигратор — в тело идёт метка на её `Источник`.
-        // Замер: ссылка на файл годовой ленты. Однозначной её делает якорь,
-        // указывающий на один ряд ленты; без якоря цель — вся лента.
-        if (internalPath !== null && isFeedFileLink(internalPath) && !ctx.silent) {
+        // Ссылка на файл годовой ленты. Однозначной её делает якорь,
+        // указывающий на один ряд ленты: тогда цель — одна запись, и в тело
+        // идёт метка на её `Источник`. Без якоря (или якорь неоднозначен,
+        // стоит вне рядов, мёртв) цель — вся лента: ссылка не трогается.
+        if (internalPath !== null && isFeedFileLink(internalPath)) {
           const anchorKey = feedAnchorOfLink(internalPath, abs);
-          const verdict =
-            anchorKey === null
-              ? "без якоря — цель неоднозначна"
-              : feedAnchorOwner.has(anchorKey)
-                ? `якорь ${anchorKey} → ряд ${feedAnchorOwner.get(anchorKey)!.chunk} (${feedAnchorOwner.get(anchorKey)!.kind})`
-                : feedAnchorAmbiguous.has(anchorKey)
-                  ? `якорь ${anchorKey} встречается в файле дважды — цель неоднозначна`
-                  : feedAnchorOutside.has(anchorKey)
-                    ? `якорь ${anchorKey} стоит вне рядов ленты`
-                    : `якоря ${anchorKey} в файле нет`;
-          report.feedFileLinks.push(`${ctx.baseUrl} → ${abs} | ${verdict}`);
+          const owner = anchorKey === null ? undefined : feedAnchorOwner.get(anchorKey);
+          if (!ctx.silent) {
+            const verdict =
+              anchorKey === null
+                ? "без якоря — цель неоднозначна"
+                : owner
+                  ? `якорь ${anchorKey} → ряд ${owner.chunk} (${owner.kind}) — метка`
+                  : feedAnchorAmbiguous.has(anchorKey)
+                    ? `якорь ${anchorKey} встречается в файле дважды — цель неоднозначна`
+                    : feedAnchorOutside.has(anchorKey)
+                      ? `якорь ${anchorKey} стоит вне рядов ленты`
+                      : `якоря ${anchorKey} в файле нет`;
+            report.feedFileLinks.push(`${ctx.baseUrl} → ${abs} | ${verdict}`);
+          }
+          if (owner && anchorKey !== null) {
+            if (!ctx.silent) report.recordMarkers += 1;
+            referencedFeedAnchors.add(anchorKey);
+            const marker = markerHref(`${SITE}/${anchorKey}`);
+            current.push(`<a href="${marker.replace(/"/g, "&quot;")}">`);
+            inlineStack.push("a");
+            continue;
+          }
         }
         const targetRel = internalPath !== null ? articleRelFile(abs) : null;
         if (targetRel !== null && allRecordPages.has(targetRel)) {
@@ -1473,6 +1505,78 @@ function sanitizeBody(html: string, ctx: SanitizeCtx): string {
   }
   pushParas(work.slice(pos));
   return blocks.join("\n");
+}
+
+// ───────────────────── остатки навигации галереи ─────────────────────
+
+/**
+ * Слово-подпись и указатель страницы галереи. Легаси вёл на страницы галереи
+ * ссылками «Фотогалерея 1 … 6», «ФОТОГАЛЕРЕЯ», «ФОТОГАЛЕРЕЯ 22.07.2013»; сами
+ * страницы поглощены в галерею записи, ссылки сняты, а их видимый текст
+ * остался строкой, за которой уже ничего нет.
+ */
+const NAV_TOKEN_RE =
+  /^(?:фотогалерея|галерея|фото|фотографии|далее|ещё|еще|стр|страница|часть|№|>>|\d{1,3}|\d{1,2}\.\d{1,2}\.\d{4})$/i;
+
+/** Токены строки без окаймляющей пунктуации; пустые выброшены. */
+const navTokens = (text: string): string[] =>
+  text
+    .split(/\s+/)
+    .map((t) => t.replace(/^[«»"'(),.:;!?…–—-]+|[«»"'(),.:;!?…–—-]+$/g, ""))
+    .filter((t) => t !== "");
+
+/**
+ * Видимый текст снятой ссылки состоит только из навигационных слов и цифр.
+ * «Фотогалерея турнира», «Читайте фото-отчёт о турнире» и «ЗДЕСЬ» внутри
+ * предложения под признак не подходят: у первых двух есть осмысленное
+ * уточнение, третье проверяется остатком строки (см. dropNavRemnants).
+ */
+function isNavOnlyText(text: string): boolean {
+  const toks = navTokens(text);
+  return toks.length > 0 && toks.every((t) => NAV_TOKEN_RE.test(t));
+}
+
+/**
+ * Строки тела, от которых после снятия ссылок на поглощённые страницы не
+ * осталось ничего, кроме навигационного текста, — убираются целиком, вместе
+ * со своим разделителем `<br>`; опустевший абзац не публикуется. Подпись,
+ * стоявшая перед ссылками отдельным словом, уходит тем же правилом: она
+ * остаётся на строке одна и сама становится навигационным текстом.
+ *
+ * Живой текст не трогается: строка, где кроме снятого текста есть что-то ещё
+ * («Подробности и форма заявки ЗДЕСЬ»), остаётся как была.
+ */
+function dropNavRemnants(
+  bodyHtml: string,
+  navTexts: ReadonlySet<string>,
+): { html: string; dropped: string[] } {
+  const dropped: string[] = [];
+  if (navTexts.size === 0) return { html: bodyHtml, dropped };
+  const blocks: string[] = [];
+  for (const block of bodyHtml.split("\n")) {
+    if (!block.startsWith("<p>") || !block.endsWith("</p>")) {
+      blocks.push(block);
+      continue;
+    }
+    const lines = block.slice(3, -4).split("<br>");
+    const kept = lines.filter((line) => {
+      const text = stripTags(line);
+      if (text === "" || !navTexts.has(text)) return true;
+      dropped.push(text);
+      return false;
+    });
+    if (kept.length === lines.length) {
+      blocks.push(block);
+      continue;
+    }
+    const inner = kept
+      .join("<br>")
+      .replace(/^(?:\s*<br>)+/, "")
+      .replace(/(?:<br>\s*)+$/, "")
+      .trim();
+    if (stripTags(inner) !== "") blocks.push(`<p>${inner}</p>`);
+  }
+  return { html: blocks.join("\n"), dropped };
 }
 
 // ───────────────────────── article-страницы ─────────────────────────
@@ -1718,6 +1822,8 @@ type FeedItem = {
   bodyHtml: string;
   mergedFrom: number[]; // строки склеенных хвостов
   titleVia: "td" | "span" | null; // чем распознан заголовочный ряд (для профиля)
+  /** Индексы рядов (chunks) файла ленты, из которых собран элемент. */
+  chunks: number[];
 };
 
 function extractTitle(item: FeedItem): string | null {
@@ -1930,6 +2036,9 @@ function buildRecord(item: FeedItem): OutputRecord | null {
   // Ссылки на поглощённые article из тела изымаются (текст остаётся),
   // цитатные — остаются и абсолютизируются штатной обработкой <a>.
   const absorbedRel = new Set(absorbed.map((l) => l.relFile));
+  // Видимые тексты снятых ссылок, целиком состоящие из навигации: по ним
+  // dropNavRemnants убирает осиротевшие строки из готового тела.
+  const navTexts = new Set<string>();
   const stripAbsorbedLinks = (html: string): string =>
     html.replace(
       /<a\b[^>]*href\s*=\s*["']?([^"'\s>]+)["']?[^>]*>([\s\S]*?)<\/a>/gi,
@@ -1940,6 +2049,7 @@ function buildRecord(item: FeedItem): OutputRecord | null {
         const text = stripTags(inner);
         if (text !== "") {
           report.absorbedLinkTexts.push(`${context}: «${title}» → ${rel} | «${text}»`);
+          if (isNavOnlyText(text)) navTexts.add(text);
         }
         return inner;
       },
@@ -1995,6 +2105,7 @@ function buildRecord(item: FeedItem): OutputRecord | null {
   let source: string;
   if (teaser && teaser.page && articleBody !== null) {
     bodyHtmlOut = sanitizeBody(articleBody, { baseUrl: teaser.page.url, videoLinks: true });
+    bodyHtmlOut = noteNavRemnants(bodyHtmlOut, navTexts, `${context}: «${title}»`);
     const feedPlain = stripTags(sanitizeBody(feedBody, { baseUrl: feedUrl }));
     anons = removeLinkSentence(feedPlain) || undefined;
     source = teaser.page.url;
@@ -2013,6 +2124,7 @@ function buildRecord(item: FeedItem): OutputRecord | null {
     }
   } else {
     bodyHtmlOut = sanitizeBody(feedBody, { baseUrl: feedUrl, videoLinks: true });
+    bodyHtmlOut = noteNavRemnants(bodyHtmlOut, navTexts, `${context}: «${title}»`);
     anons = undefined;
     source = feedUrl;
   }
@@ -2031,6 +2143,15 @@ function buildRecord(item: FeedItem): OutputRecord | null {
   curProf = null;
   if (cap) profByRecord.set(record, cap);
   return record;
+}
+
+/** dropNavRemnants плюс запись снятого в отчёт (счёт строк и записей). */
+function noteNavRemnants(html: string, navTexts: ReadonlySet<string>, label: string): string {
+  const res = dropNavRemnants(html, navTexts);
+  if (res.dropped.length > 0) {
+    report.navRemnants.push(`${label}: ${res.dropped.map((t) => `«${t}»`).join(", ")}`);
+  }
+  return res.html;
 }
 
 /** Предложение, содержащее данный href (для проверки фразы-ссылки). */
@@ -2087,6 +2208,7 @@ function parseFeedFile(file: string, records: CollectedRecord[]): void {
           bodyHtml: chunks[j].cell,
           mergedFrom: [],
           titleVia: c.titleVia ?? null,
+          chunks: [i, j],
         });
         i = j;
       } else {
@@ -2103,6 +2225,7 @@ function parseFeedFile(file: string, records: CollectedRecord[]): void {
           stripTags(prev.bodyHtml).slice(0, 60);
         prev.bodyHtml += "\n" + c.cell;
         prev.mergedFrom.push(c.line);
+        prev.chunks.push(i);
         mergeCount += 1;
         report.merges.push(`${file}:${c.line}: склейка с записью «${prevLabel}»`);
       } else {
@@ -2115,10 +2238,15 @@ function parseFeedFile(file: string, records: CollectedRecord[]): void {
           bodyHtml: c.cell,
           mergedFrom: [],
           titleVia: null,
+          chunks: [i],
         });
       }
     }
   }
+
+  // Якоря этого файла: ряд, внутри которого стоит якорь, принадлежит одному
+  // элементу ленты — так метка на `файл#якорь` находит свою запись.
+  const anchorsHere = [...feedAnchorOwner].filter(([, o]) => o.file === file);
 
   let produced = 0;
   for (const item of items) {
@@ -2126,6 +2254,9 @@ function parseFeedFile(file: string, records: CollectedRecord[]): void {
     if (rec) {
       records.push({ file, rec });
       produced += 1;
+      for (const [key, o] of anchorsHere) {
+        if (item.chunks.includes(o.chunk)) recordByFeedAnchor.set(key, rec);
+      }
     }
   }
 
@@ -2247,8 +2378,6 @@ function isSuppressedLink(
  * `<p class="Header_BlueBack">` с marquee. Заголовком страницы он не бывает
  * (на том же признаке держится cutArticleHeader), поэтому у записи-страницы
  * срезается всегда — в том числе там, где шапку целиком срезать не удалось.
- * Страховки cutArticleHeader (картинка или таблица в шапке, предел в четыре
- * абзаца) при этом не ослабляются: здесь режется ровно один абзац.
  */
 function cutTemplateBanner(regionHtml: string): { html: string; cut: boolean } {
   const none = { html: regionHtml, cut: false };
@@ -2258,6 +2387,53 @@ function cutTemplateBanner(regionHtml: string): { html: string; cut: boolean } {
   const end = starts.length > 1 ? starts[1] : regionHtml.length;
   if (!/^<p\b[^>]*class="Header_BlueBack"/i.test(regionHtml.slice(starts[0], end))) return none;
   return { html: regionHtml.slice(end), cut: true };
+}
+
+/** Дата ряда ленты, оставшаяся в шапке страницы отдельным абзацем: «31.05.2025». */
+const BARE_DATE_RE = /^\d{1,2}\.\d{1,2}\.\d{4}$/;
+
+/**
+ * Заголовочный блок страницы легаси: абзац по центру, набранный крупным
+ * шрифтом шаблона (`class=lgtxt` на самом абзаце или на вложенном `<font>`,
+ * либо `<h1>`). Признак снят со всех шести страниц-записей, у которых шапка
+ * дожила до тела, и совпадает с тем, что режет cutArticleHeader на остальных.
+ */
+function isPageTitlePara(segment: string): boolean {
+  const open = segment.match(/^<p\b[^>]*>/i)?.[0] ?? "";
+  if (!/\balign\s*=\s*["']?center/i.test(open)) return false;
+  const head = segment.slice(0, 200);
+  return /\blgtxt\b/i.test(head) || /<h1\b/i.test(head);
+}
+
+/**
+ * Шапка записи-страницы, которую не взяла `cutArticleHeader`: её собственный
+ * заголовок и, если они идут следом, строка публикации и строка-дата. Решение
+ * Антона 21.09.2026: у записи-страницы шапка снимается всегда — и баннер, и
+ * собственный заголовок, и строка «Опубликовано …», и строка с датой; сайт
+ * показывает их сам. Страховки `cutArticleHeader` (картинка или таблица в
+ * шапке, предел в четыре абзаца) здесь не действуют: фото страницы собираются
+ * из несрезанного региона (`photosHtml`), поэтому срезка шапки фото не теряет.
+ *
+ * Режется ровно заголовочный блок и приросшие к нему служебные строки —
+ * эпиграф, подпись к фотографии и подзаголовок внутри текста под признак не
+ * подходят и остаются.
+ */
+function cutPageTitleBlock(regionHtml: string): { html: string; cut: boolean; paras: number } {
+  const none = { html: regionHtml, cut: false, paras: 0 };
+  const starts = [...regionHtml.matchAll(/<p\b[^>]*>/gi)].map((m) => m.index ?? 0);
+  if (starts.length === 0) return none;
+  if (stripTags(regionHtml.slice(0, starts[0])) !== "") return none;
+  const segment = (i: number): string =>
+    regionHtml.slice(starts[i], i + 1 < starts.length ? starts[i + 1] : regionHtml.length);
+  if (!isPageTitlePara(segment(0))) return none;
+  let i = 1;
+  while (i < starts.length) {
+    const seg = segment(i);
+    if (!PUBLISHED_LINE_RE.test(seg) && !BARE_DATE_RE.test(stripTags(seg))) break;
+    i += 1;
+  }
+  const end = i < starts.length ? starts[i] : regionHtml.length;
+  return { html: regionHtml.slice(end), cut: true, paras: i };
 }
 
 /**
@@ -2302,14 +2478,22 @@ function buildMediaRecord(row: MediaRow): OutputRecord | null {
     );
   }
 
-  const banner = cutTemplateBanner(page.bodyHtml);
+  let bodyRegion = cutTemplateBanner(page.bodyHtml).html;
   const label = `${context}: «${row.title}»`;
   if (page.layout === "D" && !page.headerCut) {
-    report.mediaHeaderNotCut.push(`${label} → ${row.relFile}`);
+    // Шапку не взяла cutArticleHeader (строки публикации нет вовсе либо она
+    // стоит за картинкой или таблицей) — режем заголовочный блок страницы.
+    const extra = cutPageTitleBlock(bodyRegion);
+    if (extra.cut) {
+      bodyRegion = extra.html;
+      report.mediaHeaderCutExtra.push(`${label} → ${row.relFile}: срезано абзацев ${extra.paras}`);
+    } else {
+      report.mediaHeaderNotCut.push(`${label} → ${row.relFile}`);
+    }
   }
 
   const docs: string[] = [];
-  const prepared = extractDocuments(banner.html, url, label, docs);
+  const prepared = extractDocuments(bodyRegion, url, label, docs);
 
   const photoPaths: string[] = [];
   for (const p of extractPhotos(page.photosHtml, url)) {
@@ -2643,6 +2827,10 @@ function renderReport(records: OutputRecord[]): string {
   section("Страница без строки «Опубликовано» (дата из имени файла)", report.mediaDateFromName);
   section("Записи-страницы с телом короче 200 знаков", report.mediaShortBody);
   section("Записи-страницы без обложки", report.mediaNoCover);
+  section(
+    "Записи-страницы: заголовочный блок срезан отдельным правилом",
+    report.mediaHeaderCutExtra,
+  );
   section("Записи-страницы, у которых шапка страницы осталась в теле", report.mediaHeaderNotCut);
   section("Ссылки на страницу-запись: поглощения нет", report.markerLinks);
 
@@ -2666,6 +2854,8 @@ function renderReport(records: OutputRecord[]): string {
   if (repeated.length === 0) L.push("_нет_");
   else for (const [text, n] of repeated) L.push(`- ${n} × «${text}»`);
   L.push("");
+  section("Снятые остатки навигации галереи", report.navRemnants);
+  section("Якорь ленты, дописанный в Источник записи-цели", report.feedAnchorSources);
   section("Снятые ссылки на поглощённые страницы поимённо", report.absorbedLinkTexts);
   section("Ссылки на файлы годовых лент в телах", report.feedFileLinks);
 
@@ -6463,8 +6653,197 @@ function runSelfTest(): number {
     console.log(`  выход: ${c.output}`);
   }
 
+  // ── второй круг архива (задание archive-round2, 21.09.2026) ──
+  const banner = '<p class="Header_BlueBack"><marquee>ФЕСТИВАЛЬ ТЕННИСНЫХ ГОРОДОВ</marquee></p>';
+  const round2Cases: Array<{ name: string; input: string; output: string; ok: boolean }> = [
+    (() => {
+      // A1: заголовок страницы, строка публикации и строка-дата — три абзаца.
+      const input =
+        banner +
+        "<p align=center class=lgtxt><h1>Матч городов</h1></p>" +
+        "<p class=mdtxt align=right><i>Опубликовано <br> 31 мая 2025 г.</i>" +
+        '<table width="95"><tr><td><img src="x.jpg"></td></tr></table></p>' +
+        '<p align="right"><span class="SubHeader_BlueBack">31.05.2025</span></p>' +
+        "<p align=left>Сборные команды встретились.</p>";
+      const cut = cutPageTitleBlock(cutTemplateBanner(input).html);
+      return {
+        name: "round2 A1: у записи-страницы срезаны заголовок, строка публикации и строка-дата — картинка и таблица в шапке не мешают",
+        input,
+        output: `paras=${cut.paras} ${cut.html}`,
+        ok:
+          cut.cut &&
+          cut.paras === 3 &&
+          cut.html === "<p align=left>Сборные команды встретились.</p>",
+      };
+    })(),
+    (() => {
+      // A1: без строки публикации срезается только заголовочный блок.
+      const input =
+        banner +
+        "<p align=center class=lgtxt><strong>150 лет отечественному теннису!</strong></p>" +
+        "<p align=center><i>В 2025 году исполняется 150 лет</i></p>";
+      const cut = cutPageTitleBlock(cutTemplateBanner(input).html);
+      return {
+        name: "round2 A1: строки публикации нет — срезан один абзац, подпись к фотографии осталась",
+        input,
+        output: `paras=${cut.paras} ${cut.html}`,
+        ok:
+          cut.cut &&
+          cut.paras === 1 &&
+          cut.html === "<p align=center><i>В 2025 году исполняется 150 лет</i></p>",
+      };
+    })(),
+    (() => {
+      // A1, отрицательный: эпиграф по левому краю заголовочным блоком не считается.
+      const input =
+        banner +
+        "<p align=left class=mdtxt><i>Канал-Фонтанка ярким светом переполнен</i></p>" +
+        "<p>Живой текст.</p>";
+      const cut = cutPageTitleBlock(cutTemplateBanner(input).html);
+      return {
+        name: "round2 A1 (отрицательный): эпиграф не срезается — блок не по центру и не крупным шрифтом",
+        input,
+        output: `cut=${cut.cut} ${cut.html}`,
+        ok:
+          !cut.cut &&
+          cut.html ===
+            "<p align=left class=mdtxt><i>Канал-Фонтанка ярким светом переполнен</i></p><p>Живой текст.</p>",
+      };
+    })(),
+    (() => {
+      // A1, отрицательный: подзаголовок внутри текста не срезается — он не первый.
+      const input =
+        banner +
+        "<p>Первый абзац живого текста.</p>" +
+        '<p align=center class=lgtxt><strong>Лауреаты "Русского Кубка"</strong></p>';
+      const cut = cutPageTitleBlock(cutTemplateBanner(input).html);
+      return {
+        name: "round2 A1 (отрицательный): подзаголовок внутри текста не срезается",
+        input,
+        output: `cut=${cut.cut} ${cut.html}`,
+        ok: !cut.cut,
+      };
+    })(),
+    (() => {
+      // A2: строка из одной навигационной подписи с цифрой уходит целиком.
+      const input =
+        "<p>Фотографии разделены на галереи:<br>Фотогалерея 1<br>Фотогалерея 2</p>\n<p>Пресс-служба</p>";
+      const res = dropNavRemnants(input, new Set(["Фотогалерея 1", "Фотогалерея 2"]));
+      return {
+        name: "round2 A2: строки «Фотогалерея 1» и «Фотогалерея 2» сняты, живая строка осталась",
+        input,
+        output: res.html,
+        ok:
+          res.dropped.length === 2 &&
+          res.html === "<p>Фотографии разделены на галереи:</p>\n<p>Пресс-служба</p>",
+      };
+    })(),
+    (() => {
+      // A2: абзац, состоящий только из навигации, не публикуется вовсе.
+      const input = "<p>ФОТОГАЛЕРЕЯ</p>\n<p>Живой текст.</p>";
+      const res = dropNavRemnants(input, new Set(["ФОТОГАЛЕРЕЯ"]));
+      return {
+        name: "round2 A2: абзац из одной подписи не публикуется",
+        input,
+        output: res.html,
+        ok: res.dropped.length === 1 && res.html === "<p>Живой текст.</p>",
+      };
+    })(),
+    (() => {
+      // A2, отрицательный: снятый текст на строке с живыми словами остаётся.
+      const input = "<p>Подробности и форма заявки ЗДЕСЬ</p>";
+      const res = dropNavRemnants(input, new Set(["ЗДЕСЬ"]));
+      return {
+        name: "round2 A2 (отрицательный): ссылка на осмысленных словах остаётся текстом",
+        input,
+        output: res.html,
+        ok: res.dropped.length === 0 && res.html === input,
+      };
+    })(),
+    (() => {
+      // A2, отрицательный: подпись с уточнением навигацией не считается.
+      const nav = isNavOnlyText("Фотогалерея турнира");
+      const bare = isNavOnlyText("Фотогалерея 3");
+      const dated = isNavOnlyText("ФОТОГАЛЕРЕЯ 22.07.2013");
+      const sentence = isNavOnlyText("Читайте фото-отчёт о турнире");
+      return {
+        name: "round2 A2 (отрицательный): «Фотогалерея турнира» и «Читайте фото-отчёт…» навигацией не считаются",
+        input:
+          "Фотогалерея турнира | Фотогалерея 3 | ФОТОГАЛЕРЕЯ 22.07.2013 | Читайте фото-отчёт о турнире",
+        output: `${nav} | ${bare} | ${dated} | ${sentence}`,
+        ok: !nav && bare && dated && !sentence,
+      };
+    })(),
+    (() => {
+      // A3: якорь внутри ряда ленты делает цель однозначной.
+      const key = feedAnchorKey("newsarch_2013.html", "100let");
+      const saved = feedAnchorOwner.get(key);
+      feedAnchorOwner.set(key, { file: "newsarch_2013.html", chunk: 6, kind: "title" });
+      const input = '<p>В дополнение к <a href="#100let">отчету о событии</a> публикуем фото.</p>';
+      const out = sanitizeBody(input, { baseUrl: `${SITE}/newsarch_2013.html`, silent: true });
+      if (saved === undefined) feedAnchorOwner.delete(key);
+      else feedAnchorOwner.set(key, saved);
+      return {
+        name: "round2 A3: ссылка на ряд годовой ленты с якорем становится меткой",
+        input,
+        output: out,
+        ok: out.includes(
+          `href="${markerHref(`${SITE}/newsarch_2013.html#100let`)}">отчету о событии</a>`,
+        ),
+      };
+    })(),
+    (() => {
+      // A3, отрицательный: якоря в файле нет — ссылка остаётся адресом легаси.
+      const input =
+        '<p>смотри <a href="http://www.tennisfed.spb.ru/news.html#obriens">интервью</a> и ' +
+        '<a href="http://www.tennisfed.spb.ru/newsarch_2013.html">всю ленту</a></p>';
+      const out = sanitizeBody(input, { baseUrl: `${SITE}/newsarch_2014.html`, silent: true });
+      return {
+        name: "round2 A3 (отрицательный): мёртвый якорь и ссылка без якоря меткой не становятся",
+        input,
+        output: out,
+        ok:
+          !out.includes(RECORD_MARKER_SCHEME) &&
+          out.includes('href="http://tennisfed.spb.ru/news.html">интервью</a>') &&
+          out.includes('href="http://tennisfed.spb.ru/newsarch_2013.html">всю ленту</a>'),
+      };
+    })(),
+    (() => {
+      // A3, отрицательный: имя якоря встречается в файле дважды — цель неоднозначна.
+      const key = feedAnchorKey("newsarch_2023.html", "beachworld");
+      const wasOwner = feedAnchorOwner.get(key);
+      const wasAmbiguous = feedAnchorAmbiguous.has(key);
+      feedAnchorOwner.delete(key);
+      feedAnchorAmbiguous.add(key);
+      const input =
+        '<p><a href="http://www.tennisfed.spb.ru/newsarch_2023.html#beachworld">чемпионат мира</a></p>';
+      const out = sanitizeBody(input, { baseUrl: `${SITE}/newsarch_2023.html`, silent: true });
+      if (wasOwner !== undefined) feedAnchorOwner.set(key, wasOwner);
+      if (!wasAmbiguous) feedAnchorAmbiguous.delete(key);
+      return {
+        name: "round2 A3 (отрицательный): неоднозначный якорь меткой не становится",
+        input,
+        output: out,
+        ok:
+          !out.includes(RECORD_MARKER_SCHEME) &&
+          out.includes('href="http://tennisfed.spb.ru/newsarch_2023.html">чемпионат мира</a>'),
+      };
+    })(),
+  ];
+  for (const c of round2Cases) {
+    if (!c.ok) failed += 1;
+    console.log(`[${c.ok ? "OK" : "FAIL"}] ${c.name}`);
+    console.log(`  вход:  ${c.input}`);
+    console.log(`  выход: ${c.output}`);
+  }
+
   const total =
-    cases.length + profCases.length + invCases.length + cleanupCases.length + feedCases.length;
+    cases.length +
+    profCases.length +
+    invCases.length +
+    cleanupCases.length +
+    feedCases.length +
+    round2Cases.length;
   console.log(`\nСамотест: ${total - failed}/${total} прошло`);
   return failed === 0 ? 0 : 1;
 }
@@ -6519,6 +6898,11 @@ function main(): void {
   allRecordPages = new Set([...bodyPages, ...newRecordPages]);
 
   // ── проход 2, итоговый ──
+  // Карта «якорь → запись» и множество использованных якорей принадлежат
+  // итоговому прогону: в проходе 1 метки ставились по другому множеству
+  // страниц-записей, и его следы в итог не идут.
+  recordByFeedAnchor.clear();
+  referencedFeedAnchors.clear();
   const collected: CollectedRecord[] = [];
   for (const file of FEED_FILES) parseFeedFile(file, collected);
 
@@ -6564,6 +6948,25 @@ function main(): void {
   }
 
   listUnreferencedArticles();
+
+  // Якорь ленты в `Источник` записи-цели. Метка несёт адрес
+  // «…/newsarch_2013.html#100let», а у записи годовой ленты `Источник` — файл
+  // ленты, общий на все её записи. Дописать якорь — единственный способ
+  // адресовать одну запись ленты, не меняя механизм метки: мигратор строит
+  // карту слагов по полю `Источник`. Якорь пишется только тем записям, на
+  // которые метка действительно встала; остальным он не нужен и `Источник` у
+  // них остаётся прежним. Записи-страницы не задеты: у них `Источник` — адрес
+  // самой страницы и он уникален.
+  for (const key of [...referencedFeedAnchors].sort()) {
+    const target = recordByFeedAnchor.get(key);
+    if (!target) {
+      runErrors.push(`метка на якорь ${key}: ряд ленты не дал записи`);
+      continue;
+    }
+    target["Источник"] = `${SITE}/${key}`;
+    report.feedAnchorSources.push(`${key} → «${target["Заголовок"]}» (${target["Дата"]})`);
+  }
+
   failOnRunErrors("проход 2");
 
   const records = dedupeRecords(collected);
