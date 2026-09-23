@@ -6837,6 +6837,8 @@ const docLinkLabel = (d: DocLink): string =>
 
 const DOC_HEAD = "| ключ | заголовок | адрес | текст ссылки | файл | 100 знаков вокруг |";
 const DOC_SEP = "|---|---|---|---|---|---|";
+const DOC_HEAD_FULL = DOC_HEAD + " фрагмент | сейчас | у кого файл |";
+const DOC_SEP_FULL = DOC_SEP + "---|---|---|";
 
 function docLinkRow(d: DocLink): string {
   return (
@@ -7026,12 +7028,10 @@ function renderDocLinksFile(r3: Round3): string {
     const в = r3.ссылки.filter((d) => d.группа === g);
     L.push(`## Группа (${g}) — ${в.length}`);
     L.push("");
-    L.push(DOC_HEAD.slice(0, -1) + " фрагмент | сейчас | у кого файл |");
-    L.push(DOC_SEP.slice(0, -1) + "---|---|---|");
+    L.push(DOC_HEAD_FULL);
+    L.push(DOC_SEP_FULL);
     for (const d of в) {
-      L.push(
-        docLinkRow(d).slice(0, -1) + ` ${d.роль} | ${d.сейчас} | ${d.уКого.join(", ") || "—"} |`,
-      );
+      L.push(docLinkRow(d) + ` ${d.роль} | ${d.сейчас} | ${d.уКого.join(", ") || "—"} |`);
     }
     if (в.length === 0) L.push("| _нет_ | | | | | | | | |");
     L.push("");
