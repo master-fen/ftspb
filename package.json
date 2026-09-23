@@ -19,6 +19,7 @@
     "db:studio": "drizzle-kit studio",
     "db:refresh": "bun run scripts/db-refresh.ts",
     "migrate:archive": "bun run scripts/migrate-archive.ts",
+    "reset:archive": "bun run scripts/reset-archive.ts",
     "create-admin": "bun run scripts/create-admin.ts",
     "delete-admin": "bun run scripts/delete-admin.ts",
     "test": "bun test"
