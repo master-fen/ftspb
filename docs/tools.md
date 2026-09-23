@@ -17,12 +17,12 @@
 | `bun run format`          | `prettier --write .`                 |
 | `bun run charter:check`   | сверка выгрузки Устава с PDF         |
 
-База на 22.09.2026 (после PR «архив, второй круг»): `bun test` —
-565 тестов в 44 файлах, 3361 вызов `expect()`, 0 падений. Из них в
-`scripts/` — 171 тест в девяти файлах: `archive-image-rule` 16,
-`archive-markers` 12, `archive-migration-rules` 42, `css-extract` 19,
-`css-rule-forms` 11, `snapshot-align` 10, `snapshot-compare` 11,
-`snapshot-locate` 25, `ssr-snapshot` 25. `bun run lint`
+База на 23.09.2026 (после PR «архив, второй круг»): `bun test` —
+578 тестов в 45 файлах, 3394 вызова `expect()`, 0 падений. Из них в
+`scripts/` — 184 теста в десяти файлах: `archive-image-rule` 16,
+`archive-markers` 12, `archive-migration-rules` 42, `archive-reset-rules` 13,
+`css-extract` 19, `css-rule-forms` 11, `snapshot-align` 10,
+`snapshot-compare` 11, `snapshot-locate` 25, `ssr-snapshot` 25. `bun run lint`
 — 0 ошибок, 6 предупреждений `react-refresh/only-export-components` в
 `src/components/ui/` (`badge.tsx`, `button.tsx`, `form.tsx`,
 `navigation-menu.tsx`, `sidebar.tsx`, `toggle.tsx`). Lint сравнивается списком
@@ -97,6 +97,19 @@
   файл — выход 1 до заливки. `--dry-run` в режимах `--add-only` и
   `--replace-all` подключается к базе и исполняет только SELECT. Остальные
   ключи — `--source=`, `--assets=`, `--schema=dev|public`, `--limit=`.
+- **`bun run reset:archive`** (`scripts/reset-archive.ts`) — снятие архива с
+  **локальной** схемы: приводит её к состоянию «новости редактора без
+  архива» перед повторной заливкой. Архивную строку отличает `news.source` с
+  адресом легаси. Отказывается работать, если `DATABASE_URL` ведёт не на
+  `localhost`/`127.0.0.1` — до подключения, код выхода 1. Первой строкой
+  печатает хост и схему. По умолчанию сухой прогон: печатает, сколько
+  новостей, фото, документов и связей будет удалено и сколько останется;
+  пишет только с `--yes`, одной транзакцией (документы, привязанные лишь к
+  архивным новостям, затем сами новости — `news_photo` и `news_document`
+  уходят каскадом). После записи перечитывает счёта и сверяет их с
+  предсказанием; расхождение — выход 1. Ключи: `--schema=dev|public`,
+  `--yes`. Решение вынесено в `scripts/archive-reset-rules.ts` и покрыто
+  тестами.
 - **`scripts/parse-archive.ts`** — разбор выгрузки архива. Запускается
   `node`, не `bun` (нужен `TextDecoder` windows-1251). Разбирает 26 годовых
   лент из `archive_pages/` и три смежные ленты вёрстки `media` из `download/`
@@ -104,7 +117,7 @@
   разведочный даёт множество страниц, уже ставших телом записи, его счётчики
   сбрасываются. `--profile=ПАПКА` пишет профиль и раздел «Контроли» —
   20 контролей, любой НЕТ — exit 1 после записи файлов. `--self-test` —
-  63 кейса на буквальном входе и выходе.
+  66 кейсов на буквальном входе и выходе.
 - **`bun run scripts/compress-archive.ts`** — отдельный проход сжатия
   архивных фото до заливки. Читает выгрузку, пишет все фото и документы в
   папку `--out=` с той же структурой каталогов и кладёт туда же
