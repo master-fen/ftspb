@@ -19,6 +19,19 @@ const PROBE_LENGTH = 60;
 const MIN_PROBE_LENGTH = 20;
 
 /**
+ * Насколько глубоко в тело заглядывает правило: анонс скрывается, только если
+ * проба начинается в первых `LEAD_ECHO_WINDOW` знаках плоского тела.
+ *
+ * Тысяча — по замеру локальной схемы `dev` 23.09.2026. Из 53 новостей, где
+ * проба стоит не в самом начале, у 49 она начинается не дальше 844-го знака
+ * (эпиграф, подпись к фото, вводный абзац), а у оставшихся четырёх — на 3536,
+ * 3557, 6562 и 24497, то есть у конца длинного текста. Там анонс —
+ * самостоятельный текст, который лишь упоминается ниже, и прятать его нельзя.
+ * Порог выбран внутри этого разрыва (решение Антона 23.09.2026).
+ */
+export const LEAD_ECHO_WINDOW = 1000;
+
+/**
  * Плоский текст для сравнения: снятие тегов, кавычки и многоточие долой,
  * пробелы в один, нижний регистр. Сущности (`&nbsp;`, `&amp;`) не
  * раскрываются — они одинаково стоят и в анонсе, и в теле.
@@ -40,5 +53,6 @@ export function shouldShowLead(excerpt?: string | null, body?: string | null): b
   const probe = excerptNorm.slice(0, PROBE_LENGTH);
   if (probe.length <= MIN_PROBE_LENGTH) return true;
   const bodyNorm = body ? normalizeLeadText(body) : "";
-  return !bodyNorm.startsWith(probe);
+  const at = bodyNorm.indexOf(probe);
+  return !(at >= 0 && at <= LEAD_ECHO_WINDOW);
 }
