@@ -37,7 +37,15 @@ import { readFileSync, readdirSync, existsSync, mkdirSync, writeFileSync } from 
 import { join } from "node:path";
 import process from "node:process";
 // Расширение обязательно: node раздевает типы сам, но путь не дорезолвит.
-import { RECORD_MARKER_SCHEME, findMarkerSources, markerHref } from "./archive-markers.ts";
+import {
+  DOCUMENT_MARKER_SCHEME,
+  RECORD_MARKER_SCHEME,
+  documentMarkerAnchors,
+  documentMarkerHref,
+  findDocumentMarkerPaths,
+  findMarkerSources,
+  markerHref,
+} from "./archive-markers.ts";
 // Слаги — тем же кодом, что и у мигратора: профиль печатает адреса новостей
 // на сайте (/news/СЛАГ), и второй реализации правила быть не должно.
 import { resolveSlugs } from "./archive-migration-rules.ts";
@@ -208,6 +216,15 @@ const MEDIA_RECORDS_MAX = 110;
  * перезамораживает обе строки тем же PR и называет изменение в отчёте —
  * как перезамораживаются `EXPECTED_RECORDS` и `EXPECTED_MEDIA_RECORDS`.
  */
+/**
+ * Меток на приложенные документы в экспорте (третий круг, 24.09.2026). Замер
+ * до правки: ссылок на документы 1272, из них группа (а) — 1247; меткой
+ * становятся те, что попали в тело и сохранили видимый текст (28 пустых
+ * якорей, 7 попаданий в ленточный фрагмент тизерной записи и 1 фрагмент, не
+ * попавший в выгрузку, метки не дают). Сторож, а не бюджет.
+ */
+const EXPECTED_DOCUMENT_MARKERS = 1211;
+
 const EXPECTED_EXPORT_SHA256 = "539a22211123579a27d4c91c8328d95b9ffe9bac28c12fe4131402a90891ecde";
 const EXPECTED_REPORT_SHA256 = "49c99491511c6c1fb9a83f659353a71b4d3ee78c9cff7142c010c21a297f4384";
 
@@ -313,6 +330,8 @@ type ReportBag = {
   feedFileLinksDropped: Record<string, number>;
   /** Меток на архивные записи поставлено в тела. */
   recordMarkers: number;
+  /** Меток на приложенные документы поставлено в тела. */
+  documentMarkers: number;
   /** Ссылка на страницу-запись подавлена: поглощения нет, в теле метка. */
   markerLinks: string[];
   /** Строки смежных лент, не ставшие записями: страница уже Источник записи. */
@@ -379,6 +398,7 @@ const report: ReportBag = {
   quoteCount: 0,
   feedFileLinksDropped: {},
   recordMarkers: 0,
+  documentMarkers: 0,
   markerLinks: [],
   mediaRowsSkipped: [],
   mediaDuplicateRows: [],
@@ -1099,9 +1119,25 @@ function resolvePhoto(p: PhotoRef, context: string): string | null {
 // ───────────────────────── документы ─────────────────────────
 
 /**
- * Ссылки на документы: собираются в массив и вырезаются из тела (остаётся
- * текст ссылки). Возвращает html без документных <a>.
+ * Ссылки на документы: файл собирается в массив, а ссылка в теле становится
+ * меткой на приложенный документ (`archive-document:ПУТЬ`) — адрес файла на
+ * новом сайте знает только мигратор. Пустой якорь легаси меткой не
+ * становится: привязывать нечего, от ссылки не осталось и текста.
+ * Неразрешённая внутренняя ссылка и документ на чужом хосте ведут себя как
+ * прежде. Возвращает html, в котором документных ссылок легаси не осталось.
  */
+/**
+ * Что остаётся в теле на месте ссылки на приложенный документ: метка
+ * `archive-document:ПУТЬ` вокруг прежнего видимого текста. Пустой якорь
+ * легаси (`<a href="….xls"></a>`) и якорь вокруг одной картинки метки не
+ * получают — привязывать нечего, а мёртвый пустой якорь в теле хуже, чем
+ * ничего.
+ */
+function documentAnchorOrText(exportPath: string, inner: string): string {
+  if (stripTags(inner).trim() === "") return inner;
+  return `<a href="${documentMarkerHref(exportPath).replace(/"/g, "&quot;")}">${inner}</a>`;
+}
+
 function extractDocuments(
   html: string,
   baseUrl: string,
@@ -1117,7 +1153,7 @@ function extractDocuments(
       const p = resolveToPath(abs, silent);
       if (p) {
         if (!outDocs.includes(p)) outDocs.push(p);
-        return inner;
+        return documentAnchorOrText(p, inner);
       }
       if (isTennisfed(abs)) {
         // Вложение архива утрачено: мёртвую внутреннюю ссылку в теле не оставляем.
@@ -1682,6 +1718,16 @@ function inlineParagraphs(work: string, ctx: SanitizeCtx): string[] {
       }
       const hrefMatch = tok.match(/href\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i);
       const rawHref = hrefMatch ? (hrefMatch[1] ?? hrefMatch[2] ?? hrefMatch[3] ?? "") : "";
+      // Метку на приложенный документ ставит extractDocuments до разбора.
+      // Схема несуществующая, и общая ветка протоколов ниже выбросила бы тег,
+      // оставив голый текст, — то есть правка не дала бы ничего. Якорь
+      // выписывается как есть; мигратор заменит его на адрес файла.
+      if (rawHref.startsWith(DOCUMENT_MARKER_SCHEME)) {
+        if (!ctx.silent) report.documentMarkers += 1;
+        current.push(`<a href="${rawHref.replace(/"/g, "&quot;")}">`);
+        inlineStack.push("a");
+        continue;
+      }
       const abs = absolutize(rawHref, ctx.baseUrl);
       const proto = abs ? abs.split(":", 1)[0].toLowerCase() : "";
       if (
@@ -3214,6 +3260,22 @@ function renderReport(records: OutputRecord[]): string {
       " якорей конвейер не публикует (проверено: якорей с пустым текстом в экспорте 0)." +
       " Ещё часть приходит из разбора ленточного фрагмента ради анонса — анонс плоский, и" +
       " метки в него не попадают",
+  );
+  const docMarkersInExport = records.reduce(
+    (s2, r) => s2 + findDocumentMarkerPaths(r["ТекстHTML"]).length,
+    0,
+  );
+  const docMarkerRecords = records.filter(
+    (r) => findDocumentMarkerPaths(r["ТекстHTML"]).length > 0,
+  ).length;
+  L.push(
+    `- меток на приложенные документы (archive-document:) в телах экспорта: ` +
+      `${docMarkersInExport} в ${docMarkerRecords} записях`,
+  );
+  L.push(
+    `- срабатываний правила метки документа в конвейере: ${report.documentMarkers}. Больше, чем` +
+      " меток в экспорте: ленточный фрагмент тизерной записи разбирается ради анонса, анонс" +
+      " плоский, и метки в него не попадают",
   );
   const droppedFeed = Object.entries(report.feedFileLinksDropped).sort();
   L.push(
@@ -6220,6 +6282,27 @@ function runProfile(records: OutputRecord[], exportSha: string, reportSha: strin
     вТеле: tablesInBody(ключ),
     отобрано: textTables.filter((t) => t.ключ === ключ).length,
   }));
+  const docMarkerPaths = records.map((r) => findDocumentMarkerPaths(r["ТекстHTML"]));
+  const docMarkersTotal = docMarkerPaths.reduce((n, list) => n + list.length, 0);
+  const docMarkerRecordsCount = docMarkerPaths.filter((list) => list.length > 0).length;
+  // Метка обязана указывать на документ СВОЕЙ записи: карта путей строится по
+  // полю `Документы` этой же записи, и чужой путь в неё не попадёт.
+  const docMarkerOrphans: string[] = [];
+  records.forEach((r, i) => {
+    const свои = new Set(r["Документы"] ?? []);
+    for (const путь of new Set(docMarkerPaths[i])) {
+      if (!свои.has(путь)) docMarkerOrphans.push(`${profKeyShort(profs[i])}: ${путь}`);
+    }
+  });
+  // Пустые якоря легаси (`<a href="….xls"></a>`): привязывать метку не к чему.
+  // Считается не по колонке «сейчас» (это было бы тавтологией — колонка сама
+  // и есть вердикт), а по видимому тексту самих меток в телах экспорта.
+  const emptyAnchors = round3.ссылки.filter((d) => d.сейчас === "текста ссылки в выгрузке нет");
+  const emptyMarkers = records.flatMap((r, i) =>
+    documentMarkerAnchors(r["ТекстHTML"])
+      .filter((a) => stripTags(a.текст).trim() === "")
+      .map((a) => `${profKeyShort(profs[i])}: ${a.путь}`),
+  );
   const bracketsLinks = round3.ссылки.filter(
     (d) => d.адрес === DOC_LINK_POSITIVE_ADDR && d.текст.toUpperCase().includes(DOC_LINK_POSITIVE),
   );
@@ -6410,6 +6493,21 @@ function runProfile(records: OutputRecord[], exportSha: string, reportSha: strin
             .filter((n) => n.вТеле !== 0 || n.отобрано !== 0)
             .map((n) => `${n.ключ}: в теле ${n.вТеле}, отобрано ${n.отобрано}`)
             .join("; "),
+    },
+    {
+      текст: "каждая метка документа указывает на документ своей записи",
+      ок: docMarkersTotal > 0 && docMarkerOrphans.length === 0,
+      факт: `меток документов ${docMarkersTotal} в ${docMarkerRecordsCount} записях, без документа ${docMarkerOrphans.length}${docMarkerOrphans.length ? ": " + docMarkerOrphans.slice(0, 10).join("; ") : ""}`,
+    },
+    {
+      текст: `меток на приложенные документы в экспорте ${EXPECTED_DOCUMENT_MARKERS}`,
+      ок: docMarkersTotal === EXPECTED_DOCUMENT_MARKERS,
+      факт: `${docMarkersTotal} в ${docMarkerRecordsCount} записях`,
+    },
+    {
+      текст: "ни одна метка документа не обёрнута вокруг пустого текста",
+      ок: docMarkersTotal > 0 && emptyMarkers.length === 0,
+      факт: `меток с пустым видимым текстом ${emptyMarkers.length} из ${docMarkersTotal}${emptyMarkers.length ? ": " + emptyMarkers.slice(0, 10).join("; ") : ""}; пустых якорей легаси в замере ${emptyAnchors.length}`,
     },
     {
       текст: `ссылка «${DOC_LINK_POSITIVE}» в ${DOC_LINK_POSITIVE_ADDR} найдена и отнесена к группе (а)`,
@@ -6781,6 +6879,7 @@ function profRound3(profs: ProfileRecord[], records: OutputRecord[], slugs: stri
     // ── замер 2 ──
     const собственные = new Set(rec["Документы"] ?? []);
     const тело = rec["ТекстHTML"];
+    const меткиТела = new Set(findDocumentMarkerPaths(тело));
     const телоPlain = plainProf(тело);
     const анонсPlain = rec["Анонс"] !== undefined ? plainProf(rec["Анонс"]) : "";
     const добавить = (
@@ -6803,6 +6902,12 @@ function profRound3(profs: ProfileRecord[], records: OutputRecord[], slugs: stri
         сейчас = "фрагмент в выгрузку не попал";
       } else if (ссылкаОсталась) {
         сейчас = внешний ? "ссылка на внешний сайт" : "ссылка на старый сайт";
+      } else if (роль !== "анонс" && текст !== "" && путь !== null && меткиТела.has(путь)) {
+        // Анонс плоский: метка в нём не выживает, и там по-прежнему текст.
+        // Пустой якорь метки не получает, даже когда тот же файл приложен
+        // второй ссылкой с текстом и та стала меткой: у пустого якоря
+        // видимого текста нет, и в теле от него не осталось ничего.
+        сейчас = "метка на приложенный документ";
       } else if (картинка) {
         сейчас = "ссылка-картинка снята вместе с картинкой";
       } else if (текст !== "" && цель.includes(текст)) {
@@ -8403,6 +8508,91 @@ function runSelfTest(): number {
         output: `текстовые=${с?.текстовые}, промахи=[${с?.промахи.join("; ")}], тегов <table> в теле: ${n}`,
         ok:
           с !== null && !с.текстовые && с.промахи.some((m) => m.startsWith("картинок")) && n === 0,
+      };
+    })(),
+    (() => {
+      // Боевой путь части B. Манифест архива в самотесте не загружен, поэтому
+      // проверяется то, что от него не зависит: решение о метке и её
+      // прохождение через конвейер тела — ровно та ветка, которой раньше не
+      // было и без которой метка гибла бы в общей ветке протоколов.
+      const путь = "download\\news\\2013\\setki.xls";
+      const кусок = documentAnchorOrText(путь, "ТУРНИРНЫЕ СЕТКИ");
+      const тело = sanitizeBody(`<p>Смотрите ${кусок}.</p>`, {
+        baseUrl: `${SITE}/newsarch_2013.html`,
+        silent: true,
+      });
+      const пути = findDocumentMarkerPaths(тело);
+      return {
+        name: "round3 правка: метка на приложенный документ доживает до тела записи",
+        input: `${путь} + «ТУРНИРНЫЕ СЕТКИ»`,
+        output: `меток в теле ${пути.length} → [${пути.join(", ")}], тело: ${тело}`,
+        ok: пути.length === 1 && пути[0] === путь && тело.includes(">ТУРНИРНЫЕ СЕТКИ</a>"),
+      };
+    })(),
+    (() => {
+      // Отрицательный контроль: пустой якорь и якорь вокруг одной картинки
+      // метки не получают — иначе в теле остался бы мёртвый пустой якорь.
+      const путь = "download\\news\\2013\\setki.xls";
+      const пусто = documentAnchorOrText(путь, "");
+      const картинка = documentAnchorOrText(путь, '<img src="foto/1.jpg">');
+      return {
+        name: "round3 правка (отрицательный): пустой якорь и якорь-картинка метки не получают",
+        input: `${путь} + «» / «<img>`,
+        output: `пусто → «${пусто}», картинка → «${картинка}»`,
+        ok: пусто === "" && картинка === '<img src="foto/1.jpg">',
+      };
+    })(),
+    (() => {
+      // Ветка пропуска узкая: она смотрит только на свою схему. Ссылка с
+      // недопустимым протоколом по-прежнему теряет тег и оставляет текст.
+      const тело = sanitizeBody('<p>А тут <a href="javascript:void(0)">кнопка</a>.</p>', {
+        baseUrl: `${SITE}/newsarch_2013.html`,
+        silent: true,
+      });
+      return {
+        name: "round3 правка (отрицательный): чужая схема href по-прежнему выбрасывается",
+        input: '<a href="javascript:void(0)">кнопка</a>',
+        output: `тело: ${тело}`,
+        ok: тело === "<p>А тут кнопка.</p>",
+      };
+    })(),
+    (() => {
+      // Отрицательный контроль: документ, которого в архиве нет, остаётся
+      // текстом — мёртвая ссылка на легаси хуже текста.
+      const вход = '<p>Было <a href="download/net-takogo.xls">РАСПИСАНИЕ</a>.</p>';
+      const docs: string[] = [];
+      const после = extractDocuments(вход, `${SITE}/newsarch_2013.html`, "", docs, true);
+      const тело = sanitizeBody(после, { baseUrl: `${SITE}/newsarch_2013.html`, silent: true });
+      return {
+        name: "round3 правка (отрицательный): неразрешённый документ остаётся текстом",
+        input: вход,
+        output: `документы=[${docs.join(", ")}], меток в теле ${findDocumentMarkerPaths(тело).length}, тело: ${тело}`,
+        ok:
+          docs.length === 0 &&
+          findDocumentMarkerPaths(тело).length === 0 &&
+          тело.includes("РАСПИСАНИЕ") &&
+          !тело.includes("<a "),
+      };
+    })(),
+    (() => {
+      // Анонс плоский: метка в нём не выживает, видимый текст остаётся.
+      // Это и есть причина, по которой поле «Анонс» правкой не задето.
+      const путь = "download\\news\\2013\\setki.xls";
+      const кусок = documentAnchorOrText(путь, "ТУРНИРНЫЕ СЕТКИ");
+      const анонс = stripTags(
+        sanitizeBody(`<p>Смотрите ${кусок}.</p>`, {
+          baseUrl: `${SITE}/newsarch_2013.html`,
+          silent: true,
+        }),
+      );
+      return {
+        name: "round3 правка: в анонсе метка не остаётся — только видимый текст",
+        input: `${путь} + «ТУРНИРНЫЕ СЕТКИ»`,
+        output: `анонс: ${анонс}`,
+        ok:
+          анонс.includes("ТУРНИРНЫЕ СЕТКИ") &&
+          !анонс.includes(DOCUMENT_MARKER_SCHEME) &&
+          !анонс.includes("<a"),
       };
     })(),
   ];
