@@ -129,8 +129,10 @@ TanStack Start собирает route-модули и в клиентский, �
 такие обёртки, а не модули `src/server` напрямую.
 
 **Уточнение (проверено сборкой).** Ограничение не действует для роутов, у
-которых есть только `server.handlers` и нет `component`/`loader`
-(`src/routes/sitemap[.]xml.ts`, `src/routes/api/admin/upload.ts`) — такие файлы
+которых есть только `server.handlers` и нет `component`/`loader`. Сейчас их
+четыре: `src/routes/sitemap[.]xml.ts`, `src/routes/api/admin/upload.ts`,
+`src/routes/api/admin/photo-source.ts` и
+`src/routes/news-file.$slug.$file.ts`. Такие файлы
 никогда не попадают в клиентский бандл целиком, router-plugin режет их на
 серверный чанк раньше import-protection. Проверено: пробный роут с прямым
 импортом `src/server/storage.ts` внутри `server.handlers.GET` собрался чисто
