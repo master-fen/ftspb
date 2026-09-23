@@ -52,6 +52,11 @@ const EXTRA_PATHS: Record<string, number> = {
   "/terms": 200,
   "/federation": 200,
   "/news/nesuschestvuyuschiy-slug-dlya-snimka": 404,
+  // Страницы пагинации в карту сайта не входят (docs/decisions.md), а старая
+  // часть ленты живёт только на них: без этих двух адресов снимок не видит ни
+  // одной карточки со старой обложкой.
+  "/news?page=7": 200,
+  "/news?page=81": 200,
 };
 
 /** Текст отказа, если статус ответа не тот, что ожидался; иначе null. */
@@ -109,10 +114,16 @@ export function normalizeHtml(
   return { html: out, preloads: [...preloads].sort() };
 }
 
-/** Путь страницы → имя файла снимка: «/» → index, остальное — «/» на «__». */
+/**
+ * Путь страницы → имя файла снимка: «/» → index, остальное — «/» на «__».
+ * Строка запроса кодируется: «?» и «&» → «~», «=» → «-». Windows не принимает
+ * «?» в имени файла, а разные запросы обязаны давать разные имена — иначе две
+ * страницы пагинации легли бы в один файл и различие исчезло бы молча.
+ */
 export function fileNameForPath(pagePath: string): string {
   const trimmed = pagePath.replace(/^\/+|\/+$/g, "");
-  return trimmed === "" ? "index" : trimmed.replaceAll("/", "__");
+  const base = trimmed === "" ? "index" : trimmed.replaceAll("/", "__");
+  return base.replaceAll("?", "~").replaceAll("&", "~").replaceAll("=", "-");
 }
 
 /** Строка встроенного манифеста роутера: правило 4 ставит тег на свою строку, скрипт в ней целиком. */
