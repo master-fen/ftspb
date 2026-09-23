@@ -182,9 +182,14 @@ const RECON_EXPECTED_MEDIA_ROWS: Record<string, number> = {
 
 /**
  * Ожидаемое число записей из смежных лент: 125 уникальных страниц трёх лент
- * минус 27 страниц, уже ставших телом записи годовой ленты.
+ * минус 27 страниц, уже ставших телом записи годовой ленты, минус страница
+ * `2025/0531.html`: после срезки шапки (правило A1, второй круг) её тело
+ * совпало побайтно с телом записи `newsarch_2025.html#63`, и дедупликация по
+ * «заголовок + дата + SHA-1 тела» схлопнула пару сама. Решение Антона
+ * 23.09.2026 — схлопывание принимается: это одна и та же новость, и убрать
+ * вторую версию всё равно предстояло глазами.
  */
-const EXPECTED_MEDIA_RECORDS = 98;
+const EXPECTED_MEDIA_RECORDS = 97;
 
 /** Стоп-условие задания: число новых записей вне диапазона — остановиться. */
 const MEDIA_RECORDS_MIN = 90;
@@ -267,6 +272,8 @@ type ReportBag = {
   unreferencedArticles: string[];
   syntheticTitles: string[];
   dedupedFull: string[];
+  /** `Источник`, перешедший к победителю дедупликации от схлопнувшейся записи-страницы. */
+  dedupeSourceInherited: string[];
   /** Точечные исключения по ключу источника (MANUAL_EXCLUSIONS). */
   manualExclusions: string[];
   sameTitleDateDiffBody: string[];
@@ -339,6 +346,7 @@ const report: ReportBag = {
   unreferencedArticles: [],
   syntheticTitles: [],
   dedupedFull: [],
+  dedupeSourceInherited: [],
   manualExclusions: [],
   sameTitleDateDiffBody: [],
   headerCut: 0,
@@ -2623,6 +2631,37 @@ const MANUAL_EXCLUSIONS: Array<{ file: string; title: string; date: string; reas
  */
 const EXPECTED_RECORDS = 1882 - MANUAL_EXCLUSIONS.length + EXPECTED_MEDIA_RECORDS;
 
+/**
+ * Адресует ли `Источник` ровно одну запись экспорта. Видов адреса два: адрес
+ * article-страницы легаси (у записи-страницы он свой) и адрес ряда годовой
+ * ленты с якорем (дописывается тем записям, на которые встала метка). Адрес
+ * файла ленты без якоря — общий на все её записи: карта мигратора
+ * «Источник → слаг» (`slugMapBySource`) по такому ключу оставляет последнюю
+ * запись файла, поэтому меткой он не адресуется.
+ */
+function sourceAddressesOneRecord(source: string): boolean {
+  if (articleRelFile(source) !== null) return true;
+  const hash = source.indexOf("#");
+  return hash !== -1 && hash < source.length - 1;
+}
+
+/**
+ * Передаётся ли `Источник` проигравшего победителю при схлопывании (решение
+ * Антона 23.09.2026). Условие: победитель своим адресом не адресуется (файл
+ * ленты без якоря), а проигравший адресуется — это адрес отдельной
+ * article-страницы. Тогда адрес переходит к победителю, и метка на страницу
+ * продолжает разрешаться — уже в выжившую запись; переписывать href метки не
+ * нужно, адрес в теле остаётся прежним и указывает на ту же новость.
+ *
+ * В остальных случаях поведение прежнее: у победителя с адресом-страницей или
+ * с якорем свой адрес уже уникален, и отнимать его незачем. Проигравший с
+ * якорем здесь не рассматривается: такого случая в архиве нет, а появись он —
+ * контроль «каждая метка указывает на существующий Источник» скажет НЕТ.
+ */
+function inheritsSourceOnDedupe(winnerSource: string, loserSource: string): boolean {
+  return !sourceAddressesOneRecord(winnerSource) && articleRelFile(loserSource) !== null;
+}
+
 function dedupeRecords(collected: CollectedRecord[]): OutputRecord[] {
   const sha1 = (s: string) => createHash("sha1").update(s, "utf8").digest("hex");
   const norm = (t: string) => t.trim().replace(/\s+/g, " ");
@@ -2658,6 +2697,14 @@ function dedupeRecords(collected: CollectedRecord[]): OutputRecord[] {
         `«${item.rec["Заголовок"]}» (${item.rec["Дата"]}): ${winner.file} (Источник: ${winner.rec["Источник"]}) + ` +
           `${item.file} (Источник: ${item.rec["Источник"]}) → оставлен вариант из ${winner.file}`,
       );
+      if (inheritsSourceOnDedupe(winner.rec["Источник"], item.rec["Источник"])) {
+        report.dedupeSourceInherited.push(
+          `«${winner.rec["Заголовок"]}» (${winner.rec["Дата"]}) из ${winner.file}: ` +
+            `${winner.rec["Источник"]} → ${item.rec["Источник"]} ` +
+            `(адрес схлопнувшейся записи-страницы из ${item.file})`,
+        );
+        winner.rec["Источник"] = item.rec["Источник"];
+      }
       const pf = report.perFile.find((f) => f.file === item.file);
       if (pf) pf.records -= 1;
       continue;
@@ -2745,6 +2792,10 @@ function renderReport(records: OutputRecord[]): string {
   section("Склейки", report.merges);
   section("Точечные исключения по ключу источника", report.manualExclusions);
   section("Дедупликация межфайловых повторов", report.dedupedFull);
+  section(
+    "Источник схлопнувшейся записи-страницы передан победителю",
+    report.dedupeSourceInherited,
+  );
   section(
     "Совпадение заголовка и даты при разных телах (НЕ дедуплицировано, для ревью)",
     report.sameTitleDateDiffBody,
@@ -3426,6 +3477,18 @@ const D8_LOOSE_EXPECTED = 2;
  * Срабатывание на записи вне списка — повод посмотреть глазами.
  */
 const D8_PAGE_ALLOWED = new Set(["pobeda.html#12", "festvest.html#37"]);
+
+/**
+ * Страницы смежных лент, которым разрешено остаться в классе (б) — «файл есть
+ * в архиве, записью не стал». Список, а не число: число-бюджет разрешило бы
+ * подменить одну страницу другой.
+ *
+ *   - 2025/0531.html — страница записью **стала**, но запись схлопнулась с
+ *     `newsarch_2025.html#63` по дедупликации (одно и то же тело после срезки
+ *     шапки). Класс (б) считает её «не ставшей записью», потому что
+ *     `noteReferenced` идёт по записям экспорта, а схлопнувшейся там уже нет.
+ */
+const CLASS_B_ALLOWED = new Set(["2025/0531.html"]);
 
 /** Голова заголовка: слова до накопления ≥ D8_HEAD_MIN знаков; короткий заголовок — целиком. */
 function profTitleHead(normTitle: string): string {
@@ -5853,9 +5916,9 @@ function runProfile(records: OutputRecord[]): void {
           : feedFileHits.join(" | "),
     },
     {
-      текст: "класс (б) пуст: страниц смежных лент, не вошедших ни в одну запись, нет",
-      ок: classB.length === 0,
-      факт: classB.length === 0 ? "0" : classB.join(", "),
+      текст: `класс (б) — только страницы, схлопнувшиеся дедупликацией (${[...CLASS_B_ALLOWED].join(", ")})`,
+      ок: classB.every((rel) => CLASS_B_ALLOWED.has(rel)),
+      факт: classB.length === 0 ? "0" : `${classB.length}: ${classB.join(", ")}`,
     },
     {
       текст: "строк в смежных лентах — как в рекогносцировке",
@@ -6830,6 +6893,46 @@ function runSelfTest(): number {
         ok:
           !out.includes(RECORD_MARKER_SCHEME) &&
           out.includes('href="http://tennisfed.spb.ru/newsarch_2023.html">чемпионат мира</a>'),
+      };
+    })(),
+    (() => {
+      // Схлопывание: у победителя адрес файла ленты (общий на все её записи),
+      // у проигравшего — адрес отдельной страницы. Адрес переходит победителю.
+      const winner = `${SITE}/newsarch_2025.html`;
+      const loser = `${SITE}/2025/0531`;
+      const got = inheritsSourceOnDedupe(winner, loser);
+      return {
+        name: "round2 схлопывание: адрес общей ленты у победителя — Источник страницы передан",
+        input: `победитель ${winner} + проигравший ${loser}`,
+        output: `передан=${got}`,
+        ok: got,
+      };
+    })(),
+    (() => {
+      // Отрицательный: у победителя адрес ряда ленты с якорем — он уже
+      // адресует одну запись, отнимать адрес у проигравшего незачем.
+      const winner = `${SITE}/newsarch_2013.html#100let`;
+      const loser = `${SITE}/2013/1216`;
+      const got = inheritsSourceOnDedupe(winner, loser);
+      return {
+        name: "round2 схлопывание (отрицательный): у победителя адрес с якорем — Источник не меняется",
+        input: `победитель ${winner} + проигравший ${loser}`,
+        output: `передан=${got}`,
+        ok: !got,
+      };
+    })(),
+    (() => {
+      // Отрицательный: обе стороны — записи страниц, и лента против ленты.
+      const pageWinner = inheritsSourceOnDedupe(`${SITE}/2013/1216`, `${SITE}/2013/1217`);
+      const feedBoth = inheritsSourceOnDedupe(
+        `${SITE}/newsarch_2008.html`,
+        `${SITE}/newsarch_2009.html`,
+      );
+      return {
+        name: "round2 схлопывание (отрицательный): страница против страницы и лента против ленты — Источник не меняется",
+        input: "2013/1216 + 2013/1217; newsarch_2008.html + newsarch_2009.html",
+        output: `страница=${pageWinner}, лента=${feedBoth}`,
+        ok: !pageWinner && !feedBoth,
       };
     })(),
   ];
