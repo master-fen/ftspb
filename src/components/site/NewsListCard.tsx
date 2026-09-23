@@ -1,8 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import type { NewsCardItem } from "@/lib/types/news";
 import type { NewsOrigin } from "@/lib/news-origin";
-import { NewsCoverPlaceholder } from "./NewsCoverPlaceholder";
-import { NewsImage } from "./NewsImage";
+import { NewsCardCover } from "./NewsCardCover";
 import { newsMetaLine } from "@/lib/news-meta";
 
 /**
@@ -18,15 +17,7 @@ export function NewsListCard({ item, from }: { item: NewsCardItem; from?: NewsOr
       className="group flex h-full flex-col overflow-hidden ui-card ring-card-border bg-card-surface text-foreground transition-all duration-300 hover:-translate-y-0.5 hover:bg-card-hover"
     >
       <div className="aspect-[4/3] w-full overflow-hidden">
-        {item.cover ? (
-          <NewsImage
-            src={item.cover}
-            alt={item.title}
-            className="h-full w-full object-cover object-[50%_25%] transition-transform duration-500 group-hover:scale-[1.03]"
-          />
-        ) : (
-          <NewsCoverPlaceholder withBackground={false} />
-        )}
+        <NewsCardCover item={item} variant="list" />
       </div>
 
       <div className="flex flex-1 flex-col gap-2 p-5 md:p-6">

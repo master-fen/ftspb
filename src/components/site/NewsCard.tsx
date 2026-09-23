@@ -1,7 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import type { NewsCardItem } from "@/lib/types/news";
-import { NewsCoverPlaceholder } from "./NewsCoverPlaceholder";
-import { NewsImage } from "./NewsImage";
+import { NewsCardCover } from "./NewsCardCover";
 import { newsMetaLine } from "@/lib/news-meta";
 
 type NewsCardProps = {
@@ -20,16 +19,7 @@ export function NewsCard({ item, size = "default", priority }: NewsCardProps) {
       className="group relative block h-full w-full overflow-hidden ui-card ring-card-border bg-card-surface transition-transform duration-300 hover:-translate-y-0.5"
     >
       <div className="relative h-full w-full">
-        {item.cover ? (
-          <NewsImage
-            src={item.cover}
-            alt={item.title}
-            loading={priority ? "eager" : "lazy"}
-            className="h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-[1.03]"
-          />
-        ) : (
-          <NewsCoverPlaceholder />
-        )}
+        <NewsCardCover item={item} variant="hero" priority={priority} />
 
         <div className="absolute inset-0 bg-gradient-to-t from-scrim via-scrim-mid to-transparent" />
 

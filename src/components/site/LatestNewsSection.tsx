@@ -1,9 +1,8 @@
 import { Link } from "@tanstack/react-router";
 import { latestNews } from "@/data/mock";
 import type { NewsCardItem } from "@/lib/types/news";
+import { NewsCardCover } from "./NewsCardCover";
 import { NewsListCard } from "./NewsListCard";
-import { NewsCoverPlaceholder } from "./NewsCoverPlaceholder";
-import { NewsImage } from "./NewsImage";
 import { SectionHeading } from "./SectionHeading";
 import { newsMetaLine } from "@/lib/news-meta";
 
@@ -33,15 +32,7 @@ export function LatestNewsSection({ items = latestNews }: LatestNewsSectionProps
                 <div className="mt-1.5 ui-caption">{newsMetaLine(item.category, item.date)}</div>
               </div>
               <div className="aspect-square h-[84px] w-[84px] shrink-0 overflow-hidden rounded-lg">
-                {item.cover ? (
-                  <NewsImage
-                    src={item.cover}
-                    alt=""
-                    className="h-full w-full object-cover object-[50%_25%]"
-                  />
-                ) : (
-                  <NewsCoverPlaceholder withBackground={false} />
-                )}
+                <NewsCardCover item={item} variant="thumb" />
               </div>
             </Link>
           </li>
