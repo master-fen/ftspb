@@ -1163,6 +1163,12 @@ type SanitizeCtx = {
   silent?: boolean;
   /** Видео-вставки (`<iframe src>`) становятся ссылкой «Видео» — только для тела записи, не для анонса. */
   videoLinks?: boolean;
+  /**
+   * Ключ записи вида `newsarch_2009.html#29` — тот же, что печатают списки
+   * профиля (`profKeyShort`). Нужен поимённому списку `TEXT_TABLE_ALLOWED` и
+   * считается без `--profile`: профиль тут ни при чём.
+   */
+  ключ?: string;
 };
 
 // ───────────────────────── таблицы: разбор и признак «данных» ─────────────────────────
@@ -1277,6 +1283,305 @@ function analyzeTables(html: string): TableInfo[] {
   // Незакрытые <table> легаси — досчитываем как закрытые до конца фрагмента.
   while (stack.length) finish(stack.pop()!, html.length);
   return done.sort((a, b) => a.start - b.start);
+}
+
+// ──────────────────── признак «таблица с текстовыми данными» ────────────────────
+
+/**
+ * Признак второго рода (третий круг, 24.09.2026). Доля числовых ячеек не
+ * ловит таблицу, в которой данные текстовые: календарь мероприятий с
+ * колонками «Название», «Площадка», «Адрес», «Статус», «Условия участия»,
+ * «Контакты» цифр почти не содержит, и `DATA_TABLE_RATIO` разворачивал его в
+ * столбик абзацев.
+ *
+ * Код общий у санитайзера и профиля: раньше цикл «таблица остаётся таблицей»
+ * был написан дважды, и разойтись им нельзя — счёт замера и поведение обязаны
+ * быть одним кодом.
+ */
+
+/** Ячейка верхнего уровня одной таблицы. */
+type TableCell = { tag: "td" | "th"; text: string; выделена: boolean };
+
+/**
+ * Ряды и ячейки верхнего уровня одной таблицы. Текст вложенной таблицы в
+ * ячейку внешней не входит — как в `analyzeTables`. «Выделена» — ячейка `th`
+ * либо ячейка, всё содержимое которой обёрнуто в `b`/`strong`.
+ */
+function tableRows(tableHtml: string): TableCell[][] {
+  const rows: TableCell[][] = [];
+  let cur: TableCell[] | null = null;
+  let depth = 0;
+  let open: { tag: "td" | "th"; buf: string } | null = null;
+  let last = 0;
+  const closeCell = () => {
+    if (!open) return;
+    const inner = open.buf.trim();
+    const text = stripTags(inner);
+    const выделена =
+      open.tag === "th" || (text !== "" && /^<(b|strong)\b[^>]*>[\s\S]*<\/\1>$/i.test(inner));
+    if (!cur) {
+      cur = [];
+      rows.push(cur);
+    }
+    cur.push({ tag: open.tag, text, выделена });
+    open = null;
+  };
+  const tagRe = /<(\/?)(table|tr|td|th)\b[^>]*>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = tagRe.exec(tableHtml))) {
+    if (open && depth === 1) open.buf += tableHtml.slice(last, m.index);
+    last = m.index + m[0].length;
+    const closing = m[1] === "/";
+    const tag = m[2].toLowerCase();
+    if (tag === "table") {
+      depth += closing ? -1 : 1;
+      continue;
+    }
+    if (depth !== 1) continue;
+    if (tag === "tr") {
+      closeCell();
+      if (!closing) {
+        cur = [];
+        rows.push(cur);
+      }
+      continue;
+    }
+    closeCell();
+    if (!closing) open = { tag: tag as "td" | "th", buf: "" };
+  }
+  if (open && depth === 1) open.buf += tableHtml.slice(last);
+  closeCell();
+  return rows;
+}
+
+const median = (xs: number[]): number => {
+  if (xs.length === 0) return 0;
+  const s = [...xs].sort((a, b) => a - b);
+  return s.length % 2 === 1
+    ? s[(s.length - 1) / 2]
+    : Math.round((s[s.length / 2 - 1] + s[s.length / 2]) / 2);
+};
+
+/**
+ * Пороги признака «таблица с текстовыми данными». Выведены из замера
+ * 23.09.2026 по всем развёрнутым таблицам архива, не по одному примеру;
+ * распределения — в разделе отчёта «Таблицы, развёрнутые в абзацы».
+ */
+const TEXT_TABLE = {
+  минСтрок: 3,
+  минКолонок: 2,
+  минЯчеек: 9,
+  /**
+   * Ряды одной ширины, но не все: у таблицы данных легаси сплошь и рядом есть
+   * ряд-заголовок с `colspan` на всю ширину и хвостовой ряд-подпись. Строгое
+   * «во всех рядах поровну» отбрасывало самые крупные таблицы архива — список
+   * кандидатов в сборную (161×7, 989 ячеек) и все календари сроков (7×7).
+   */
+  минДоляОсновной: 0.8,
+  минДоляНепустых: 0.75,
+  максМедианаДлины: 120,
+};
+
+/**
+ * Записи, которым не применяется единственный порог — «рядов основной ширины
+ * ≥ 80 %». Список, а не понижение порога: на 67 % в отбор начинает попадать
+ * вёрстка (замер 23.09.2026, раздел «Отрицательный контроль»), а число-бюджет
+ * разрешило бы подменить одну таблицу другой. Остальные восемь условий
+ * признака проверяются у этих записей как у всех.
+ *
+ *   - newsarch_2009.html#29 (/news/itogi-zimnih-kubkov) — таблица результатов
+ *     56×2, 100 % непустых, медиана 28; не хватает одного процента рядов (79 %);
+ *   - newsarch_2005.html#1 — две таблицы результатов 3×4, у обеих 67 %.
+ *
+ * Значение — сколько таблиц ключ обязан дать. Ключ, не давший ни одной,
+ * роняет прогон: молчаливое «не нашлось» скрыло бы сдвиг данных (как у
+ * MANUAL_EXCLUSIONS); расхождение с числом ловит контроль профиля.
+ */
+const TEXT_TABLE_ALLOWED = new Map<string, number>([
+  ["newsarch_2009.html#29", 1],
+  ["newsarch_2005.html#1", 2],
+]);
+
+/** Ключи TEXT_TABLE_ALLOWED, по которым признак действительно сработал. */
+const textTableAllowedHits = new Set<string>();
+
+/** Структурные признаки одной таблицы — то, что читает признак. */
+type FlatTableStructure = {
+  строк: number;
+  /** Основная ширина ряда — та, что встречается чаще прочих (при равенстве — бо́льшая). */
+  колонок: number;
+  /** Доля рядов основной ширины: у таблицы данных ряды прямоугольны, у вёрстки — нет. */
+  доляОсновной: number;
+  ячеек: number;
+  непустых: number;
+  доляНепустых: number;
+  шапка: boolean;
+  картинок: number;
+  вложенных: number;
+  форм: number;
+  ссылок: number;
+  числовых: number;
+  доляЧисловых: number;
+  медианаДлины: number;
+  максДлины: number;
+  длинаPlain: number;
+  перваяСтрока: string;
+};
+
+/**
+ * Признаки таблицы по её срезам. Структура считается по подготовленному
+ * срезу (как в бою), картинки и формы — по сырому: `prepareHtml` вырезает
+ * `<img>` до разбора, и по подготовленному их всегда было бы 0.
+ */
+function flatTableStructure(prepared: string, raw: string, nested: number): FlatTableStructure {
+  const rows = tableRows(prepared).filter((r) => r.length > 0);
+  const cells = rows.flat();
+  const непустые = cells.filter((c) => c.text !== "");
+  // Основная ширина ряда: мода по числу ячеек, при равенстве частот — бо́льшая
+  // ширина (ряд-заголовок с colspan уже́ содержательных рядов, не наоборот).
+  const частоты = new Map<number, number>();
+  for (const r of rows) частоты.set(r.length, (частоты.get(r.length) ?? 0) + 1);
+  const основная = [...частоты.entries()].sort((a, b) => b[1] - a[1] || b[0] - a[0])[0] ?? [0, 0];
+  const первая = rows[0] ?? [];
+  const длины = непустые.map((c) => c.text.length);
+  const числовых = непустые.filter((c) => NUMERIC_CELL_RE.test(c.text)).length;
+  return {
+    строк: rows.length,
+    колонок: основная[0],
+    доляОсновной: rows.length === 0 ? 0 : основная[1] / rows.length,
+    ячеек: cells.length,
+    непустых: непустые.length,
+    доляНепустых: cells.length === 0 ? 0 : непустые.length / cells.length,
+    шапка:
+      первая.length >= 2 &&
+      первая.filter((c) => c.text !== "").length >= 2 &&
+      первая.every((c) => c.text === "" || c.выделена),
+    картинок: (raw.match(/<img\b/gi) ?? []).length,
+    вложенных: nested,
+    форм: (raw.match(/<(?:form|input|select|textarea)\b/gi) ?? []).length,
+    ссылок: (prepared.match(/<a\b/gi) ?? []).length,
+    числовых,
+    доляЧисловых: cells.length === 0 ? 0 : числовых / cells.length,
+    медианаДлины: median(длины),
+    максДлины: длины.reduce((n, l) => Math.max(n, l), 0),
+    длинаPlain: stripTags(prepared).length,
+    перваяСтрока: первая.map((c) => c.text).join(" | "),
+  };
+}
+
+/**
+ * Условия признака, которые таблица не выполнила (пусто — признак сработал).
+ * Для записей `TEXT_TABLE_ALLOWED` порог «рядов основной ширины» не
+ * проверяется — см. комментарий к списку.
+ */
+function textTableMisses(t: FlatTableStructure, ключ?: string): string[] {
+  const m: string[] = [];
+  const безПорогаРядов = ключ !== undefined && TEXT_TABLE_ALLOWED.has(ключ);
+  if (t.вложенных > 0) m.push(`вложенных таблиц ${t.вложенных}`);
+  if (t.картинок > 0) m.push(`картинок ${t.картинок}`);
+  if (t.форм > 0) m.push(`форм ${t.форм}`);
+  if (t.строк < TEXT_TABLE.минСтрок) m.push(`строк ${t.строк} < ${TEXT_TABLE.минСтрок}`);
+  if (t.колонок < TEXT_TABLE.минКолонок) m.push(`колонок ${t.колонок} < ${TEXT_TABLE.минКолонок}`);
+  if (t.ячеек < TEXT_TABLE.минЯчеек) m.push(`ячеек ${t.ячеек} < ${TEXT_TABLE.минЯчеек}`);
+  if (!безПорогаРядов && t.доляОсновной < TEXT_TABLE.минДоляОсновной) {
+    m.push(
+      `рядов основной ширины ${(t.доляОсновной * 100).toFixed(0)}% < ${TEXT_TABLE.минДоляОсновной * 100}%`,
+    );
+  }
+  if (t.доляНепустых < TEXT_TABLE.минДоляНепустых) {
+    m.push(`непустых ${(t.доляНепустых * 100).toFixed(0)}% < ${TEXT_TABLE.минДоляНепустых * 100}%`);
+  }
+  if (t.медианаДлины > TEXT_TABLE.максМедианаДлины) {
+    m.push(`медиана длины ячейки ${t.медианаДлины} > ${TEXT_TABLE.максМедианаДлины}`);
+  }
+  return m;
+}
+
+/** Причина, по которой таблица развернулась в абзацы. */
+type FlatReason = "вёрстка" | "данные с вложенными";
+
+/** Вердикт по одной таблице фрагмента: остаётся таблицей или разворачивается. */
+type TableVerdict = {
+  info: TableInfo;
+  /** Срез подготовленного фрагмента. */
+  prepared: string;
+  /** Срез сырого фрагмента; null — зеркало срезов разошлось. */
+  raw: string | null;
+  /** Признаки таблицы; null — зеркало разошлось, картинки считать нечем. */
+  признаки: FlatTableStructure | null;
+  промахи: string[];
+  /** Остаётся таблицей в теле. */
+  выдана: boolean;
+  /** Лежит внутри выданной таблицы — в счёт развёрнутых не идёт. */
+  внутриВыданной: boolean;
+  причина: FlatReason;
+};
+
+/**
+ * Таблицы фрагмента с вердиктом. Таблицей остаётся таблица без вложенных, у
+ * которой либо доля числовых ячеек ≥ DATA_TABLE_RATIO, либо сработал признак
+ * «текстовых данных». Всё прочее уходит в `inlineParagraphs` абзацами.
+ *
+ * Срезы сырого и подготовленного фрагментов сводятся по индексу: `prepareHtml`
+ * теги таблиц не добавляет и не убирает. Если последовательности всё же
+ * разошлись, `raw` = null, признак не считается и таблица разворачивается —
+ * сегодняшнее поведение; случай попадает в счёт «зеркало разошлось».
+ */
+function tableVerdicts(
+  rawHtml: string,
+  prepared: string,
+  ключ?: string,
+): { таблицы: TableVerdict[]; зеркало: boolean } {
+  const pTables = analyzeTables(prepared);
+  const rTables = analyzeTables(rawHtml);
+  const зеркало =
+    rTables.length === pTables.length &&
+    rTables.every(
+      (t, i) =>
+        t.depth === pTables[i].depth &&
+        t.nested === pTables[i].nested &&
+        t.rows === pTables[i].rows,
+    );
+  const предварительно = pTables.map((t, i) => {
+    const preparedSlice = prepared.slice(t.start, t.end);
+    const raw = зеркало ? rawHtml.slice(rTables[i].start, rTables[i].end) : null;
+    const признаки = raw === null ? null : flatTableStructure(preparedSlice, raw, t.nested);
+    const промахи =
+      признаки === null ? ["зеркало срезов разошлось"] : textTableMisses(признаки, ключ);
+    const текстовые = признаки !== null && промахи.length === 0;
+    return {
+      info: t,
+      prepared: preparedSlice,
+      raw,
+      признаки,
+      промахи,
+      текстовые,
+      причина: (t.data ? "данные с вложенными" : "вёрстка") as FlatReason,
+    };
+  });
+  // Выдача идёт слева направо: таблица, попавшая внутрь уже выданной, своей
+  // очереди не получает.
+  const выданные: TableInfo[] = [];
+  let pos = 0;
+  const таблицы: TableVerdict[] = предварительно.map((p) => {
+    const годна = (p.info.data || p.текстовые) && p.info.nested === 0;
+    const выдана = годна && p.info.start >= pos;
+    if (выдана) {
+      выданные.push(p.info);
+      pos = p.info.end;
+      if (!p.info.data && ключ !== undefined && TEXT_TABLE_ALLOWED.has(ключ)) {
+        textTableAllowedHits.add(ключ);
+      }
+    }
+    return { ...p, выдана, внутриВыданной: false };
+  });
+  for (const t of таблицы) {
+    if (t.выдана) continue;
+    t.внутриВыданной = выданные.some(
+      (e) => t.info.start >= e.start && t.info.end <= e.end && t.info !== e,
+    );
+  }
+  return { таблицы, зеркало };
 }
 
 // ───────────────────────── санитайзер: конвейер ─────────────────────────
@@ -1525,7 +1830,7 @@ function sanitizeTable(tableHtml: string, ctx: SanitizeCtx): string {
 /**
  * Тело новости → блоки: абзацы `<p>` (белый список a[href], b/strong, i/em,
  * `<br>`) и таблицы данных. Фрагмент режется по границам таблиц данных без
- * вложенных таблиц (analyzeTables — тот же признак, что считает профиль);
+ * вложенных таблиц (tableVerdicts — тот же код, что считает профиль);
  * куски между ними идут инлайн-конвейером, где макетные таблицы и таблицы
  * данных с вложенными разворачиваются в абзацы (границы ячеек/рядов —
  * разрывы). Таблица данных внутри макетной остаётся таблицей: внешняя
@@ -1541,11 +1846,11 @@ function sanitizeBody(html: string, ctx: SanitizeCtx): string {
     for (const p of inlineParagraphs(fragment, ctx)) blocks.push(`<p>${p}</p>`);
   };
   let pos = 0;
-  for (const t of analyzeTables(work)) {
-    if (!t.data || t.nested > 0 || t.start < pos) continue;
-    pushParas(work.slice(pos, t.start));
-    blocks.push(sanitizeTable(work.slice(t.start, t.end), ctx));
-    pos = t.end;
+  for (const t of tableVerdicts(html, work, ctx.ключ).таблицы) {
+    if (!t.выдана) continue;
+    pushParas(work.slice(pos, t.info.start));
+    blocks.push(sanitizeTable(t.prepared, ctx));
+    pos = t.info.end;
   }
   pushParas(work.slice(pos));
   return blocks.join("\n");
@@ -1886,6 +2191,9 @@ function extractTitle(item: FeedItem): string | null {
 
 function buildRecord(item: FeedItem): OutputRecord | null {
   const context = `${item.file}:${item.bodyLine}`;
+  // Ключ записи для поимённых списков разбора: то же правило, что у
+  // profKeyShort, но без --profile — им пользуется TEXT_TABLE_ALLOWED.
+  const ключЗаписи = `${item.file}#${item.position + 1}`;
   const feedUrl = `${SITE}/${item.file}`;
   const cap: ProfCapture | null = PROFILING ? newProfCapture(item, feedUrl) : null;
   curProf = cap;
@@ -2157,9 +2465,13 @@ function buildRecord(item: FeedItem): OutputRecord | null {
   let source: string;
   if (teaser && teaser.page && articleBody !== null) {
     if (cap) cap.bodySource = { html: articleBody, baseUrl: teaser.page.url };
-    bodyHtmlOut = sanitizeBody(articleBody, { baseUrl: teaser.page.url, videoLinks: true });
+    bodyHtmlOut = sanitizeBody(articleBody, {
+      baseUrl: teaser.page.url,
+      videoLinks: true,
+      ключ: ключЗаписи,
+    });
     bodyHtmlOut = noteNavRemnants(bodyHtmlOut, navTexts, `${context}: «${title}»`);
-    const feedPlain = stripTags(sanitizeBody(feedBody, { baseUrl: feedUrl }));
+    const feedPlain = stripTags(sanitizeBody(feedBody, { baseUrl: feedUrl, ключ: ключЗаписи }));
     anons = removeLinkSentence(feedPlain) || undefined;
     source = teaser.page.url;
     if (teaser.page.layout === "D") {
@@ -2177,7 +2489,7 @@ function buildRecord(item: FeedItem): OutputRecord | null {
     }
   } else {
     if (cap) cap.bodySource = { html: feedBody, baseUrl: feedUrl };
-    bodyHtmlOut = sanitizeBody(feedBody, { baseUrl: feedUrl, videoLinks: true });
+    bodyHtmlOut = sanitizeBody(feedBody, { baseUrl: feedUrl, videoLinks: true, ключ: ключЗаписи });
     bodyHtmlOut = noteNavRemnants(bodyHtmlOut, navTexts, `${context}: «${title}»`);
     anons = undefined;
     source = feedUrl;
@@ -2563,7 +2875,11 @@ function buildMediaRecord(row: MediaRow): OutputRecord | null {
   }
   if (photoPaths.length === 0) report.mediaNoCover.push(`${label} → ${row.relFile}`);
 
-  const bodyHtmlOut = sanitizeBody(prepared, { baseUrl: url, videoLinks: true });
+  const bodyHtmlOut = sanitizeBody(prepared, {
+    baseUrl: url,
+    videoLinks: true,
+    ключ: `${row.file}#${row.position}`,
+  });
   // Порог «тело короче 200 знаков» у записи-страницы не фатален, в отличие от
   // тизерной записи годовой ленты: страница бывает почти целиком из фото.
   const bodyPlainLen = stripTags(bodyHtmlOut).length;
@@ -3977,7 +4293,12 @@ function profDetectors(rec: OutputRecord, cap: ProfCapture): Detectors {
       true,
     );
     const sanFeed = plainProf(
-      sanitizeBody(feedPrepared, { baseUrl: cap.feedUrl, silent: true, videoLinks: true }),
+      sanitizeBody(feedPrepared, {
+        baseUrl: cap.feedUrl,
+        silent: true,
+        videoLinks: true,
+        ключ: `${cap.file}#${cap.position}`,
+      }),
     );
     let sanArt: string | null = null;
     if (cap.teaserBodyHtml !== null && cap.teaserUrl !== null) {
@@ -3989,7 +4310,12 @@ function profDetectors(rec: OutputRecord, cap: ProfCapture): Detectors {
         true,
       );
       sanArt = plainProf(
-        sanitizeBody(artPrepared, { baseUrl: cap.teaserUrl, silent: true, videoLinks: true }),
+        sanitizeBody(artPrepared, {
+          baseUrl: cap.teaserUrl,
+          silent: true,
+          videoLinks: true,
+          ключ: `${cap.file}#${cap.position}`,
+        }),
       );
     }
     а = pBody !== sanFeed && (sanArt === null || pBody !== sanArt);
@@ -5878,12 +6204,35 @@ function runProfile(records: OutputRecord[], exportSha: string, reportSha: strin
   const round3 = profRound3(profs, records, slugs);
   const textTables = round3.таблицы.filter((t) => t.текстовые);
   const calendarPicked = textTables.filter((t) => t.ключ === TEXT_TABLE_POSITIVE);
+  /** Сколько тегов <table> в теле записи с этим ключом. */
+  const tablesInBody = (ключ: string): number => {
+    const i = profs.findIndex((p) => profKeyShort(p) === ключ);
+    return i === -1 ? -1 : (records[i]["ТекстHTML"].match(/<table\b/gi) ?? []).length;
+  };
+  const allowedFact = [...TEXT_TABLE_ALLOWED].map(([ключ, ждём]) => ({
+    ключ,
+    ждём,
+    дано: textTables.filter((t) => t.ключ === ключ).length,
+    вТеле: tablesInBody(ключ),
+  }));
+  const negativeFact = TEXT_TABLE_NEGATIVE.map((ключ) => ({
+    ключ,
+    вТеле: tablesInBody(ключ),
+    отобрано: textTables.filter((t) => t.ключ === ключ).length,
+  }));
   const bracketsLinks = round3.ссылки.filter(
     (d) => d.адрес === DOC_LINK_POSITIVE_ADDR && d.текст.toUpperCase().includes(DOC_LINK_POSITIVE),
   );
 
   const withTableBody = profs.filter((p) => p.результат.таблицВТеле > 0);
-  const tableWithoutData = withTableBody.filter((p) => p.источник.сумма.таблицы.данных === 0);
+  // Признак «данных» — не единственное основание остаться таблицей с
+  // 24.09.2026: таблица с текстовыми данными (TEXT_TABLE) тоже остаётся.
+  // Контроль потерял бы предмет, считай он только долю числовых ячеек.
+  const tableWithoutData = withTableBody.filter(
+    (p) =>
+      p.источник.сумма.таблицы.данных === 0 &&
+      (round3.текстовымиПоЗаписи.get(profKeyShort(p)) ?? 0) === 0,
+  );
   const videoChecks: VideoCheck[] = [];
   profs.forEach((p, i) => {
     for (const src of profByRecord.get(records[i])!.videoSrcs) {
@@ -5919,7 +6268,8 @@ function runProfile(records: OutputRecord[], exportSha: string, reportSha: strin
       факт: `${withTableBody.length}`,
     },
     {
-      текст: "тег <table не встречается в телах записей, у которых таблиц данных нет",
+      текст:
+        "тег <table не встречается в телах записей, у которых нет ни таблиц данных, ни таблиц с текстовыми данными",
       ок: tableWithoutData.length === 0,
       факт:
         tableWithoutData.length === 0
@@ -6038,6 +6388,30 @@ function runProfile(records: OutputRecord[], exportSha: string, reportSha: strin
               .join(" ")}`,
     },
     {
+      текст: `${TEXT_TABLE_POSITIVE} — таблицей в теле записи`,
+      ок: tablesInBody(TEXT_TABLE_POSITIVE) > 0,
+      факт: `тегов <table> в теле: ${tablesInBody(TEXT_TABLE_POSITIVE)}`,
+    },
+    {
+      текст: `поимённый список TEXT_TABLE_ALLOWED дал ожидаемое число таблиц (${[
+        ...TEXT_TABLE_ALLOWED,
+      ]
+        .map(([k, n]) => `${k} → ${n}`)
+        .join(", ")})`,
+      ок: allowedFact.every((a) => a.дано === a.ждём && a.вТеле === a.ждём),
+      факт: allowedFact.map((a) => `${a.ключ}: отобрано ${a.дано}, в теле ${a.вТеле}`).join("; "),
+    },
+    {
+      текст: `отрицательный контроль признака: ${TEXT_TABLE_NEGATIVE.length} таблиц «Динамит | Fresh-Tennis | Creyda» остались вёрсткой`,
+      ок: negativeFact.every((n) => n.вТеле === 0 && n.отобрано === 0),
+      факт: negativeFact.every((n) => n.вТеле === 0 && n.отобрано === 0)
+        ? `у всех ${TEXT_TABLE_NEGATIVE.length} записей тегов <table> в теле 0: ${TEXT_TABLE_NEGATIVE.join(", ")}`
+        : negativeFact
+            .filter((n) => n.вТеле !== 0 || n.отобрано !== 0)
+            .map((n) => `${n.ключ}: в теле ${n.вТеле}, отобрано ${n.отобрано}`)
+            .join("; "),
+    },
+    {
       текст: `ссылка «${DOC_LINK_POSITIVE}» в ${DOC_LINK_POSITIVE_ADDR} найдена и отнесена к группе (а)`,
       ок: bracketsLinks.length > 0 && bracketsLinks.every((d) => d.группа === "а"),
       факт:
@@ -6091,7 +6465,8 @@ function runProfile(records: OutputRecord[], exportSha: string, reportSha: strin
     `Примерка анонса: ${join(PROFILE_DIR, "excerpt-preview.md")} (записей: ${previewPicks.length})`,
   );
   console.log(
-    `Таблицы: ${join(PROFILE_DIR, "tables.md")} (развёрнутых ${round3.таблицы.length}, отобрано ${textTables.length})`,
+    `Таблицы: ${join(PROFILE_DIR, "tables.md")} (в замере ${round3.таблицы.length}, осталось таблицами ` +
+      `${textTables.length}, развёрнуто ${round3.таблицы.length - textTables.length})`,
   );
   console.log(
     `Ссылки на файлы: ${join(PROFILE_DIR, "file-links.md")} (ссылок ${round3.ссылки.length})`,
@@ -6145,161 +6520,38 @@ function runProfile(records: OutputRecord[], exportSha: string, reportSha: strin
  * Считается, сколько таких ссылок, куда уехал файл и что стоит на их месте.
  */
 
-/** Ячейка верхнего уровня одной таблицы. */
-type ProfCell = { tag: "td" | "th"; text: string; выделена: boolean };
-
 /**
- * Ряды и ячейки верхнего уровня одной таблицы. Текст вложенной таблицы в
- * ячейку внешней не входит — как в `analyzeTables`. «Выделена» — ячейка `th`
- * либо ячейка, всё содержимое которой обёрнуто в `b`/`strong`.
- */
-function profTableRows(tableHtml: string): ProfCell[][] {
-  const rows: ProfCell[][] = [];
-  let cur: ProfCell[] | null = null;
-  let depth = 0;
-  let open: { tag: "td" | "th"; buf: string } | null = null;
-  let last = 0;
-  const closeCell = () => {
-    if (!open) return;
-    const inner = open.buf.trim();
-    const text = stripTags(inner);
-    const выделена =
-      open.tag === "th" || (text !== "" && /^<(b|strong)\b[^>]*>[\s\S]*<\/\1>$/i.test(inner));
-    if (!cur) {
-      cur = [];
-      rows.push(cur);
-    }
-    cur.push({ tag: open.tag, text, выделена });
-    open = null;
-  };
-  const tagRe = /<(\/?)(table|tr|td|th)\b[^>]*>/gi;
-  let m: RegExpExecArray | null;
-  while ((m = tagRe.exec(tableHtml))) {
-    if (open && depth === 1) open.buf += tableHtml.slice(last, m.index);
-    last = m.index + m[0].length;
-    const closing = m[1] === "/";
-    const tag = m[2].toLowerCase();
-    if (tag === "table") {
-      depth += closing ? -1 : 1;
-      continue;
-    }
-    if (depth !== 1) continue;
-    if (tag === "tr") {
-      closeCell();
-      if (!closing) {
-        cur = [];
-        rows.push(cur);
-      }
-      continue;
-    }
-    closeCell();
-    if (!closing) open = { tag: tag as "td" | "th", buf: "" };
-  }
-  if (open && depth === 1) open.buf += tableHtml.slice(last);
-  closeCell();
-  return rows;
-}
-
-/** Причина, по которой таблица развернулась в абзацы. */
-type FlatReason = "вёрстка" | "данные с вложенными";
-
-/** Одна развёрнутая таблица: срезы источника и вердикт боевого признака. */
-type FlatSlice = { raw: string | null; prepared: string; info: TableInfo; причина: FlatReason };
-
-/**
- * Таблицы фрагмента, которые `sanitizeBody` разворачивает в абзацы. Зеркало
- * боевого цикла: таблица данных без вложенных и не попавшая внутрь уже
- * выданной остаётся таблицей, всё прочее уходит в `inlineParagraphs`.
- * Считается по подготовленному фрагменту (как в бою), а сырой срез нужен для
- * картинок и форм — `prepareHtml` их вырезает. Срезы сводятся по индексу:
- * `prepareHtml` теги таблиц не добавляет и не убирает. Если последовательности
- * всё же разошлись, `raw` = null и запись идёт в счёт «зеркало разошлось».
+ * Таблицы фрагмента для замера: всё, что решает признак «текстовых данных»,
+ * — и развёрнутые в абзацы, и оставленные таблицей по этому признаку.
+ * Таблицы данных по доле числовых ячеек в замер не входят: их признак не
+ * касается, они были таблицами и до него. Вердикт и признаки считает
+ * `tableVerdicts` — один код с санитайзером, счёт замера и поведение
+ * разойтись не могут.
+ *
+ * Внутри отобранного множества «признак сработал» и «осталась таблицей» —
+ * одно и то же: таблица выдаётся, когда `data || текстовые`, а `data` здесь
+ * отфильтрован.
  */
 function profFlattenedTables(
   html: string,
   baseUrl: string,
-): { таблицы: FlatSlice[]; зеркало: boolean } {
+  ключ?: string,
+): { таблицы: TableVerdict[]; зеркало: boolean } {
   const prepared = prepareHtml(html, { baseUrl, silent: true, videoLinks: true });
-  const pTables = analyzeTables(prepared);
-  const rTables = analyzeTables(html);
-  const зеркало =
-    rTables.length === pTables.length &&
-    rTables.every(
-      (t, i) =>
-        t.depth === pTables[i].depth &&
-        t.nested === pTables[i].nested &&
-        t.rows === pTables[i].rows,
-    );
-  const emitted: TableInfo[] = [];
-  let pos = 0;
-  for (const t of pTables) {
-    if (!t.data || t.nested > 0 || t.start < pos) continue;
-    emitted.push(t);
-    pos = t.end;
-  }
-  const таблицы: FlatSlice[] = [];
-  pTables.forEach((t, i) => {
-    if (emitted.some((e) => t.start >= e.start && t.end <= e.end)) return;
-    таблицы.push({
-      raw: зеркало ? html.slice(rTables[i].start, rTables[i].end) : null,
-      prepared: prepared.slice(t.start, t.end),
-      info: t,
-      причина: t.data ? "данные с вложенными" : "вёрстка",
-    });
-  });
-  return { таблицы, зеркало };
+  const { таблицы, зеркало } = tableVerdicts(html, prepared, ключ);
+  return {
+    таблицы: таблицы.filter((t) => !t.внутриВыданной && !(t.выдана && t.info.data)),
+    зеркало,
+  };
 }
 
-/** Структурные признаки одной развёрнутой таблицы (замер 1). */
-type FlatTable = {
-  ключ: string;
-  заголовок: string;
-  адрес: string;
-  дата: string;
-  год: number;
-  причина: FlatReason;
-  строк: number;
-  /** Основная ширина ряда — та, что встречается чаще прочих (при равенстве — бо́льшая). */
-  колонок: number;
-  /** Доля рядов основной ширины: у таблицы данных ряды прямоугольны, у вёрстки — нет. */
-  доляОсновной: number;
-  ячеек: number;
-  непустых: number;
-  доляНепустых: number;
-  шапка: boolean;
-  картинок: number;
-  вложенных: number;
-  форм: number;
-  ссылок: number;
-  числовых: number;
-  доляЧисловых: number;
-  медианаДлины: number;
-  максДлины: number;
-  длинаPlain: number;
-  перваяСтрока: string;
-  промахи: string[];
-  текстовые: boolean;
-};
-
-/**
- * Пороги признака «таблица с текстовыми данными». Выведены из замера
- * 23.09.2026 по всем развёрнутым таблицам архива, не по одному примеру;
- * распределения — в разделе отчёта «Таблицы, развёрнутые в абзацы».
- */
-const TEXT_TABLE = {
-  минСтрок: 3,
-  минКолонок: 2,
-  минЯчеек: 9,
-  /**
-   * Ряды одной ширины, но не все: у таблицы данных легаси сплошь и рядом есть
-   * ряд-заголовок с `colspan` на всю ширину и хвостовой ряд-подпись. Строгое
-   * «во всех рядах поровну» отбрасывало самые крупные таблицы архива — список
-   * кандидатов в сборную (161×7, 989 ячеек) и все календари сроков (7×7).
-   */
-  минДоляОсновной: 0.8,
-  минДоляНепустых: 0.75,
-  максМедианаДлины: 120,
-};
+/** Одна развёрнутая таблица с ключом записи (замер 1). */
+type FlatTable = FlatTableStructure &
+  Round3Key & {
+    причина: FlatReason;
+    промахи: string[];
+    текстовые: boolean;
+  };
 
 /**
  * Положительный контроль замера 1: календарь мероприятий «Юбилейный теннисный
@@ -6308,6 +6560,28 @@ const TEXT_TABLE = {
  * почти нет. Признак обязан его отобрать, иначе замер ничего не стоит.
  */
 const TEXT_TABLE_POSITIVE = "pobeda.html#16";
+
+/**
+ * Отрицательный контроль признака (замер 23.09.2026). Девять таблиц 4×3
+ * «Динамит | Fresh-Tennis | Creyda» — ряд логотипов партнёров: 100 % непустых
+ * ячеек, 100 % рядов основной ширины, медиана 15. От отбора их удерживает
+ * единственное условие «картинок нет» (внутри девять `<img>`), и ничто
+ * больше. Если признак когда-нибудь их заберёт, в тела вернётся вёрстка.
+ *
+ * Список, а не число: в докладе замера было написано «восемь таблиц», а в
+ * `tables.md` строк девять — число-бюджет такую ошибку счёта прячет.
+ */
+const TEXT_TABLE_NEGATIVE = [
+  "newsarch_2023.html#61",
+  "newsarch_2023.html#65",
+  "newsarch_2023.html#66",
+  "newsarch_2023.html#68",
+  "festvest.html#37",
+  "festvest.html#65",
+  "festvest.html#79",
+  "festvest.html#81",
+  "festvest.html#101",
+];
 
 /**
  * Положительный контроль замера 2: ссылка «ТУРНИРНЫЕ СЕТКИ» в новости
@@ -6319,83 +6593,38 @@ const TEXT_TABLE_POSITIVE = "pobeda.html#16";
 const DOC_LINK_POSITIVE = "ТУРНИРНЫЕ СЕТКИ";
 const DOC_LINK_POSITIVE_ADDR = "/news/perehodyaschiy-kubok-dzhentlmenov-etap-08-noyabrya";
 
-/** Условия признака, которые таблица не выполнила (пусто — признак сработал). */
-function textTableMisses(t: Omit<FlatTable, "промахи" | "текстовые">): string[] {
-  const m: string[] = [];
-  if (t.вложенных > 0) m.push(`вложенных таблиц ${t.вложенных}`);
-  if (t.картинок > 0) m.push(`картинок ${t.картинок}`);
-  if (t.форм > 0) m.push(`форм ${t.форм}`);
-  if (t.строк < TEXT_TABLE.минСтрок) m.push(`строк ${t.строк} < ${TEXT_TABLE.минСтрок}`);
-  if (t.колонок < TEXT_TABLE.минКолонок) m.push(`колонок ${t.колонок} < ${TEXT_TABLE.минКолонок}`);
-  if (t.ячеек < TEXT_TABLE.минЯчеек) m.push(`ячеек ${t.ячеек} < ${TEXT_TABLE.минЯчеек}`);
-  if (t.доляОсновной < TEXT_TABLE.минДоляОсновной) {
-    m.push(
-      `рядов основной ширины ${(t.доляОсновной * 100).toFixed(0)}% < ${TEXT_TABLE.минДоляОсновной * 100}%`,
-    );
-  }
-  if (t.доляНепустых < TEXT_TABLE.минДоляНепустых) {
-    m.push(`непустых ${(t.доляНепустых * 100).toFixed(0)}% < ${TEXT_TABLE.минДоляНепустых * 100}%`);
-  }
-  if (t.медианаДлины > TEXT_TABLE.максМедианаДлины) {
-    m.push(`медиана длины ячейки ${t.медианаДлины} > ${TEXT_TABLE.максМедианаДлины}`);
-  }
-  return m;
-}
-
-const median = (xs: number[]): number => {
-  if (xs.length === 0) return 0;
-  const s = [...xs].sort((a, b) => a - b);
-  return s.length % 2 === 1
-    ? s[(s.length - 1) / 2]
-    : Math.round((s[s.length / 2 - 1] + s[s.length / 2]) / 2);
-};
-
-/** Структурные признаки одной развёрнутой таблицы по её срезам. */
-function profFlatTable(slice: FlatSlice, ключ: Round3Key): FlatTable {
-  const rows = profTableRows(slice.prepared).filter((r) => r.length > 0);
-  const cells = rows.flat();
-  const непустые = cells.filter((c) => c.text !== "");
-  // Основная ширина ряда: мода по числу ячеек, при равенстве частот — бо́льшая
-  // ширина (ряд-заголовок с colspan уже́ содержательных рядов, не наоборот).
-  const частоты = new Map<number, number>();
-  for (const r of rows) частоты.set(r.length, (частоты.get(r.length) ?? 0) + 1);
-  const основная = [...частоты.entries()].sort((a, b) => b[1] - a[1] || b[0] - a[0])[0] ?? [0, 0];
-  const первая = rows[0] ?? [];
-  const raw = slice.raw ?? "";
-  const длины = непустые.map((c) => c.text.length);
-  const базовые = {
-    ключ: ключ.ключ,
-    заголовок: ключ.заголовок,
-    адрес: ключ.адрес,
-    дата: ключ.дата,
-    год: ключ.год,
-    причина: slice.причина,
-    строк: rows.length,
-    колонок: основная[0],
-    доляОсновной: rows.length === 0 ? 0 : основная[1] / rows.length,
-    ячеек: cells.length,
-    непустых: непустые.length,
-    доляНепустых: cells.length === 0 ? 0 : непустые.length / cells.length,
-    шапка:
-      первая.length >= 2 &&
-      первая.filter((c) => c.text !== "").length >= 2 &&
-      первая.every((c) => c.text === "" || c.выделена),
-    картинок: (raw.match(/<img\b/gi) ?? []).length,
+/**
+ * Одна развёрнутая таблица замера: признаки от `tableVerdicts` плюс ключ
+ * записи. Если зеркало срезов разошлось, признаков нет — таблица считается
+ * вёрсткой, и это видно по промаху «зеркало срезов разошлось».
+ */
+function profFlatTable(slice: TableVerdict, ключ: Round3Key): FlatTable {
+  const пусто: FlatTableStructure = {
+    строк: 0,
+    колонок: 0,
+    доляОсновной: 0,
+    ячеек: 0,
+    непустых: 0,
+    доляНепустых: 0,
+    шапка: false,
+    картинок: 0,
     вложенных: slice.info.nested,
-    форм: (raw.match(/<(?:form|input|select|textarea)\b/gi) ?? []).length,
-    ссылок: (slice.prepared.match(/<a\b/gi) ?? []).length,
-    числовых: непустые.filter((c) => NUMERIC_CELL_RE.test(c.text)).length,
-    доляЧисловых:
-      cells.length === 0
-        ? 0
-        : непустые.filter((c) => NUMERIC_CELL_RE.test(c.text)).length / cells.length,
-    медианаДлины: median(длины),
-    максДлины: длины.reduce((n, l) => Math.max(n, l), 0),
-    длинаPlain: stripTags(slice.prepared).length,
-    перваяСтрока: первая.map((c) => c.text).join(" | "),
+    форм: 0,
+    ссылок: 0,
+    числовых: 0,
+    доляЧисловых: 0,
+    медианаДлины: 0,
+    максДлины: 0,
+    длинаPlain: 0,
+    перваяСтрока: "",
   };
-  const промахи = textTableMisses(базовые);
-  return { ...базовые, промахи, текстовые: промахи.length === 0 };
+  return {
+    ...(slice.признаки ?? пусто),
+    ...ключ,
+    причина: slice.причина,
+    промахи: slice.промахи,
+    текстовые: slice.признаки !== null && slice.промахи.length === 0,
+  };
 }
 
 // ───────────────────────── замер 2: ссылки на файлы ─────────────────────────
@@ -6491,6 +6720,8 @@ type Round3 = {
   ссылки: DocLink[];
   /** Записей, у которых есть хоть одна развёрнутая таблица. */
   записейСТаблицами: number;
+  /** Ключ записи → сколько таблиц выдано по признаку «текстовых данных». */
+  текстовымиПоЗаписи: Map<string, number>;
 };
 
 /** Ключ записи для обоих замеров. */
@@ -6520,6 +6751,7 @@ function profRound3(profs: ProfileRecord[], records: OutputRecord[], slugs: stri
   const таблицы: FlatTable[] = [];
   const зеркалоРазошлось: string[] = [];
   const ссылки: DocLink[] = [];
+  const текстовымиПоЗаписи = new Map<string, number>();
   let записейСТаблицами = 0;
 
   records.forEach((rec, i) => {
@@ -6537,9 +6769,12 @@ function profRound3(profs: ProfileRecord[], records: OutputRecord[], slugs: stri
       const { таблицы: срезы, зеркало } = profFlattenedTables(
         cap.bodySource.html,
         cap.bodySource.baseUrl,
+        k.ключ,
       );
+      const текстовыми = срезы.filter((s) => s.выдана).length;
       if (!зеркало) зеркалоРазошлось.push(k.ключ);
-      if (срезы.length > 0) записейСТаблицами += 1;
+      if (срезы.length - текстовыми > 0) записейСТаблицами += 1;
+      if (текстовыми > 0) текстовымиПоЗаписи.set(k.ключ, текстовыми);
       for (const s of срезы) таблицы.push(profFlatTable(s, k));
     }
 
@@ -6632,7 +6867,7 @@ function profRound3(profs: ProfileRecord[], records: OutputRecord[], slugs: stri
     }
   });
 
-  return { таблицы, зеркалоРазошлось, ссылки, записейСТаблицами };
+  return { таблицы, зеркалоРазошлось, ссылки, записейСТаблицами, текстовымиПоЗаписи };
 }
 
 // ───────────────────────── профиль: третий круг — отчёт ─────────────────────────
@@ -6685,18 +6920,20 @@ function renderFlatTables(L: string[], r3: Round3): void {
     .sort((a, b) => a.промахи.length - b.промахи.length || b.ячеек - a.ячеек)
     .slice(0, 20);
 
-  L.push("## Таблицы, развёрнутые в абзацы (замер 1)");
+  L.push("## Таблицы без цифр: признак «текстовых данных»");
   L.push("");
   L.push(
-    "Считаются таблицы фрагмента, ставшего телом записи, которые `sanitizeBody` разворачивает в" +
-      " абзацы: признак «таблица данных» (доля числовых ячеек ≥ " +
-      `${DATA_TABLE_RATIO}) их не признал либо внутри есть вложенная таблица. Структура считается по` +
-      " подготовленному фрагменту (как в бою), картинки и формы — по сырому: `prepareHtml` их" +
-      " вырезает до разбора.",
+    "Считаются таблицы фрагмента, ставшего телом записи, которые признак «таблица данных» (доля" +
+      ` числовых ячеек ≥ ${DATA_TABLE_RATIO}) не признал: до 24.09.2026 все они разворачивались в` +
+      " абзацы, теперь часть из них остаётся таблицами по признаку «текстовых данных». Структура" +
+      " считается по подготовленному фрагменту (как в бою), картинки и формы — по сырому:" +
+      " `prepareHtml` их вырезает до разбора.",
   );
   L.push("");
-  L.push(`- всего развёрнутых таблиц: **${t.length}**`);
-  L.push(`- записей, где есть хоть одна: **${r3.записейСТаблицами}**`);
+  L.push(`- всего таблиц в замере: **${t.length}**`);
+  L.push(`- из них осталось таблицами: **${отобраны.length}**`);
+  L.push(`- развёрнуто в абзацы: **${t.length - отобраны.length}**`);
+  L.push(`- записей, где есть хоть одна развёрнутая: **${r3.записейСТаблицами}**`);
   L.push(
     `- по причине: вёрстка ${t.filter((x) => x.причина === "вёрстка").length}, ` +
       `данные с вложенными ${t.filter((x) => x.причина === "данные с вложенными").length}`,
@@ -6772,9 +7009,9 @@ function renderFlatTables(L: string[], r3: Round3): void {
     t.length,
   );
 
-  L.push("### Предложенный признак «таблица с текстовыми данными»");
+  L.push("### Признак «таблица с текстовыми данными»");
   L.push("");
-  L.push("Таблица отбирается, когда выполнены все условия:");
+  L.push("Таблица остаётся таблицей, когда выполнены все условия:");
   L.push("");
   L.push("- вложенных таблиц нет, картинок внутри нет, форм внутри нет;");
   L.push(
@@ -6787,7 +7024,9 @@ function renderFlatTables(L: string[], r3: Round3): void {
   L.push("");
   L.push(
     `Признак отбирает **${отобраны.length}** таблиц в **${new Set(отобраны.map((x) => x.ключ)).size}**` +
-      " записях. Доля числовых ячеек в отборе не участвует — именно она и не сработала на календаре.",
+      " записях. Доля числовых ячеек в отборе не участвует — именно она и не сработала на календаре." +
+      ` Записям поимённого списка (${[...TEXT_TABLE_ALLOWED.keys()].join(", ")}) условие «рядов` +
+      " основной ширины» не проверяется — понижение самого порога затянуло бы в отбор вёрстку.",
   );
   L.push("");
   L.push(FLAT_HEAD);
@@ -6800,7 +7039,9 @@ function renderFlatTables(L: string[], r3: Round3): void {
   L.push("");
   L.push(
     "Развёрнутые таблицы, не прошедшие признак, отсортированные по числу невыполненных условий и" +
-      " размеру. Здесь видно, где признак может ошибиться, если пороги ослабить.",
+      " размеру. Здесь видно, где признак может ошибиться, если пороги ослабить. Девять таблиц" +
+      " «Динамит | Fresh-Tennis | Creyda» держит единственное условие «картинок нет» — за ними" +
+      " следит отдельный контроль (TEXT_TABLE_NEGATIVE).",
   );
   L.push("");
   L.push(FLAT_HEAD_MISS);
@@ -6985,10 +7226,10 @@ function renderDocLinks(L: string[], r3: Round3): void {
 /** Полный список отобранных и близких таблиц — отдельным файлом. */
 function renderTablesFile(r3: Round3): string {
   const L: string[] = [];
-  L.push("# tables.md — развёрнутые в абзацы таблицы архива");
+  L.push("# tables.md — таблицы архива без цифр");
   L.push("");
   L.push(
-    "Полные списки к разделу «Таблицы, развёрнутые в абзацы» профиля. Отбор — по признаку" +
+    "Полные списки к разделу «Таблицы без цифр» профиля. Отбор — по признаку" +
       " «таблица с текстовыми данными», близкие — все не прошедшие признак не более чем по двум" +
       " условиям.",
   );
@@ -6999,12 +7240,13 @@ function renderTablesFile(r3: Round3): string {
     .sort((a, b) => a.промахи.length - b.промахи.length || b.ячеек - a.ячеек);
   L.push(`## Отобрано признаком (${отобраны.length})`);
   L.push("");
-  L.push(FLAT_HEAD + " числовых | шапка | причина |");
+  L.push(FLAT_HEAD + " числовых | шапка | до правки |");
   L.push(FLAT_SEP + "---:|---|---|");
   for (const x of отобраны) {
     L.push(
       flatTableRow(x) +
-        ` ${(x.доляЧисловых * 100).toFixed(0)} % | ${x.шапка ? "да" : "нет"} | ${x.причина} |`,
+        ` ${(x.доляЧисловых * 100).toFixed(0)} % | ${x.шапка ? "да" : "нет"} | ` +
+        `${x.причина === "вёрстка" ? "разворачивалась в абзацы" : x.причина} |`,
     );
   }
   L.push("");
@@ -8001,6 +8243,29 @@ function runSelfTest(): number {
   const цифровая =
     "<table><tr><td>1</td><td>2</td><td>3</td></tr><tr><td>4</td><td>5</td><td>6</td></tr>" +
     "<tr><td>7</td><td>8</td><td>9</td></tr></table>";
+  // Два ряда из трёх — основной ширины (67 %): порог 80 % не взят. Ровно тот
+  // случай, ради которого заведён TEXT_TABLE_ALLOWED (newsarch_2005.html#1).
+  const рядовМеньшеПорога =
+    '<table><tr><td colspan="4">12 ЛЕТ И МОЛОЖЕ</td></tr>' +
+    "<tr><td>1 место</td><td>Иванов Пётр</td><td>Санкт-Петербург</td><td>тренер Сидоров</td></tr>" +
+    "<tr><td>2 место</td><td>Петров Иван</td><td>Санкт-Петербург</td><td>тренер Кузнецов</td></tr></table>";
+  // Тот же вход, но с картинкой: список снимает только порог рядов.
+  const рядовМеньшеПорогаСКартинкой = рядовМеньшеПорога.replace(
+    "<td>1 место</td>",
+    '<td><img src="logos/dinamit.gif">1 место</td>',
+  );
+  const ключСписка = [...TEXT_TABLE_ALLOWED.keys()][0];
+  /** Признаки первой таблицы входа при заданном ключе записи. */
+  const r3flatKey = (html: string, ключ?: string): FlatTable | null => {
+    const { таблицы } = profFlattenedTables(html, `${SITE}/news.html`, ключ);
+    return таблицы.length === 0 ? null : profFlatTable(таблицы[0], r3key);
+  };
+  /** Сколько тегов <table> оставляет боевой санитайзер. */
+  const телоТаблиц = (html: string, ключ?: string): number =>
+    (
+      sanitizeBody(html, { baseUrl: `${SITE}/news.html`, silent: true, ключ }).match(/<table\b/g) ??
+      []
+    ).length;
 
   const round3Cases: Array<{ name: string; input: string; output: string; ok: boolean }> = [
     (() => {
@@ -8084,6 +8349,62 @@ function runSelfTest(): number {
         ok: пустые.every(Boolean) && живые.every((x) => !x),
       };
     })(),
+    (() => {
+      // Боевой путь: таблица с текстовыми данными остаётся таблицей в теле.
+      // Без этого кейса правка проверялась бы только замером, а не поведением.
+      const n = телоТаблиц(календарь);
+      return {
+        name: "round3 правка: таблица с текстовыми данными остаётся таблицей в теле",
+        input: календарь,
+        output: `тегов <table> в теле: ${n}`,
+        ok: n === 1,
+      };
+    })(),
+    (() => {
+      // Отрицательный контроль той же правки: вёрстка с картинками таблицей
+      // не становится — иначе «остаётся таблицей» ничего не означает.
+      const n = телоТаблиц(обёрткаСКартинкой);
+      return {
+        name: "round3 правка (отрицательный): вёрстка с картинками таблицей в теле не становится",
+        input: обёрткаСКартинкой,
+        output: `тегов <table> в теле: ${n}`,
+        ok: n === 0,
+      };
+    })(),
+    (() => {
+      // Поимённый список снимает единственное условие — «рядов основной
+      // ширины». Без ключа та же таблица признаком не отбирается.
+      const без = r3flatKey(рядовМеньшеПорога);
+      const с = r3flatKey(рядовМеньшеПорога, ключСписка);
+      return {
+        name: "round3 список: без ключа порог рядов не взят, с ключом признак срабатывает",
+        input: рядовМеньшеПорога,
+        output:
+          `без ключа: текстовые=${без?.текстовые}, промахи=[${без?.промахи.join("; ")}]; ` +
+          `с ключом ${ключСписка}: текстовые=${с?.текстовые}, промахи=[${с?.промахи.join("; ")}]`,
+        ok:
+          без !== null &&
+          !без.текстовые &&
+          без.промахи.length === 1 &&
+          без.промахи[0].startsWith("рядов основной ширины") &&
+          с !== null &&
+          с.текстовые &&
+          с.промахи.length === 0,
+      };
+    })(),
+    (() => {
+      // Отрицательный контроль списка: он снимает только порог рядов.
+      // Картинка внутри держит таблицу и у записи из списка.
+      const с = r3flatKey(рядовМеньшеПорогаСКартинкой, ключСписка);
+      const n = телоТаблиц(рядовМеньшеПорогаСКартинкой, ключСписка);
+      return {
+        name: "round3 список (отрицательный): прочие условия список не снимает",
+        input: рядовМеньшеПорогаСКартинкой,
+        output: `текстовые=${с?.текстовые}, промахи=[${с?.промахи.join("; ")}], тегов <table> в теле: ${n}`,
+        ok:
+          с !== null && !с.текстовые && с.промахи.some((m) => m.startsWith("картинок")) && n === 0,
+      };
+    })(),
   ];
   for (const c of round3Cases) {
     if (!c.ok) failed += 1;
@@ -8146,6 +8467,9 @@ function main(): void {
   bodyPagesPass1 = bodyPages;
   resetReport();
   profByRecord.clear();
+  // Срабатывания поимённого списка принадлежат итоговому прогону: в проходе 1
+  // множество страниц-записей другое, и его следы в итог не идут.
+  textTableAllowedHits.clear();
 
   // Строки трёх смежных лент — только разметка строк, страницы не грузятся.
   // Читаются после сброса: их счётчики принадлежат итоговому прогону.
@@ -8221,6 +8545,16 @@ function main(): void {
     }
     target["Источник"] = `${SITE}/${key}`;
     report.feedAnchorSources.push(`${key} → «${target["Заголовок"]}» (${target["Дата"]})`);
+  }
+
+  // Ключ поимённого списка, не давший ни одной таблицы: молчаливое «не
+  // нашлось» скрыло бы сдвиг данных — так же, как у MANUAL_EXCLUSIONS.
+  for (const key of TEXT_TABLE_ALLOWED.keys()) {
+    if (!textTableAllowedHits.has(key)) {
+      runErrors.push(
+        `TEXT_TABLE_ALLOWED: ключ ${key} не дал ни одной таблицы с текстовыми данными`,
+      );
+    }
   }
 
   failOnRunErrors("проход 2");
