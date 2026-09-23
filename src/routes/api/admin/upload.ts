@@ -85,7 +85,16 @@ export const Route = createFileRoute("/api/admin/upload")({
           }
 
           try {
-            const result = await uploadNewsPhoto({ newsId, contentType, body: buffer });
+            // Размеры меряет браузер по итоговому файлу (после сжатия) и шлёт
+            // строками формы; проверяет их uploadNewsPhoto → parsePhotoSize.
+            // Некорректные — фото сохраняется без размеров, загрузка не падает.
+            const result = await uploadNewsPhoto({
+              newsId,
+              contentType,
+              body: buffer,
+              width: formData.get("width"),
+              height: formData.get("height"),
+            });
             return Response.json(result);
           } catch (error) {
             // Статус — из HttpError, не из текста сообщения; всё прочее — 500.

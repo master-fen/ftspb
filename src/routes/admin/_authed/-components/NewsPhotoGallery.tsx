@@ -68,11 +68,18 @@ function uploadFile(
   blob: Blob,
   filename: string,
   onProgress: (percent: number) => void,
+  size?: { width?: number; height?: number },
 ): Promise<UploadResult> {
   return new Promise((resolve, reject) => {
     const formData = new FormData();
     formData.append("newsId", newsId);
     formData.append("file", blob, filename);
+    // Размеры итогового файла — те, что уедут в хранилище. Сервер их
+    // перепроверяет (parsePhotoSize); не прочитались — полей просто нет.
+    if (size?.width !== undefined && size.height !== undefined) {
+      formData.append("width", String(size.width));
+      formData.append("height", String(size.height));
+    }
 
     const xhr = new XMLHttpRequest();
     xhr.open("POST", "/api/admin/upload");
@@ -203,9 +210,15 @@ export function NewsPhotoGallery({ newsId, coverPhotoId, onBusyChange }: NewsPho
         setUploads((prev) =>
           prev.map((u) => (u.id === uploadId ? { ...u, status: "uploading" } : u)),
         );
-        const uploaded = await uploadFile(newsId, prepared.blob, prepared.filename, (progress) => {
-          setUploads((prev) => prev.map((u) => (u.id === uploadId ? { ...u, progress } : u)));
-        });
+        const uploaded = await uploadFile(
+          newsId,
+          prepared.blob,
+          prepared.filename,
+          (progress) => {
+            setUploads((prev) => prev.map((u) => (u.id === uploadId ? { ...u, progress } : u)));
+          },
+          { width: prepared.width, height: prepared.height },
+        );
         item.uploadedId = uploaded.id;
         setUploads((prev) =>
           prev.map((u) => (u.id === uploadId ? { ...u, uploadedId: uploaded.id } : u)),
