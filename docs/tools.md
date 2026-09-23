@@ -17,12 +17,12 @@
 | `bun run format`          | `prettier --write .`                 |
 | `bun run charter:check`   | сверка выгрузки Устава с PDF         |
 
-База на 23.09.2026 (после PR «архив, второй круг»): `bun test` —
-578 тестов в 45 файлах, 3394 вызова `expect()`, 0 падений. Из них в
-`scripts/` — 184 теста в десяти файлах: `archive-image-rule` 16,
+База на 23.09.2026 (после PR «маленькие обложки»): `bun test` —
+615 тестов в 48 файлах, 3461 вызов `expect()`, 0 падений. Из них в
+`scripts/` — 186 тестов в десяти файлах: `archive-image-rule` 16,
 `archive-markers` 12, `archive-migration-rules` 42, `archive-reset-rules` 13,
 `css-extract` 19, `css-rule-forms` 11, `snapshot-align` 10,
-`snapshot-compare` 11, `snapshot-locate` 25, `ssr-snapshot` 25. `bun run lint`
+`snapshot-compare` 11, `snapshot-locate` 25, `ssr-snapshot` 27. `bun run lint`
 — 0 ошибок, 6 предупреждений `react-refresh/only-export-components` в
 `src/components/ui/` (`badge.tsx`, `button.tsx`, `form.tsx`,
 `navigation-menu.tsx`, `sidebar.tsx`, `toggle.tsx`). Lint сравнивается списком
@@ -116,8 +116,14 @@
   (`festvest.html`, `pobeda.html`, `150.html`); идёт двумя проходами —
   разведочный даёт множество страниц, уже ставших телом записи, его счётчики
   сбрасываются. `--profile=ПАПКА` пишет профиль и раздел «Контроли» —
-  20 контролей, любой НЕТ — exit 1 после записи файлов. `--self-test` —
-  66 кейсов на буквальном входе и выходе.
+  25 контролей, любой НЕТ — exit 1 после записи файлов. `--self-test` —
+  73 кейса на буквальном входе и выходе. Файлов профиля шесть: к
+  `profile.json`, `profile-report.md`, `sample.md` и `excerpt-preview.md`
+  третий круг (23.09.2026) добавил `tables.md` (развёрнутые в абзацы
+  таблицы) и `file-links.md` (ссылки на документы в текстах новостей).
+  Два контроля сверяют sha256 выгрузки и `parse-report.md` с заморозкой
+  `EXPECTED_EXPORT_SHA256`/`EXPECTED_REPORT_SHA256`: задача, меняющая
+  разбор сознательно, перезамораживает обе строки тем же PR.
 - **`bun run scripts/compress-archive.ts`** — отдельный проход сжатия
   архивных фото до заливки. Читает выгрузку, пишет все фото и документы в
   папку `--out=` с той же структурой каталогов и кладёт туда же
