@@ -25,11 +25,17 @@ import {
   titleDateOverlap,
 } from "./archive-migration-rules";
 import {
+  DOCUMENT_MARKER_SCHEME,
   RECORD_MARKER_SCHEME,
+  documentFileName,
+  documentHrefsByPath,
+  hasDocumentMarkerResidue,
   hasMarkerResidue,
+  replaceDocumentMarkers,
   replaceMarkers,
   slugMapBySource,
 } from "./archive-markers";
+import { newsFileHref } from "../src/lib/news-file-url";
 
 const { news, newsPhoto, document, newsDocument } = schema;
 
@@ -483,10 +489,12 @@ function buildPlan(record: ArchiveRecord, slug: string, createdAt: Date): Plan {
     const localPath = path.join(assets, item);
     requireFile(localPath, `документ новости "${title}"`);
     const ext = path.extname(localPath).toLowerCase();
-    const nn = String(idx + 1).padStart(2, "0");
+    // Имя файла — тем же правилом, что строит карту замены меток документов:
+    // второй копии у него быть не должно, иначе метка уедет на чужой файл.
+    const fileName = documentFileName(item, idx);
     return {
       localPath,
-      s3Key: `news/${slug}/documents/${nn}${ext}`,
+      s3Key: `news/${slug}/documents/${fileName}`,
       mimeType: documentMimeType(ext, `документ новости "${title}"`),
       sizeBytes: fs.statSync(localPath).size,
       position: idx + 1,
@@ -1009,6 +1017,28 @@ async function main() {
       markersDropped.push(`"${rec["Заголовок"]}": ${src}`);
     }
   }
+  // Метки на приложенные документы. Карта строится на КАЖДУЮ запись отдельно,
+  // по её собственному полю «Документы», поэтому метка физически не может
+  // указать на документ чужой записи. Ключ хранилища тут ещё не посчитан
+  // (это делает buildPlan), но он от buildPlan и не зависит: имя файла —
+  // чистая функция от порядка пути в «Документы» и его расширения.
+  let docMarkersReplaced = 0;
+  const docMarkersDropped: string[] = [];
+  for (const w of working) {
+    const rec = records[w.index];
+    const body = rec["ТекстHTML"];
+    if (body === undefined) continue;
+    const hrefByPath = documentHrefsByPath(rec["Документы"] ?? [], (fileName) =>
+      newsFileHref(allSlugs[w.index], fileName),
+    );
+    const res = replaceDocumentMarkers(body, hrefByPath);
+    rec["ТекстHTML"] = res.html;
+    docMarkersReplaced += res.replaced;
+    for (const путь of res.dropped) {
+      docMarkersDropped.push(`"${rec["Заголовок"]}": ${путь}`);
+    }
+  }
+
   // Остаток схемы после замены означает, что форма метки разошлась с формой
   // замены: молча залить такое тело нельзя.
   const markerResidue = workingRecords.filter(
@@ -1019,6 +1049,16 @@ async function main() {
       `Остаток метки ${RECORD_MARKER_SCHEME} после замены у ${markerResidue.length} записей:`,
     );
     for (const r of markerResidue) console.error(`  "${r["Заголовок"]}" (${r["Дата"]})`);
+    process.exit(1);
+  }
+  const docMarkerResidue = workingRecords.filter(
+    (r) => r["ТекстHTML"] && hasDocumentMarkerResidue(r["ТекстHTML"]),
+  );
+  if (docMarkerResidue.length > 0) {
+    console.error(
+      `Остаток метки ${DOCUMENT_MARKER_SCHEME} после замены у ${docMarkerResidue.length} записей:`,
+    );
+    for (const r of docMarkerResidue) console.error(`  "${r["Заголовок"]}" (${r["Дата"]})`);
     process.exit(1);
   }
 
@@ -1082,6 +1122,11 @@ async function main() {
     console.log(
       `Меток заменено: ${markersReplaced}, снято (записи нет): ${markersDropped.length}` +
         (markersDropped.length ? ` — ${markersDropped.join("; ")}` : ""),
+    );
+    console.log(
+      `Меток документов заменено: ${docMarkersReplaced}, снято (документа нет): ` +
+        `${docMarkersDropped.length}` +
+        (docMarkersDropped.length ? ` — ${docMarkersDropped.join("; ")}` : ""),
     );
     console.log(
       `Объектов S3: залито ${s3Uploaded}, из них перезалито по несовпадению размера ${s3Reuploaded}, ` +
