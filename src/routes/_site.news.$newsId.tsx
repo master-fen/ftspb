@@ -18,6 +18,7 @@ import { NewsBody } from "@/components/site/NewsBody";
 import { getNewsArticle } from "@/lib/news-server-fn";
 import type { NewsCardItem, NewsItem } from "@/lib/types/news";
 import { newsMetaLine } from "@/lib/news-meta";
+import { shouldShowLead } from "@/lib/news-lead";
 import { galleryImages } from "@/lib/gallery-layout";
 import { formatPhotoHash, parsePhotoHash } from "@/lib/photo-hash";
 import { NEWS_ORIGINS } from "@/lib/news-origin";
@@ -194,19 +195,8 @@ function NewsDetailPage() {
   const { from } = Route.useSearch();
   const crumbs = from === "federation" ? CRUMBS_FEDERATION : CRUMBS_DEFAULT;
 
-  // Не показываем анонс, если он дублирует начало текста новости.
-  const normalize = (s: string) =>
-    s
-      .replace(/<[^>]*>/g, " ")
-      .replace(/[«»"'“”]/g, "")
-      .replace(/[…]/g, "")
-      .replace(/\s+/g, " ")
-      .trim()
-      .toLowerCase();
-  const excerptNorm = item.excerpt ? normalize(item.excerpt) : "";
-  const bodyNorm = item.body ? normalize(item.body) : "";
-  const probe = excerptNorm.slice(0, 60);
-  const showLead = Boolean(excerptNorm && !(probe.length > 20 && bodyNorm.startsWith(probe)));
+  // Не показываем анонс, если он дублирует начало текста новости (src/lib/news-lead.ts).
+  const showLead = shouldShowLead(item.excerpt, item.body);
   // Флаг news.hide_cover_on_page прячет обложку только здесь; карточки и og:image (head) читают item.cover.
   const pageCover = item.hideCoverOnPage ? undefined : item.cover;
   const gallery = item.gallery ?? [];

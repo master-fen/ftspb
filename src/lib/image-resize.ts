@@ -13,14 +13,33 @@ function replaceExtension(filename: string, ext: string): string {
   return `${base}.${ext}`;
 }
 
-export async function readLongSide(file: Blob): Promise<number> {
+/**
+ * Размеры декодированного файла. Одно декодирование даёт и длинную сторону
+ * (по ней решается, сжимать ли), и обе стороны для `news_photo.width/height`.
+ * Бросает, как прежний `readLongSide`: нечитаемый не-GIF — это отказ загрузки,
+ * а не молчаливая отправка несжатого файла.
+ */
+export async function readImageSize(file: Blob): Promise<{ width: number; height: number }> {
   const bitmap = await createImageBitmap(file);
-  const longSide = Math.max(bitmap.width, bitmap.height);
+  const size = { width: bitmap.width, height: bitmap.height };
   bitmap.close();
-  return longSide;
+  return size;
 }
 
-export async function resizeToJpeg(file: Blob, longSide: number): Promise<Blob> {
+/** То же без исключения — для GIF, который декодируется только ради размеров. */
+async function tryReadImageSize(file: Blob): Promise<{ width: number; height: number } | null> {
+  try {
+    return await readImageSize(file);
+  } catch {
+    return null;
+  }
+}
+
+/** Уменьшенный JPEG и его размеры — ровно те, что у холста. */
+export async function resizeToJpeg(
+  file: Blob,
+  longSide: number,
+): Promise<{ blob: Blob; width: number; height: number }> {
   const bitmap = await createImageBitmap(file);
   const scale = Math.min(1, longSide / Math.max(bitmap.width, bitmap.height));
   const width = Math.round(bitmap.width * scale);
@@ -37,13 +56,14 @@ export async function resizeToJpeg(file: Blob, longSide: number): Promise<Blob> 
   ctx.drawImage(bitmap, 0, 0, width, height);
   bitmap.close();
 
-  return await new Promise<Blob>((resolve, reject) => {
+  const blob = await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
       (blob) => (blob ? resolve(blob) : reject(new Error("Не удалось сжать изображение"))),
       "image/jpeg",
       JPEG_QUALITY,
     );
   });
+  return { blob, width, height };
 }
 
 /**
@@ -52,18 +72,29 @@ export async function resizeToJpeg(file: Blob, longSide: number): Promise<Blob> 
  * длинной стороне уменьшается и перекодируется в JPEG 0.82, независимо от
  * исходного формата — один энкодер на все случаи, прозрачность PNG в жертву.
  * Иначе — отправляем как есть.
+ *
+ * `width`/`height` — размеры именно того файла, который уедет в хранилище:
+ * у сжатого это размеры холста, у остальных — размеры декодирования. GIF не
+ * перекодируется, но декодируется ради размеров (первый кадр). Прочитать не
+ * удалось — полей нет, загрузка идёт как раньше.
  */
 export async function prepareFileForUpload(
   file: File,
   maxDimension: number = MAX_DIMENSION,
-): Promise<{ blob: Blob; filename: string }> {
+): Promise<{ blob: Blob; filename: string; width?: number; height?: number }> {
   if (file.type === "image/gif") {
-    return { blob: file, filename: file.name };
+    const size = await tryReadImageSize(file);
+    return { blob: file, filename: file.name, width: size?.width, height: size?.height };
   }
-  const longSide = await readLongSide(file);
-  if (longSide > maxDimension) {
-    const blob = await resizeToJpeg(file, maxDimension);
-    return { blob, filename: replaceExtension(file.name, "jpg") };
+  const size = await readImageSize(file);
+  if (Math.max(size.width, size.height) > maxDimension) {
+    const resized = await resizeToJpeg(file, maxDimension);
+    return {
+      blob: resized.blob,
+      filename: replaceExtension(file.name, "jpg"),
+      width: resized.width,
+      height: resized.height,
+    };
   }
-  return { blob: file, filename: file.name };
+  return { blob: file, filename: file.name, width: size.width, height: size.height };
 }

@@ -2,6 +2,7 @@ import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "@/db/client";
 import { news, newsPhoto } from "@/db/schema";
 import { allNews, featuredNews, latestNews } from "@/data/mock";
+import { isSmallCover } from "@/lib/card-cover";
 import { formatFileSize } from "@/lib/format-file-size";
 import { getFileExtension } from "@/lib/image-validation";
 import { sortNewsByDateDesc } from "@/lib/news-date";
@@ -155,9 +156,17 @@ async function loadCache(): Promise<NewsCache> {
   const newsIds = newsRows.map((row) => row.id);
 
   // Из фото карточке нужна только обложка; галерею читает деталка (getNewsBySlug).
+  // width/height — ради правила «маленькая обложка» (isSmallCover); наружу
+  // уезжает не размер, а готовый признак coverSmall.
   const photoRows = newsIds.length
     ? await db
-        .select({ id: newsPhoto.id, newsId: newsPhoto.newsId, s3Key: newsPhoto.s3Key })
+        .select({
+          id: newsPhoto.id,
+          newsId: newsPhoto.newsId,
+          s3Key: newsPhoto.s3Key,
+          width: newsPhoto.width,
+          height: newsPhoto.height,
+        })
         .from(newsPhoto)
         .where(inArray(newsPhoto.newsId, newsIds))
         .orderBy(newsPhoto.position)
@@ -189,6 +198,8 @@ async function loadCache(): Promise<NewsCache> {
       cover: coverPhoto ? buildImageUrl(coverPhoto.s3Key) : undefined,
       featured: row.featured,
       updatedAtIso: row.updatedAt.toISOString(),
+      // Ключ появляется только у маленькой обложки: см. NewsCardItem.coverSmall.
+      ...(isSmallCover(coverPhoto?.width, coverPhoto?.height) ? { coverSmall: true as const } : {}),
     };
   });
 
@@ -311,6 +322,20 @@ export async function getNewsBySlug(slug: string): Promise<NewsItem | null> {
 }
 
 /**
+ * «Читайте также» обложку не рисует вовсе (`RelatedItem` — строка «категория ·
+ * дата» и заголовок), поэтому признак маленькой обложки в данные страницы
+ * новости не уезжает: поле там мёртвое, а данные лоадера попадают в
+ * SSR-разметку. Копия, а не `delete` по месту: объекты карточек общие — они
+ * лежат в кэше и раздаются всем запросам.
+ */
+function withoutCoverSmall(item: NewsCardItem): NewsCardItem {
+  if (!item.coverSmall) return item;
+  const copy = { ...item };
+  delete copy.coverSmall;
+  return copy;
+}
+
+/**
  * Страница новости одним вызовом: лоадер деталки не переносит список
  * карточек на клиент — «Читайте также» подбирается здесь из кэша карточек.
  */
@@ -319,7 +344,7 @@ export async function getNewsArticle(slug: string): Promise<NewsArticle | null> 
   if (!item) {
     return null;
   }
-  const related = pickRelatedNews(await listNews(), item);
+  const related = pickRelatedNews(await listNews(), item).map(withoutCoverSmall);
   return { item, related, description: pageDescription(item.excerpt, item.body) || item.title };
 }
 

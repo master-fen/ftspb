@@ -191,6 +191,23 @@ describe("fileNameForPath", () => {
     expect(fileNameForPath("/federation/events")).toBe("federation__events");
     expect(fileNameForPath("/news/")).toBe("news");
   });
+
+  test("строка запроса кодируется: ? и & → ~, = → -", () => {
+    expect(fileNameForPath("/news?page=7")).toBe("news~page-7");
+    expect(fileNameForPath("/news?page=81")).toBe("news~page-81");
+    expect(fileNameForPath("/news?page=2&category=beach")).toBe("news~page-2~category-beach");
+  });
+
+  test("отрицательный контроль: разные запросы не схлопываются в одно имя", () => {
+    const names = [
+      fileNameForPath("/news"),
+      fileNameForPath("/news?page=7"),
+      fileNameForPath("/news?page=81"),
+    ];
+    expect(new Set(names).size).toBe(3);
+    // Ни в одном имени не осталось знака, который Windows не берёт в имя файла.
+    for (const name of names) expect(/[?*:<>|"\\]/.test(name)).toBe(false);
+  });
 });
 
 describe("statusMismatch", () => {

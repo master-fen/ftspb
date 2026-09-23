@@ -5,6 +5,7 @@ import { news, newsPhoto } from "@/db/schema";
 import { HttpError } from "@/lib/http-error";
 import { EXTENSION_BY_TYPE, type SupportedImageType } from "@/lib/image-validation";
 import { normalizeVideoUrl } from "@/lib/news-video-url";
+import { parsePhotoSize } from "@/lib/photo-dimensions";
 import { requireSession } from "@/server/auth";
 import { resetNewsCache } from "@/server/news-cache";
 import { sanitizeBody } from "@/server/sanitize";
@@ -285,6 +286,8 @@ export type AddPhotoInput = {
   key: string;
   alt?: string | null;
   position?: number;
+  /** Уже проверенная пара сторон (`parsePhotoSize`) или ничего. */
+  size?: { width: number; height: number } | null;
 };
 
 export async function addPhoto(input: AddPhotoInput): Promise<NewsPhotoRow> {
@@ -302,7 +305,14 @@ export async function addPhoto(input: AddPhotoInput): Promise<NewsPhotoRow> {
 
   const [photo] = await database
     .insert(newsPhoto)
-    .values({ newsId: input.newsId, s3Key: input.key, alt: input.alt ?? null, position })
+    .values({
+      newsId: input.newsId,
+      s3Key: input.key,
+      alt: input.alt ?? null,
+      position,
+      width: input.size?.width ?? null,
+      height: input.size?.height ?? null,
+    })
     .returning();
   resetNewsCache();
   return photo;
@@ -396,7 +406,20 @@ async function pickUniqueKey(slug: string, ext: string): Promise<string> {
   throw new Error("Не удалось подобрать уникальный ключ файла");
 }
 
-export type UploadPhotoInput = { newsId: string; contentType: SupportedImageType; body: Buffer };
+export type UploadPhotoInput = {
+  newsId: string;
+  contentType: SupportedImageType;
+  body: Buffer;
+  /**
+   * Сырые поля формы: браузер меряет тот файл, который уедет в хранилище
+   * (после сжатия). Проверяет их здесь `parsePhotoSize` — так же, как
+   * `videoUrlForStorage` приводит адрес видео: эндпоинт зовут по HTTP
+   * напрямую, и непроверенное значение в таблицу попасть не должно.
+   * Некорректное — строка пишется без размеров, загрузка не падает.
+   */
+  width?: unknown;
+  height?: unknown;
+};
 
 export async function uploadNewsPhoto(
   input: UploadPhotoInput,
@@ -409,7 +432,11 @@ export async function uploadNewsPhoto(
 
   let photo: NewsPhotoRow;
   try {
-    photo = await addPhoto({ newsId: input.newsId, key });
+    photo = await addPhoto({
+      newsId: input.newsId,
+      key,
+      size: parsePhotoSize(input.width, input.height),
+    });
   } catch (error) {
     // Объект уже залит в публичный бакет, а строка в БД не создалась — не
     // оставляем висячий файл, на который никто не ссылается.

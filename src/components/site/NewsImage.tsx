@@ -5,6 +5,13 @@ type NewsImageProps = {
   alt: string;
   className?: string;
   loading?: "eager" | "lazy";
+  /**
+   * `"cover"` (по умолчанию, прежнее поведение) — картинка заполняет область.
+   * `"natural"` — обёртка центрирует содержимое, и картинка, ограниченная
+   * сверху (`max-h-full max-w-full`), показывается целиком и не крупнее
+   * своего размера. Нужен маленькой обложке карточки (`NewsCardCover`).
+   */
+  fit?: "cover" | "natural";
 };
 
 /**
@@ -13,7 +20,13 @@ type NewsImageProps = {
  * само изображение проявляется через keyframe-анимацию (надёжнее CSS-transition,
  * который может не сработать на только что смонтированном элементе).
  */
-export function NewsImage({ src, alt, className = "", loading = "lazy" }: NewsImageProps) {
+export function NewsImage({
+  src,
+  alt,
+  className = "",
+  loading = "lazy",
+  fit = "cover",
+}: NewsImageProps) {
   const [loaded, setLoaded] = useState(false);
   const imgRef = useRef<HTMLImageElement>(null);
 
@@ -25,7 +38,13 @@ export function NewsImage({ src, alt, className = "", loading = "lazy" }: NewsIm
   }, [src]);
 
   return (
-    <div className="relative h-full w-full overflow-hidden">
+    <div
+      className={
+        fit === "natural"
+          ? "relative flex h-full w-full items-center justify-center overflow-hidden"
+          : "relative h-full w-full overflow-hidden"
+      }
+    >
       <div
         aria-hidden="true"
         className={`absolute inset-0 bg-skeleton ${
