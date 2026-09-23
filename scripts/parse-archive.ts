@@ -38,6 +38,9 @@ import { join } from "node:path";
 import process from "node:process";
 // Расширение обязательно: node раздевает типы сам, но путь не дорезолвит.
 import { RECORD_MARKER_SCHEME, findMarkerSources, markerHref } from "./archive-markers.ts";
+// Слаги — тем же кодом, что и у мигратора: профиль печатает адреса новостей
+// на сайте (/news/СЛАГ), и второй реализации правила быть не должно.
+import { resolveSlugs } from "./archive-migration-rules.ts";
 
 // ───────────────────────── аргументы ─────────────────────────
 
@@ -194,6 +197,19 @@ const EXPECTED_MEDIA_RECORDS = 97;
 /** Стоп-условие задания: число новых записей вне диапазона — остановиться. */
 const MEDIA_RECORDS_MIN = 90;
 const MEDIA_RECORDS_MAX = 110;
+
+/**
+ * Замороженные sha256 выгрузки и отчёта разбора (прогон 23.09.2026 по архиву
+ * `D:\Webarchive`, база задания «архив, третий круг»). Контроль профиля
+ * сверяет с ними то, что записал этот прогон: задания-замеры обязаны не
+ * менять экспорт ни на байт, и хеш ловит это раньше, чем глаза.
+ *
+ * Это сторож, а не бюджет: задача, которая меняет разбор сознательно,
+ * перезамораживает обе строки тем же PR и называет изменение в отчёте —
+ * как перезамораживаются `EXPECTED_RECORDS` и `EXPECTED_MEDIA_RECORDS`.
+ */
+const EXPECTED_EXPORT_SHA256 = "539a22211123579a27d4c91c8328d95b9ffe9bac28c12fe4131402a90891ecde";
+const EXPECTED_REPORT_SHA256 = "49c99491511c6c1fb9a83f659353a71b4d3ee78c9cff7142c010c21a297f4384";
 
 /**
  * Файлы лент легаси: когда легаси умрёт, цели у такой ссылки не станет. Тег
@@ -406,6 +422,14 @@ type ProfLink = {
 /** Судьба фото одного источника (лента либо article) при разрешении. */
 type ProfPhotoSrc = { taken: number; dup: number; unresolved: number };
 
+/**
+ * Куда уходит фрагмент, на котором боевой путь звал `extractDocuments`:
+ * телом записи, анонсом (ленточный фрагмент тизерной записи) либо никуда —
+ * у галерейной поглощённой страницы берут только фото и документы, а текст
+ * в выгрузку не попадает. Нужен замеру ссылок на файлы (третий круг).
+ */
+type DocFragmentRole = "тело" | "анонс" | "невыгружен";
+
 /** Интермедиаты одного buildRecord — «то, что знает только парсер». */
 type ProfCapture = {
   file: string;
@@ -438,6 +462,14 @@ type ProfCapture = {
   photoArticle: ProfPhotoSrc;
   /** Адреса видео-вставок в источниках тела (ленточный фрагмент и тизерная страница). */
   videoSrcs: string[];
+  /**
+   * Фрагмент, ушедший телом записи в `sanitizeBody` — уже после вырезки
+   * документных ссылок. По нему замер таблиц видит ровно те таблицы, которые
+   * боевой путь развернул в абзацы.
+   */
+  bodySource: { html: string; baseUrl: string } | null;
+  /** Фрагменты до `extractDocuments` — там, где боевой путь искал ссылки на документы. */
+  docSources: Array<{ html: string; baseUrl: string; роль: DocFragmentRole }>;
 };
 
 function newProfCapture(item: FeedItem, feedUrl: string): ProfCapture {
@@ -463,6 +495,8 @@ function newProfCapture(item: FeedItem, feedUrl: string): ProfCapture {
     photoFeed: { taken: 0, dup: 0, unresolved: 0 },
     photoArticle: { taken: 0, dup: 0, unresolved: 0 },
     videoSrcs: [],
+    bodySource: null,
+    docSources: [],
   };
 }
 
@@ -505,6 +539,8 @@ function newMediaProfCapture(row: MediaRow, page: ArticlePage): ProfCapture {
     photoFeed: { taken: 0, dup: 0, unresolved: 0 },
     photoArticle: { taken: 0, dup: 0, unresolved: 0 },
     videoSrcs: [],
+    bodySource: null,
+    docSources: [],
   };
 }
 
@@ -2086,24 +2122,32 @@ function buildRecord(item: FeedItem): OutputRecord | null {
 
   // ── документы из обоих текстов; ссылки в теле заменяются текстом ──
   const docs: string[] = [];
-  feedBody = extractDocuments(
-    stripAbsorbedLinks(feedBody),
-    feedUrl,
-    `${context}: «${title}»`,
-    docs,
-  );
+  // stripAbsorbedLinks зовётся ровно один раз на фрагмент: он пишет в отчёт
+  // (report.absorbedLinkTexts), второй вызов задвоил бы строки.
+  const feedStripped = stripAbsorbedLinks(feedBody);
+  if (cap) {
+    cap.docSources.push({
+      html: feedStripped,
+      baseUrl: feedUrl,
+      роль: teaser ? "анонс" : "тело",
+    });
+  }
+  feedBody = extractDocuments(feedStripped, feedUrl, `${context}: «${title}»`, docs);
   // Документы — из ВСЕХ поглощённых страниц, как и фото (тизер не отменяет
   // документы галерейных ссылок той же записи); для тизерной страницы
   // сохраняется её html с уже вырезанными документными ссылками — он идёт в тело.
   let articleBody: string | null = null;
   for (const l of absorbed) {
     if (!l.page) continue;
-    const stripped = extractDocuments(
-      stripAbsorbedLinks(l.page.bodyHtml),
-      l.page.url,
-      `${context}: «${title}»`,
-      docs,
-    );
+    const pageStripped = stripAbsorbedLinks(l.page.bodyHtml);
+    if (cap) {
+      cap.docSources.push({
+        html: pageStripped,
+        baseUrl: l.page.url,
+        роль: l === teaser ? "тело" : "невыгружен",
+      });
+    }
+    const stripped = extractDocuments(pageStripped, l.page.url, `${context}: «${title}»`, docs);
     if (l === teaser) articleBody = stripped;
   }
 
@@ -2112,6 +2156,7 @@ function buildRecord(item: FeedItem): OutputRecord | null {
   let anons: string | undefined;
   let source: string;
   if (teaser && teaser.page && articleBody !== null) {
+    if (cap) cap.bodySource = { html: articleBody, baseUrl: teaser.page.url };
     bodyHtmlOut = sanitizeBody(articleBody, { baseUrl: teaser.page.url, videoLinks: true });
     bodyHtmlOut = noteNavRemnants(bodyHtmlOut, navTexts, `${context}: «${title}»`);
     const feedPlain = stripTags(sanitizeBody(feedBody, { baseUrl: feedUrl }));
@@ -2131,6 +2176,7 @@ function buildRecord(item: FeedItem): OutputRecord | null {
       );
     }
   } else {
+    if (cap) cap.bodySource = { html: feedBody, baseUrl: feedUrl };
     bodyHtmlOut = sanitizeBody(feedBody, { baseUrl: feedUrl, videoLinks: true });
     bodyHtmlOut = noteNavRemnants(bodyHtmlOut, navTexts, `${context}: «${title}»`);
     anons = undefined;
@@ -2501,6 +2547,7 @@ function buildMediaRecord(row: MediaRow): OutputRecord | null {
   }
 
   const docs: string[] = [];
+  if (cap) cap.docSources.push({ html: bodyRegion, baseUrl: url, роль: "тело" });
   const prepared = extractDocuments(bodyRegion, url, label, docs);
 
   const photoPaths: string[] = [];
@@ -2528,6 +2575,7 @@ function buildMediaRecord(row: MediaRow): OutputRecord | null {
     cap.teaserBodyHtml = prepared;
     cap.absorbed[0].bodyHtml = prepared;
     cap.videoSrcs.push(...videoSrcsOf(prepared));
+    cap.bodySource = { html: prepared, baseUrl: url };
   }
 
   const record: OutputRecord = {
@@ -4968,6 +5016,7 @@ type InventoryExtras = {
   controls: Control[];
   videos: VideoCheck[];
   unexplained13: UnexplainedPage[];
+  round3: Round3;
 };
 
 /**
@@ -5393,6 +5442,8 @@ function renderProfileReport(
   renderTitles(L, profs);
   renderCandidates2026(L, profs);
   renderYearSummary(L, profs);
+  renderFlatTables(L, inv.round3);
+  renderDocLinks(L, inv.round3);
 
   L.push("## Видео-вставки (A5)");
   L.push("");
@@ -5713,7 +5764,7 @@ function renderSample(profs: ProfileRecord[], entries: SampleEntry[]): string {
 }
 
 /** Точка входа профиля: вызывается из main после записи экспортных файлов. */
-function runProfile(records: OutputRecord[]): void {
+function runProfile(records: OutputRecord[], exportSha: string, reportSha: string): void {
   // Участники пар одноимённых с разными телами — post-hoc, как в dedupeRecords.
   const norm = (t: string) => t.trim().replace(/\s+/g, " ");
   const tdGroups = new Map<string, number>();
@@ -5822,6 +5873,15 @@ function runProfile(records: OutputRecord[]): void {
   const mediaRowsOk = MEDIA_FEED_FILES.every(
     (f) => report.mediaRawRows[f] === RECON_EXPECTED_MEDIA_ROWS[f],
   );
+  // ── замеры третьего круга (23.09.2026): таблицы без цифр и ссылки на файлы ──
+  const slugs = resolveSlugs(records);
+  const round3 = profRound3(profs, records, slugs);
+  const textTables = round3.таблицы.filter((t) => t.текстовые);
+  const calendarPicked = textTables.filter((t) => t.ключ === TEXT_TABLE_POSITIVE);
+  const bracketsLinks = round3.ссылки.filter(
+    (d) => d.адрес === DOC_LINK_POSITIVE_ADDR && d.текст.toUpperCase().includes(DOC_LINK_POSITIVE),
+  );
+
   const withTableBody = profs.filter((p) => p.результат.таблицВТеле > 0);
   const tableWithoutData = withTableBody.filter((p) => p.источник.сумма.таблицы.данных === 0);
   const videoChecks: VideoCheck[] = [];
@@ -5954,6 +6014,47 @@ function runProfile(records: OutputRecord[]): void {
       ок: feeds.every((f) => f.есть),
       факт: feeds.map((f) => `${f.file}: ${f.есть ? "есть" : "НЕТ"}`).join(", "),
     },
+    // ── контроли третьего круга (задание archive-round3-measure, 23.09.2026) ──
+    {
+      текст: "выгрузка не изменилась: sha256 совпал с заморозкой",
+      ок: exportSha === EXPECTED_EXPORT_SHA256,
+      факт: `${exportSha}${exportSha === EXPECTED_EXPORT_SHA256 ? "" : ` ≠ ${EXPECTED_EXPORT_SHA256}`}`,
+    },
+    {
+      текст: "parse-report.md не изменился: sha256 совпал с заморозкой",
+      ок: reportSha === EXPECTED_REPORT_SHA256,
+      факт: `${reportSha}${reportSha === EXPECTED_REPORT_SHA256 ? "" : ` ≠ ${EXPECTED_REPORT_SHA256}`}`,
+    },
+    {
+      текст: `${TEXT_TABLE_POSITIVE} отобран признаком «таблица с текстовыми данными»`,
+      ок: calendarPicked.length > 0,
+      факт:
+        calendarPicked.length > 0
+          ? `${calendarPicked.length} таблиц: ${calendarPicked.map((t) => `${t.строк}×${t.колонок}`).join(", ")}`
+          : `не отобран; развёрнутых таблиц у записи ${round3.таблицы.filter((t) => t.ключ === TEXT_TABLE_POSITIVE).length}, ` +
+            `не выполнено: ${round3.таблицы
+              .filter((t) => t.ключ === TEXT_TABLE_POSITIVE)
+              .map((t) => `[${t.промахи.join("; ")}]`)
+              .join(" ")}`,
+    },
+    {
+      текст: `ссылка «${DOC_LINK_POSITIVE}» в ${DOC_LINK_POSITIVE_ADDR} найдена и отнесена к группе (а)`,
+      ок: bracketsLinks.length > 0 && bracketsLinks.every((d) => d.группа === "а"),
+      факт:
+        bracketsLinks.length === 0
+          ? `не найдена; ссылок на файлы у записи ${round3.ссылки.filter((d) => d.адрес === DOC_LINK_POSITIVE_ADDR).length}`
+          : bracketsLinks
+              .map((d) => `${d.ключ} «${d.текст}» → ${d.файл}, группа (${d.группа}), ${d.сейчас}`)
+              .join("; "),
+    },
+    {
+      текст: "у каждой развёрнутой таблицы сырой и подготовленный срезы свелись по индексу",
+      ок: round3.зеркалоРазошлось.length === 0,
+      факт:
+        round3.зеркалоРазошлось.length === 0
+          ? `таблиц ${round3.таблицы.length}, расхождений 0`
+          : round3.зеркалоРазошлось.join(", "),
+    },
   ];
 
   mkdirSync(PROFILE_DIR, { recursive: true });
@@ -5970,9 +6071,12 @@ function runProfile(records: OutputRecord[]): void {
       controls,
       videos: videoChecks,
       unexplained13: profUnexplainedPages(report.unreferencedArticles),
+      round3,
     }),
     "utf-8",
   );
+  writeFileSync(join(PROFILE_DIR, "tables.md"), renderTablesFile(round3), "utf-8");
+  writeFileSync(join(PROFILE_DIR, "file-links.md"), renderDocLinksFile(round3), "utf-8");
   writeFileSync(join(PROFILE_DIR, "sample.md"), renderSample(profs, entries), "utf-8");
   writeFileSync(
     join(PROFILE_DIR, "excerpt-preview.md"),
@@ -5985,6 +6089,12 @@ function runProfile(records: OutputRecord[]): void {
   console.log(`Выборка: ${join(PROFILE_DIR, "sample.md")} (записей: ${entries.length})`);
   console.log(
     `Примерка анонса: ${join(PROFILE_DIR, "excerpt-preview.md")} (записей: ${previewPicks.length})`,
+  );
+  console.log(
+    `Таблицы: ${join(PROFILE_DIR, "tables.md")} (развёрнутых ${round3.таблицы.length}, отобрано ${textTables.length})`,
+  );
+  console.log(
+    `Ссылки на файлы: ${join(PROFILE_DIR, "file-links.md")} (ссылок ${round3.ссылки.length})`,
   );
   console.log(`Калибровка д3(а) без article/склейки: ${d3aCalibration}`);
   for (const c of controls) console.log(`контроль: ${c.ок ? "ДА" : "НЕТ"} — ${c.текст}: ${c.факт}`);
@@ -6016,6 +6126,917 @@ function runProfile(records: OutputRecord[]): void {
     }
     if (failed) process.exit(1);
   }
+}
+
+// ───────────────────────── профиль: третий круг — таблицы и ссылки на файлы ─────────────────────────
+
+/**
+ * Замер третьего круга (23.09.2026): два вида дефектов, найденных глазами
+ * после перезаливки архива. Ничего не чинит — только считает.
+ *
+ * Замер 1. Таблицы, которые санитайзер разворачивает в абзацы: признак
+ * «таблица данных» считает долю числовых ячеек, и календарь мероприятий с
+ * текстовыми колонками («Название», «Площадка», «Адрес», …) он за таблицу не
+ * признаёт. Считаются структурные признаки каждой развёрнутой таблицы и по
+ * ним предлагается признак «таблица с текстовыми данными».
+ *
+ * Замер 2. Ссылки на файлы в текстах новостей: в теле остаётся текст без
+ * ссылки («ТУРНИРНЫЕ СЕТКИ»), а сам файл уходит в «Прикреплённые файлы».
+ * Считается, сколько таких ссылок, куда уехал файл и что стоит на их месте.
+ */
+
+/** Ячейка верхнего уровня одной таблицы. */
+type ProfCell = { tag: "td" | "th"; text: string; выделена: boolean };
+
+/**
+ * Ряды и ячейки верхнего уровня одной таблицы. Текст вложенной таблицы в
+ * ячейку внешней не входит — как в `analyzeTables`. «Выделена» — ячейка `th`
+ * либо ячейка, всё содержимое которой обёрнуто в `b`/`strong`.
+ */
+function profTableRows(tableHtml: string): ProfCell[][] {
+  const rows: ProfCell[][] = [];
+  let cur: ProfCell[] | null = null;
+  let depth = 0;
+  let open: { tag: "td" | "th"; buf: string } | null = null;
+  let last = 0;
+  const closeCell = () => {
+    if (!open) return;
+    const inner = open.buf.trim();
+    const text = stripTags(inner);
+    const выделена =
+      open.tag === "th" || (text !== "" && /^<(b|strong)\b[^>]*>[\s\S]*<\/\1>$/i.test(inner));
+    if (!cur) {
+      cur = [];
+      rows.push(cur);
+    }
+    cur.push({ tag: open.tag, text, выделена });
+    open = null;
+  };
+  const tagRe = /<(\/?)(table|tr|td|th)\b[^>]*>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = tagRe.exec(tableHtml))) {
+    if (open && depth === 1) open.buf += tableHtml.slice(last, m.index);
+    last = m.index + m[0].length;
+    const closing = m[1] === "/";
+    const tag = m[2].toLowerCase();
+    if (tag === "table") {
+      depth += closing ? -1 : 1;
+      continue;
+    }
+    if (depth !== 1) continue;
+    if (tag === "tr") {
+      closeCell();
+      if (!closing) {
+        cur = [];
+        rows.push(cur);
+      }
+      continue;
+    }
+    closeCell();
+    if (!closing) open = { tag: tag as "td" | "th", buf: "" };
+  }
+  if (open && depth === 1) open.buf += tableHtml.slice(last);
+  closeCell();
+  return rows;
+}
+
+/** Причина, по которой таблица развернулась в абзацы. */
+type FlatReason = "вёрстка" | "данные с вложенными";
+
+/** Одна развёрнутая таблица: срезы источника и вердикт боевого признака. */
+type FlatSlice = { raw: string | null; prepared: string; info: TableInfo; причина: FlatReason };
+
+/**
+ * Таблицы фрагмента, которые `sanitizeBody` разворачивает в абзацы. Зеркало
+ * боевого цикла: таблица данных без вложенных и не попавшая внутрь уже
+ * выданной остаётся таблицей, всё прочее уходит в `inlineParagraphs`.
+ * Считается по подготовленному фрагменту (как в бою), а сырой срез нужен для
+ * картинок и форм — `prepareHtml` их вырезает. Срезы сводятся по индексу:
+ * `prepareHtml` теги таблиц не добавляет и не убирает. Если последовательности
+ * всё же разошлись, `raw` = null и запись идёт в счёт «зеркало разошлось».
+ */
+function profFlattenedTables(
+  html: string,
+  baseUrl: string,
+): { таблицы: FlatSlice[]; зеркало: boolean } {
+  const prepared = prepareHtml(html, { baseUrl, silent: true, videoLinks: true });
+  const pTables = analyzeTables(prepared);
+  const rTables = analyzeTables(html);
+  const зеркало =
+    rTables.length === pTables.length &&
+    rTables.every(
+      (t, i) =>
+        t.depth === pTables[i].depth &&
+        t.nested === pTables[i].nested &&
+        t.rows === pTables[i].rows,
+    );
+  const emitted: TableInfo[] = [];
+  let pos = 0;
+  for (const t of pTables) {
+    if (!t.data || t.nested > 0 || t.start < pos) continue;
+    emitted.push(t);
+    pos = t.end;
+  }
+  const таблицы: FlatSlice[] = [];
+  pTables.forEach((t, i) => {
+    if (emitted.some((e) => t.start >= e.start && t.end <= e.end)) return;
+    таблицы.push({
+      raw: зеркало ? html.slice(rTables[i].start, rTables[i].end) : null,
+      prepared: prepared.slice(t.start, t.end),
+      info: t,
+      причина: t.data ? "данные с вложенными" : "вёрстка",
+    });
+  });
+  return { таблицы, зеркало };
+}
+
+/** Структурные признаки одной развёрнутой таблицы (замер 1). */
+type FlatTable = {
+  ключ: string;
+  заголовок: string;
+  адрес: string;
+  дата: string;
+  год: number;
+  причина: FlatReason;
+  строк: number;
+  /** Основная ширина ряда — та, что встречается чаще прочих (при равенстве — бо́льшая). */
+  колонок: number;
+  /** Доля рядов основной ширины: у таблицы данных ряды прямоугольны, у вёрстки — нет. */
+  доляОсновной: number;
+  ячеек: number;
+  непустых: number;
+  доляНепустых: number;
+  шапка: boolean;
+  картинок: number;
+  вложенных: number;
+  форм: number;
+  ссылок: number;
+  числовых: number;
+  доляЧисловых: number;
+  медианаДлины: number;
+  максДлины: number;
+  длинаPlain: number;
+  перваяСтрока: string;
+  промахи: string[];
+  текстовые: boolean;
+};
+
+/**
+ * Пороги признака «таблица с текстовыми данными». Выведены из замера
+ * 23.09.2026 по всем развёрнутым таблицам архива, не по одному примеру;
+ * распределения — в разделе отчёта «Таблицы, развёрнутые в абзацы».
+ */
+const TEXT_TABLE = {
+  минСтрок: 3,
+  минКолонок: 2,
+  минЯчеек: 9,
+  /**
+   * Ряды одной ширины, но не все: у таблицы данных легаси сплошь и рядом есть
+   * ряд-заголовок с `colspan` на всю ширину и хвостовой ряд-подпись. Строгое
+   * «во всех рядах поровну» отбрасывало самые крупные таблицы архива — список
+   * кандидатов в сборную (161×7, 989 ячеек) и все календари сроков (7×7).
+   */
+  минДоляОсновной: 0.8,
+  минДоляНепустых: 0.75,
+  максМедианаДлины: 120,
+};
+
+/**
+ * Положительный контроль замера 1: календарь мероприятий «Юбилейный теннисный
+ * календарь» (`/news/yubileynyy-tennisnyy-kalendar`) — колонки «Название»,
+ * «Площадка», «Адрес», «Статус», «Условия участия», «Контакты», цифр в ячейках
+ * почти нет. Признак обязан его отобрать, иначе замер ничего не стоит.
+ */
+const TEXT_TABLE_POSITIVE = "pobeda.html#16";
+
+/**
+ * Положительный контроль замера 2: ссылка «ТУРНИРНЫЕ СЕТКИ» в новости
+ * «Переходящий Кубок Джентльменов: этап 08 ноября» — в теле осталась текстом,
+ * файл уехал в «Прикреплённые файлы» (группа «а»). Контроль привязан к адресу
+ * новости: та же формулировка встречается в архиве десятками, и проверка «хоть
+ * где-то нашлась» прошла бы и при потерянной ссылке именно этой записи.
+ */
+const DOC_LINK_POSITIVE = "ТУРНИРНЫЕ СЕТКИ";
+const DOC_LINK_POSITIVE_ADDR = "/news/perehodyaschiy-kubok-dzhentlmenov-etap-08-noyabrya";
+
+/** Условия признака, которые таблица не выполнила (пусто — признак сработал). */
+function textTableMisses(t: Omit<FlatTable, "промахи" | "текстовые">): string[] {
+  const m: string[] = [];
+  if (t.вложенных > 0) m.push(`вложенных таблиц ${t.вложенных}`);
+  if (t.картинок > 0) m.push(`картинок ${t.картинок}`);
+  if (t.форм > 0) m.push(`форм ${t.форм}`);
+  if (t.строк < TEXT_TABLE.минСтрок) m.push(`строк ${t.строк} < ${TEXT_TABLE.минСтрок}`);
+  if (t.колонок < TEXT_TABLE.минКолонок) m.push(`колонок ${t.колонок} < ${TEXT_TABLE.минКолонок}`);
+  if (t.ячеек < TEXT_TABLE.минЯчеек) m.push(`ячеек ${t.ячеек} < ${TEXT_TABLE.минЯчеек}`);
+  if (t.доляОсновной < TEXT_TABLE.минДоляОсновной) {
+    m.push(
+      `рядов основной ширины ${(t.доляОсновной * 100).toFixed(0)}% < ${TEXT_TABLE.минДоляОсновной * 100}%`,
+    );
+  }
+  if (t.доляНепустых < TEXT_TABLE.минДоляНепустых) {
+    m.push(`непустых ${(t.доляНепустых * 100).toFixed(0)}% < ${TEXT_TABLE.минДоляНепустых * 100}%`);
+  }
+  if (t.медианаДлины > TEXT_TABLE.максМедианаДлины) {
+    m.push(`медиана длины ячейки ${t.медианаДлины} > ${TEXT_TABLE.максМедианаДлины}`);
+  }
+  return m;
+}
+
+const median = (xs: number[]): number => {
+  if (xs.length === 0) return 0;
+  const s = [...xs].sort((a, b) => a - b);
+  return s.length % 2 === 1
+    ? s[(s.length - 1) / 2]
+    : Math.round((s[s.length / 2 - 1] + s[s.length / 2]) / 2);
+};
+
+/** Структурные признаки одной развёрнутой таблицы по её срезам. */
+function profFlatTable(slice: FlatSlice, ключ: Round3Key): FlatTable {
+  const rows = profTableRows(slice.prepared).filter((r) => r.length > 0);
+  const cells = rows.flat();
+  const непустые = cells.filter((c) => c.text !== "");
+  // Основная ширина ряда: мода по числу ячеек, при равенстве частот — бо́льшая
+  // ширина (ряд-заголовок с colspan уже́ содержательных рядов, не наоборот).
+  const частоты = new Map<number, number>();
+  for (const r of rows) частоты.set(r.length, (частоты.get(r.length) ?? 0) + 1);
+  const основная = [...частоты.entries()].sort((a, b) => b[1] - a[1] || b[0] - a[0])[0] ?? [0, 0];
+  const первая = rows[0] ?? [];
+  const raw = slice.raw ?? "";
+  const длины = непустые.map((c) => c.text.length);
+  const базовые = {
+    ключ: ключ.ключ,
+    заголовок: ключ.заголовок,
+    адрес: ключ.адрес,
+    дата: ключ.дата,
+    год: ключ.год,
+    причина: slice.причина,
+    строк: rows.length,
+    колонок: основная[0],
+    доляОсновной: rows.length === 0 ? 0 : основная[1] / rows.length,
+    ячеек: cells.length,
+    непустых: непустые.length,
+    доляНепустых: cells.length === 0 ? 0 : непустые.length / cells.length,
+    шапка:
+      первая.length >= 2 &&
+      первая.filter((c) => c.text !== "").length >= 2 &&
+      первая.every((c) => c.text === "" || c.выделена),
+    картинок: (raw.match(/<img\b/gi) ?? []).length,
+    вложенных: slice.info.nested,
+    форм: (raw.match(/<(?:form|input|select|textarea)\b/gi) ?? []).length,
+    ссылок: (slice.prepared.match(/<a\b/gi) ?? []).length,
+    числовых: непустые.filter((c) => NUMERIC_CELL_RE.test(c.text)).length,
+    доляЧисловых:
+      cells.length === 0
+        ? 0
+        : непустые.filter((c) => NUMERIC_CELL_RE.test(c.text)).length / cells.length,
+    медианаДлины: median(длины),
+    максДлины: длины.reduce((n, l) => Math.max(n, l), 0),
+    длинаPlain: stripTags(slice.prepared).length,
+    перваяСтрока: первая.map((c) => c.text).join(" | "),
+  };
+  const промахи = textTableMisses(базовые);
+  return { ...базовые, промахи, текстовые: промахи.length === 0 };
+}
+
+// ───────────────────────── замер 2: ссылки на файлы ─────────────────────────
+
+/** Группа ссылки на файл: куда уехал сам файл. */
+type DocLinkGroup = "а" | "б" | "в";
+
+/** Одна ссылка на документ в исходном тексте новости. */
+type DocLink = {
+  ключ: string;
+  заголовок: string;
+  адрес: string;
+  дата: string;
+  год: number;
+  /** «срезано» — ссылка осталась в части страницы, которую разбор отрезал до `extractDocuments`. */
+  роль: DocFragmentRole | "срезано";
+  текст: string;
+  href: string;
+  abs: string;
+  файл: string;
+  расширение: string;
+  путь: string | null;
+  внешний: boolean;
+  картинка: boolean;
+  группа: DocLinkGroup;
+  /** Ключи записей, к которым этот файл приложен (для группы «б»). */
+  уКого: string[];
+  сейчас: string;
+  вокруг: string;
+};
+
+/** Ссылки на документы одного фрагмента: то же множество, что видит `extractDocuments`. */
+function profDocHits(
+  html: string,
+  baseUrl: string,
+): Array<{ href: string; abs: string; inner: string; at: number; len: number }> {
+  const out: Array<{ href: string; abs: string; inner: string; at: number; len: number }> = [];
+  const aRe = /<a\b[^>]*href\s*=\s*["']?([^"'\s>]+)["']?[^>]*>([\s\S]*?)<\/a>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = aRe.exec(html))) {
+    const abs = absolutize(m[1], baseUrl);
+    if (!abs || !DOC_EXT_RE.test(abs.split("?")[0])) continue;
+    out.push({ href: m[1], abs, inner: m[2], at: m.index, len: m[0].length });
+  }
+  return out;
+}
+
+/** 50 знаков слева и справа от ссылки в plain-тексте фрагмента. */
+function profAround(html: string, at: number, len: number, текст: string): string {
+  const before = plainProf(html.slice(Math.max(0, at - 800), at)).slice(-50);
+  const after = plainProf(html.slice(at + len, at + len + 800)).slice(0, 50);
+  return `…${before}⟦${текст}⟧${after}…`;
+}
+
+/** Имя файла из абсолютного адреса. */
+const docFileName = (abs: string): string => {
+  const path = abs.split(/[?#]/)[0];
+  return path.slice(path.lastIndexOf("/") + 1);
+};
+
+/** «Пустые» слова, на которых стоит ссылка: сама формулировка ничего не говорит о файле. */
+const EMPTY_LINK_WORDS = new Set([
+  "здесь",
+  "здеcь",
+  "тут",
+  "ссылка",
+  "ссылке",
+  "ссылку",
+  "скачать",
+  "скачайте",
+  "сюда",
+]);
+
+/** Служебные слова, которые сами по себе ничего не называют: «по ссылке» = «ссылка». */
+const EMPTY_LINK_STOPWORDS = new Set(["по", "на", "в", "и", "а", "также", "их", "его"]);
+
+/** Текст ссылки состоит только из «пустых» слов. */
+function isEmptyLinkText(текст: string): boolean {
+  const words = текст
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim()
+    .split(" ")
+    .filter((w) => w !== "" && !EMPTY_LINK_STOPWORDS.has(w));
+  return words.length > 0 && words.every((w) => EMPTY_LINK_WORDS.has(w));
+}
+
+/** Итог замера третьего круга. */
+type Round3 = {
+  таблицы: FlatTable[];
+  /** Записи, где сырой и подготовленный фрагменты дали разные последовательности таблиц. */
+  зеркалоРазошлось: string[];
+  ссылки: DocLink[];
+  /** Записей, у которых есть хоть одна развёрнутая таблица. */
+  записейСТаблицами: number;
+};
+
+/** Ключ записи для обоих замеров. */
+type Round3Key = {
+  ключ: string;
+  заголовок: string;
+  адрес: string;
+  дата: string;
+  год: number;
+};
+
+/**
+ * Оба замера третьего круга по всем записям экспорта. Ходит только по
+ * capture-фрагментам (`bodySource`, `docSources`) — то есть ровно по тому,
+ * что боевой путь отдал санитайзеру и `extractDocuments`.
+ */
+function profRound3(profs: ProfileRecord[], records: OutputRecord[], slugs: string[]): Round3 {
+  const владельцы = new Map<string, string[]>();
+  records.forEach((rec, i) => {
+    for (const d of rec["Документы"] ?? []) {
+      const arr = владельцы.get(d) ?? [];
+      arr.push(`${profKeyShort(profs[i])}`);
+      владельцы.set(d, arr);
+    }
+  });
+
+  const таблицы: FlatTable[] = [];
+  const зеркалоРазошлось: string[] = [];
+  const ссылки: DocLink[] = [];
+  let записейСТаблицами = 0;
+
+  records.forEach((rec, i) => {
+    const cap = profByRecord.get(rec)!;
+    const k: Round3Key = {
+      ключ: profKeyShort(profs[i]),
+      заголовок: rec["Заголовок"],
+      адрес: `/news/${slugs[i]}`,
+      дата: profs[i].ключ.дата,
+      год: Number(profs[i].ключ.датаISO.slice(0, 4)),
+    };
+
+    // ── замер 1 ──
+    if (cap.bodySource) {
+      const { таблицы: срезы, зеркало } = profFlattenedTables(
+        cap.bodySource.html,
+        cap.bodySource.baseUrl,
+      );
+      if (!зеркало) зеркалоРазошлось.push(k.ключ);
+      if (срезы.length > 0) записейСТаблицами += 1;
+      for (const s of срезы) таблицы.push(profFlatTable(s, k));
+    }
+
+    // ── замер 2 ──
+    const собственные = new Set(rec["Документы"] ?? []);
+    const тело = rec["ТекстHTML"];
+    const телоPlain = plainProf(тело);
+    const анонсPlain = rec["Анонс"] !== undefined ? plainProf(rec["Анонс"]) : "";
+    const добавить = (
+      hit: ReturnType<typeof profDocHits>[number],
+      html: string,
+      роль: DocLink["роль"],
+    ) => {
+      const текст = stripTags(hit.inner);
+      const картинка = /<img\b/i.test(hit.inner) && текст === "";
+      const путь = resolveToPath(hit.abs, true);
+      const внешний = !isTennisfed(hit.abs);
+      const уКого = путь === null ? [] : (владельцы.get(путь) ?? []);
+      const группа: DocLinkGroup = путь === null ? "в" : собственные.has(путь) ? "а" : "б";
+      const цель = роль === "анонс" ? анонсPlain : телоPlain;
+      const ссылкаОсталась = роль !== "анонс" && тело.includes(`href="${hit.abs}"`);
+      let сейчас: string;
+      if (роль === "срезано") {
+        сейчас = "часть страницы срезана разбором";
+      } else if (роль === "невыгружен") {
+        сейчас = "фрагмент в выгрузку не попал";
+      } else if (ссылкаОсталась) {
+        сейчас = внешний ? "ссылка на внешний сайт" : "ссылка на старый сайт";
+      } else if (картинка) {
+        сейчас = "ссылка-картинка снята вместе с картинкой";
+      } else if (текст !== "" && цель.includes(текст)) {
+        сейчас = "текст без ссылки";
+      } else {
+        сейчас = "текста ссылки в выгрузке нет";
+      }
+      ссылки.push({
+        ...k,
+        роль,
+        текст,
+        href: hit.href,
+        abs: hit.abs,
+        файл: docFileName(hit.abs),
+        расширение: (docFileName(hit.abs).match(/\.[a-z0-9]+$/i) ?? [
+          "(без расширения)",
+        ])[0].toLowerCase(),
+        путь,
+        внешний,
+        картинка,
+        группа,
+        уКого,
+        сейчас,
+        вокруг: profAround(html, hit.at, hit.len, текст || (картинка ? "(картинка)" : "(пусто)")),
+      });
+    };
+
+    for (const src of cap.docSources) {
+      for (const hit of profDocHits(src.html, src.baseUrl)) добавить(hit, src.html, src.роль);
+    }
+
+    // Остаток: ссылки, оставшиеся в срезанных частях исходной страницы (шапка
+    // страницы, баннер шаблона). `extractDocuments` их не видел, и файл к этой
+    // записи не приложен — именно здесь группа «б» и может появиться. Полный
+    // регион страницы до срезок — это `photosHtml` (`loadArticle` кладёт туда
+    // содержательную часть с шапкой), страница берётся из кэша.
+    const страницы = [
+      ...new Set(
+        [cap.teaserRelFile, ...cap.absorbed.map((a) => a.relFile)].filter(
+          (x): x is string => x !== null,
+        ),
+      ),
+    ];
+    for (const rel of страницы) {
+      const page = loadArticle(rel, canonicalArticleUrl(rel));
+      if (!page || page.lost) continue;
+      const учтено = new Map<string, number>();
+      for (const src of cap.docSources) {
+        if (src.baseUrl !== page.url) continue;
+        for (const h of profDocHits(src.html, src.baseUrl)) {
+          учтено.set(h.abs, (учтено.get(h.abs) ?? 0) + 1);
+        }
+      }
+      for (const hit of profDocHits(page.photosHtml, page.url)) {
+        const n = учтено.get(hit.abs) ?? 0;
+        if (n > 0) {
+          учтено.set(hit.abs, n - 1);
+          continue;
+        }
+        добавить(hit, page.photosHtml, "срезано");
+      }
+    }
+  });
+
+  return { таблицы, зеркалоРазошлось, ссылки, записейСТаблицами };
+}
+
+// ───────────────────────── профиль: третий круг — отчёт ─────────────────────────
+
+/** Обрезка длинного текста для ячейки markdown-таблицы. */
+const profCut = (s: string, n: number): string => (s.length <= n ? s : s.slice(0, n - 1) + "…");
+
+/** Распределение по ключу с числом и долей. */
+function profDist(
+  L: string[],
+  заголовок: string,
+  пары: Array<[string, number]>,
+  всего: number,
+): void {
+  L.push(`| ${заголовок} | таблиц | доля |`);
+  L.push("|---|---:|---:|");
+  for (const [k, n] of пары) {
+    L.push(`| ${k} | ${n} | ${всего === 0 ? "0" : ((n * 100) / всего).toFixed(1)} % |`);
+  }
+  L.push("");
+}
+
+const tallyBy = <T>(xs: T[], key: (x: T) => string): Array<[string, number]> => {
+  const m = new Map<string, number>();
+  for (const x of xs) m.set(key(x), (m.get(key(x)) ?? 0) + 1);
+  return [...m.entries()].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1));
+};
+
+/** Строка именной таблицы замера 1: тот же набор полей у отбора и у контроля. */
+function flatTableRow(t: FlatTable): string {
+  return (
+    `| ${t.ключ} | ${mdEsc(profCut(t.заголовок, 60))} | ${t.адрес} | ${t.строк}×${t.колонок} | ` +
+    `${t.ячеек} | ${(t.доляНепустых * 100).toFixed(0)} % | ${(t.доляОсновной * 100).toFixed(0)} % | ` +
+    `${t.медианаДлины} | ${t.картинок} | ${mdEsc(profCut(t.перваяСтрока, 90))} |`
+  );
+}
+
+const FLAT_HEAD =
+  "| ключ | заголовок | адрес | размер | ячеек | непустых | рядов осн. ширины | медиана | картинок | первая строка |";
+const FLAT_SEP = "|---|---|---|---|---:|---:|---:|---:|---:|---|";
+const FLAT_HEAD_MISS = FLAT_HEAD + " не выполнено |";
+const FLAT_SEP_MISS = FLAT_SEP + "---|";
+const FLAT_EMPTY = "| _нет_ |" + " |".repeat(9);
+
+function renderFlatTables(L: string[], r3: Round3): void {
+  const t = r3.таблицы;
+  const отобраны = t.filter((x) => x.текстовые);
+  const близкие = t
+    .filter((x) => !x.текстовые)
+    .sort((a, b) => a.промахи.length - b.промахи.length || b.ячеек - a.ячеек)
+    .slice(0, 20);
+
+  L.push("## Таблицы, развёрнутые в абзацы (замер 1)");
+  L.push("");
+  L.push(
+    "Считаются таблицы фрагмента, ставшего телом записи, которые `sanitizeBody` разворачивает в" +
+      " абзацы: признак «таблица данных» (доля числовых ячеек ≥ " +
+      `${DATA_TABLE_RATIO}) их не признал либо внутри есть вложенная таблица. Структура считается по` +
+      " подготовленному фрагменту (как в бою), картинки и формы — по сырому: `prepareHtml` их" +
+      " вырезает до разбора.",
+  );
+  L.push("");
+  L.push(`- всего развёрнутых таблиц: **${t.length}**`);
+  L.push(`- записей, где есть хоть одна: **${r3.записейСТаблицами}**`);
+  L.push(
+    `- по причине: вёрстка ${t.filter((x) => x.причина === "вёрстка").length}, ` +
+      `данные с вложенными ${t.filter((x) => x.причина === "данные с вложенными").length}`,
+  );
+  L.push(
+    `- сведение сырого и подготовленного срезов разошлось у записей: ${r3.зеркалоРазошлось.length}` +
+      (r3.зеркалоРазошлось.length ? ` (${r3.зеркалоРазошлось.join(", ")})` : ""),
+  );
+  L.push("");
+
+  const bucket = (n: number, edges: number[]): string => {
+    for (const e of edges) if (n <= e) return `≤ ${e}`;
+    return `> ${edges[edges.length - 1]}`;
+  };
+  profDist(
+    L,
+    "строк",
+    tallyBy(t, (x) => bucket(x.строк, [1, 2, 3, 5, 10, 25])),
+    t.length,
+  );
+  profDist(
+    L,
+    "колонок",
+    tallyBy(t, (x) => bucket(x.колонок, [1, 2, 3, 5, 10])),
+    t.length,
+  );
+  profDist(
+    L,
+    "ячеек",
+    tallyBy(t, (x) => bucket(x.ячеек, [1, 2, 4, 9, 20, 50])),
+    t.length,
+  );
+  profDist(
+    L,
+    "доля рядов основной ширины",
+    tallyBy(t, (x) => bucket(Math.round(x.доляОсновной * 100), [50, 60, 80, 90, 99])),
+    t.length,
+  );
+  profDist(
+    L,
+    "строка заголовков",
+    tallyBy(t, (x) => (x.шапка ? "да" : "нет")),
+    t.length,
+  );
+  profDist(
+    L,
+    "картинки внутри",
+    tallyBy(t, (x) => (x.картинок === 0 ? "нет" : x.картинок === 1 ? "1" : "2+")),
+    t.length,
+  );
+  profDist(
+    L,
+    "вложенные таблицы",
+    tallyBy(t, (x) => (x.вложенных === 0 ? "нет" : x.вложенных === 1 ? "1" : "2+")),
+    t.length,
+  );
+  profDist(
+    L,
+    "формы внутри",
+    tallyBy(t, (x) => (x.форм === 0 ? "нет" : "есть")),
+    t.length,
+  );
+  profDist(
+    L,
+    "доля непустых ячеек",
+    tallyBy(t, (x) => bucket(Math.round(x.доляНепустых * 100), [25, 50, 75, 90, 99])),
+    t.length,
+  );
+  profDist(
+    L,
+    "медиана длины текста ячейки",
+    tallyBy(t, (x) => bucket(x.медианаДлины, [10, 40, 120, 400, 1000])),
+    t.length,
+  );
+
+  L.push("### Предложенный признак «таблица с текстовыми данными»");
+  L.push("");
+  L.push("Таблица отбирается, когда выполнены все условия:");
+  L.push("");
+  L.push("- вложенных таблиц нет, картинок внутри нет, форм внутри нет;");
+  L.push(
+    `- строк ≥ ${TEXT_TABLE.минСтрок}, основная ширина ряда ≥ ${TEXT_TABLE.минКолонок} ячеек,` +
+      ` ячеек ≥ ${TEXT_TABLE.минЯчеек};`,
+  );
+  L.push(`- рядов основной ширины ≥ ${TEXT_TABLE.минДоляОсновной * 100} %;`);
+  L.push(`- непустых ячеек ≥ ${TEXT_TABLE.минДоляНепустых * 100} %;`);
+  L.push(`- медиана длины текста непустой ячейки ≤ ${TEXT_TABLE.максМедианаДлины} знаков.`);
+  L.push("");
+  L.push(
+    `Признак отбирает **${отобраны.length}** таблиц в **${new Set(отобраны.map((x) => x.ключ)).size}**` +
+      " записях. Доля числовых ячеек в отборе не участвует — именно она и не сработала на календаре.",
+  );
+  L.push("");
+  L.push(FLAT_HEAD);
+  L.push(FLAT_SEP);
+  for (const x of отобраны) L.push(flatTableRow(x));
+  if (отобраны.length === 0) L.push(FLAT_EMPTY);
+  L.push("");
+
+  L.push("### Отрицательный контроль: ближайшие к признаку таблицы вёрстки");
+  L.push("");
+  L.push(
+    "Развёрнутые таблицы, не прошедшие признак, отсортированные по числу невыполненных условий и" +
+      " размеру. Здесь видно, где признак может ошибиться, если пороги ослабить.",
+  );
+  L.push("");
+  L.push(FLAT_HEAD_MISS);
+  L.push(FLAT_SEP_MISS);
+  for (const x of близкие) L.push(flatTableRow(x) + ` ${mdEsc(x.промахи.join("; "))} |`);
+  if (близкие.length === 0) L.push(FLAT_EMPTY + " |");
+  L.push("");
+
+  L.push("### Отобранные таблицы по годам");
+  L.push("");
+  L.push("| год | таблиц | записей |");
+  L.push("|---|---:|---:|");
+  const годы = [...new Set(отобраны.map((x) => x.год))].sort();
+  for (const г of годы) {
+    const сВыборки = отобраны.filter((x) => x.год === г);
+    L.push(`| ${г} | ${сВыборки.length} | ${new Set(сВыборки.map((x) => x.ключ)).size} |`);
+  }
+  if (годы.length === 0) L.push("| _нет_ | | |");
+  L.push("");
+  L.push("Все развёрнутые таблицы по годам:");
+  L.push("");
+  L.push("| год | таблиц | записей |");
+  L.push("|---|---:|---:|");
+  for (const г of [...new Set(t.map((x) => x.год))].sort()) {
+    const сВыборки = t.filter((x) => x.год === г);
+    L.push(`| ${г} | ${сВыборки.length} | ${new Set(сВыборки.map((x) => x.ключ)).size} |`);
+  }
+  L.push("");
+}
+
+/** Видимый текст ссылки для отчёта; у ссылки без текста — чем она была. */
+const docLinkLabel = (d: DocLink): string =>
+  d.текст || (d.картинка ? "(картинка)" : "(пустой якорь)");
+
+const DOC_HEAD = "| ключ | заголовок | адрес | текст ссылки | файл | 100 знаков вокруг |";
+const DOC_SEP = "|---|---|---|---|---|---|";
+
+function docLinkRow(d: DocLink): string {
+  return (
+    `| ${d.ключ} | ${mdEsc(profCut(d.заголовок, 50))} | ${d.адрес} | ` +
+    `${mdEsc(profCut(docLinkLabel(d), 40))} | ${mdEsc(d.файл)} | ${mdEsc(profCut(d.вокруг, 120))} |`
+  );
+}
+
+function renderDocLinks(L: string[], r3: Round3): void {
+  const s = r3.ссылки;
+  const группа = (g: DocLinkGroup) => s.filter((d) => d.группа === g);
+  L.push("## Ссылки на файлы в текстах новостей (замер 2)");
+  L.push("");
+  L.push(
+    "Ссылки с документным расширением (`" +
+      String(DOC_EXT_RE) +
+      "`) во фрагментах, на которых боевой путь звал `extractDocuments`: ленточный фрагмент," +
+      " тизерная страница, поглощённые галерейные страницы. Картинки не считаются — они уходят в" +
+      " галерею. Одна и та же ссылка, встреченная в двух фрагментах одной записи, считается дважды" +
+      " — как её и видит разбор.",
+  );
+  L.push("");
+  L.push(
+    `- всего ссылок на файлы: **${s.length}** в **${new Set(s.map((d) => d.ключ)).size}** записях`,
+  );
+  L.push(`- (а) файл стал приложенным документом этой же записи: **${группа("а").length}**`);
+  L.push(
+    `- (б) файл есть в архиве, но приложен к другой записи или никуда: **${группа("б").length}**` +
+      ` (к другой записи ${группа("б").filter((d) => d.уКого.length > 0).length}, никуда ${группа("б").filter((d) => d.уКого.length === 0).length})`,
+  );
+  L.push(
+    `- (в) файла в архиве нет: **${группа("в").length}**` +
+      ` (адрес легаси ${группа("в").filter((d) => !d.внешний).length}, внешний хост ${группа("в").filter((d) => d.внешний).length})`,
+  );
+  L.push("");
+  L.push(
+    "Группа (б) считается по факту: путь файла разрешён манифестом, но его нет в `Документах`" +
+      " этой записи. Внутри фрагментов, на которых звали `extractDocuments`, она пуста по" +
+      " построению — разбор кладёт туда каждый разрешённый документ. Поэтому замер идёт и по" +
+      " срезанным частям страницы (шапка страницы, баннер шаблона): там `extractDocuments` не" +
+      " работал, и файл к записи не приложен. Строка «срезано» ниже — это и есть контроль:" +
+      " ноль означает, что в срезанном ни одной ссылки на файл не осталось, а не что её не искали.",
+  );
+  L.push("");
+  L.push("Откуда ссылка (роль фрагмента):");
+  L.push("");
+  L.push("| фрагмент | ссылок |");
+  L.push("|---|---:|");
+  for (const роль of ["тело", "анонс", "невыгружен", "срезано"] as const) {
+    L.push(`| ${роль} | ${s.filter((d) => d.роль === роль).length} |`);
+  }
+  L.push("");
+  L.push("Что стоит на месте ссылки в выгрузке:");
+  L.push("");
+  L.push(
+    "«Ссылка на старый сайт» — вид из задания: адрес легаси остался в теле как `<a href>`." +
+      ` Таких ${s.filter((d) => d.сейчас === "ссылка на старый сайт").length}: разбор заменяет` +
+      " внутреннюю документную ссылку текстом всегда, разрешился файл или нет.",
+  );
+  L.push("");
+  L.push("| сейчас на месте ссылки | ссылок | из них (а) | (б) | (в) |");
+  L.push("|---|---:|---:|---:|---:|");
+  for (const [k, n] of tallyBy(s, (d) => d.сейчас)) {
+    const в = s.filter((d) => d.сейчас === k);
+    L.push(
+      `| ${k} | ${n} | ${в.filter((d) => d.группа === "а").length} | ` +
+        `${в.filter((d) => d.группа === "б").length} | ${в.filter((d) => d.группа === "в").length} |`,
+    );
+  }
+  L.push("");
+  L.push("Расширения файлов:");
+  L.push("");
+  L.push("| расширение | ссылок |");
+  L.push("|---|---:|");
+  for (const [k, n] of tallyBy(s, (d) => d.расширение)) L.push(`| ${k} | ${n} |`);
+  L.push("");
+
+  const пустые = s.filter((d) => isEmptyLinkText(d.текст));
+  L.push("### Тексты ссылок");
+  L.push("");
+  L.push(
+    `Ссылок на «пустых» словах (${[...EMPTY_LINK_WORDS].join(", ")}): **${пустые.length}**` +
+      ` из ${s.length}; служебные слова (${[...EMPTY_LINK_STOPWORDS].join(", ")}) при сверке` +
+      " отбрасываются, поэтому «по ссылке» считается за «ссылка». Ссылок без видимого текста:" +
+      ` ${s.filter((d) => d.текст === "").length}, из них картинкой ${s.filter((d) => d.картинка).length},` +
+      ` пустым якорем \`<a href="…"></a>\` ${s.filter((d) => d.текст === "" && !d.картинка).length}.`,
+  );
+  L.push("");
+  L.push("| текст ссылки | вхождений |");
+  L.push("|---|---:|");
+  for (const [k, n] of tallyBy(
+    s.filter((d) => d.текст !== ""),
+    (d) => d.текст.toLowerCase(),
+  ).slice(0, 30)) {
+    L.push(`| ${mdEsc(profCut(k, 80))} | ${n} |`);
+  }
+  L.push("");
+
+  for (const g of ["а", "б", "в"] as const) {
+    const примеры = группа(g).slice(0, 10);
+    L.push(`### Примеры группы (${g})`);
+    L.push("");
+    L.push(DOC_HEAD);
+    L.push(DOC_SEP);
+    for (const d of примеры) L.push(docLinkRow(d));
+    if (примеры.length === 0) L.push("| _нет_ | | | | | |");
+    L.push("");
+  }
+
+  const пропали = s.filter((d) => d.сейчас === "текста ссылки в выгрузке нет");
+  L.push(`### Ссылки, от которых в выгрузке не осталось и текста (${пропали.length})`);
+  L.push("");
+  L.push(
+    "Здесь чинить нечего в теле: привязывать ссылку не к чему. Перечислены поимённо — по ним" +
+      ' видно, что это за ссылки: пустой якорь `<a href="….xls"></a>` без видимого текста,' +
+      " остаток легаси. Файл при этом приложен к записи и на сайте виден в «Прикреплённых файлах».",
+  );
+  L.push("");
+  L.push("| ключ | адрес | текст ссылки | файл | группа | 100 знаков вокруг |");
+  L.push("|---|---|---|---|---|---|");
+  for (const d of пропали) {
+    L.push(
+      `| ${d.ключ} | ${d.адрес} | ${mdEsc(profCut(docLinkLabel(d), 40))} | ` +
+        `${mdEsc(d.файл)} | ${d.группа} | ${mdEsc(profCut(d.вокруг, 120))} |`,
+    );
+  }
+  if (пропали.length === 0) L.push("| _нет_ | | | | | |");
+  L.push("");
+
+  L.push("### Ссылки на файлы по годам");
+  L.push("");
+  L.push("| год | всего | (а) | (б) | (в) |");
+  L.push("|---|---:|---:|---:|---:|");
+  for (const г of [...new Set(s.map((d) => d.год))].sort()) {
+    const в = s.filter((d) => d.год === г);
+    L.push(
+      `| ${г} | ${в.length} | ${в.filter((d) => d.группа === "а").length} | ` +
+        `${в.filter((d) => d.группа === "б").length} | ${в.filter((d) => d.группа === "в").length} |`,
+    );
+  }
+  L.push("");
+}
+
+/** Полный список отобранных и близких таблиц — отдельным файлом. */
+function renderTablesFile(r3: Round3): string {
+  const L: string[] = [];
+  L.push("# tables.md — развёрнутые в абзацы таблицы архива");
+  L.push("");
+  L.push(
+    "Полные списки к разделу «Таблицы, развёрнутые в абзацы» профиля. Отбор — по признаку" +
+      " «таблица с текстовыми данными», близкие — все не прошедшие признак не более чем по двум" +
+      " условиям.",
+  );
+  L.push("");
+  const отобраны = r3.таблицы.filter((x) => x.текстовые);
+  const близкие = r3.таблицы
+    .filter((x) => !x.текстовые && x.промахи.length <= 2)
+    .sort((a, b) => a.промахи.length - b.промахи.length || b.ячеек - a.ячеек);
+  L.push(`## Отобрано признаком (${отобраны.length})`);
+  L.push("");
+  L.push(FLAT_HEAD + " числовых | шапка | причина |");
+  L.push(FLAT_SEP + "---:|---|---|");
+  for (const x of отобраны) {
+    L.push(
+      flatTableRow(x) +
+        ` ${(x.доляЧисловых * 100).toFixed(0)} % | ${x.шапка ? "да" : "нет"} | ${x.причина} |`,
+    );
+  }
+  L.push("");
+  L.push(`## Не прошли признак не более чем по двум условиям (${близкие.length})`);
+  L.push("");
+  L.push(FLAT_HEAD_MISS);
+  L.push(FLAT_SEP_MISS);
+  for (const x of близкие) L.push(flatTableRow(x) + ` ${mdEsc(x.промахи.join("; "))} |`);
+  L.push("");
+  return L.join("\n") + "\n";
+}
+
+/** Полный список ссылок на файлы — отдельным файлом. */
+function renderDocLinksFile(r3: Round3): string {
+  const L: string[] = [];
+  L.push("# file-links.md — ссылки на файлы в текстах новостей архива");
+  L.push("");
+  L.push("Полный список к разделу «Ссылки на файлы» профиля, по группам.");
+  L.push("");
+  for (const g of ["а", "б", "в"] as const) {
+    const в = r3.ссылки.filter((d) => d.группа === g);
+    L.push(`## Группа (${g}) — ${в.length}`);
+    L.push("");
+    L.push(DOC_HEAD.slice(0, -1) + " фрагмент | сейчас | у кого файл |");
+    L.push(DOC_SEP.slice(0, -1) + "---|---|---|");
+    for (const d of в) {
+      L.push(
+        docLinkRow(d).slice(0, -1) + ` ${d.роль} | ${d.сейчас} | ${d.уКого.join(", ") || "—"} |`,
+      );
+    }
+    if (в.length === 0) L.push("| _нет_ | | | | | | | | |");
+    L.push("");
+  }
+  return L.join("\n") + "\n";
 }
 
 // ───────────────────────── самотест санитайзера ─────────────────────────
@@ -6943,13 +7964,142 @@ function runSelfTest(): number {
     console.log(`  выход: ${c.output}`);
   }
 
+  // ── кейсы третьего круга (замер таблиц и ссылок на файлы, 23.09.2026) ──
+  const r3key: Round3Key = {
+    ключ: "самотест#1",
+    заголовок: "самотест",
+    адрес: "/news/samotest",
+    дата: "01.01.2020",
+    год: 2020,
+  };
+  /** Одна таблица входа: её признаки так, как их считает замер. */
+  const r3flat = (html: string): FlatTable | null => {
+    const { таблицы } = profFlattenedTables(html, `${SITE}/news.html`);
+    return таблицы.length === 0 ? null : profFlatTable(таблицы[0], r3key);
+  };
+  const календарь =
+    "<table><tr><td><b>Название мероприятия</b></td><td><b>Площадка</b></td><td><b>Адрес</b></td></tr>" +
+    "<tr><td>Турнир памяти Макферсона</td><td>ТК «Динамит»</td><td>Крестовский остров, 21</td></tr>" +
+    "<tr><td>Кубок Джентльменов</td><td>ТК «Петербургский»</td><td>пр. Динамо, 44</td></tr>" +
+    "<tr><td>Фестивальный этап</td><td>СК «Лужайка»</td><td>Колпино, Заводской пр., 2</td></tr></table>";
+  const обёрткаСКартинкой =
+    `<table><tr><td><img src="logos/dinamit.gif"></td><td><img src="logos/fresh.gif"></td>` +
+    `<td><img src="logos/creyda.gif"></td></tr>` +
+    "<tr><td>Динамит</td><td>Fresh-Tennis</td><td>Creyda</td></tr>" +
+    "<tr><td>партнёр</td><td>партнёр</td><td>партнёр</td></tr>" +
+    "<tr><td>партнёр</td><td>партнёр</td><td>партнёр</td></tr></table>";
+  const макетОдинСтолбец =
+    "<table><tr><td>Завершился турнир памяти Макферсона, в котором приняли участие сорок спортсменов" +
+    " из шести городов России и Белоруссии, а победу одержал петербуржец.</td></tr>" +
+    "<tr><td>Следующий этап пройдёт в Колпино.</td></tr><tr><td>Фото с турнира — в галерее.</td></tr></table>";
+  const рядСColspan =
+    '<table><tr><td colspan="3">Сроки проведения соревнований</td></tr>' +
+    "<tr><td>12 лет</td><td>02–08 июня</td><td>ТК «Динамит»</td></tr>" +
+    "<tr><td>14 лет</td><td>09–15 июня</td><td>ТК «Петербургский»</td></tr>" +
+    "<tr><td>16 лет</td><td>16–22 июня</td><td>СК «Лужайка»</td></tr>" +
+    "<tr><td>18 лет</td><td>23–29 июня</td><td>ТК «Олимпиец»</td></tr></table>";
+  const цифровая =
+    "<table><tr><td>1</td><td>2</td><td>3</td></tr><tr><td>4</td><td>5</td><td>6</td></tr>" +
+    "<tr><td>7</td><td>8</td><td>9</td></tr></table>";
+
+  const round3Cases: Array<{ name: string; input: string; output: string; ok: boolean }> = [
+    (() => {
+      const t = r3flat(календарь);
+      return {
+        name: "round3 замер 1: календарь с текстовыми колонками — «таблица с текстовыми данными»",
+        input: календарь,
+        output: `размер ${t?.строк}×${t?.колонок}, числовых ${((t?.доляЧисловых ?? 0) * 100).toFixed(0)} %, текстовые=${t?.текстовые}, промахи=[${t?.промахи.join("; ")}]`,
+        ok: t !== null && t.текстовые && t.доляЧисловых === 0 && t.шапка,
+      };
+    })(),
+    (() => {
+      const t = r3flat(обёрткаСКартинкой);
+      return {
+        name: "round3 замер 1 (отрицательный): таблица-обёртка с картинками признаком не отбирается",
+        input: обёрткаСКартинкой,
+        output: `картинок ${t?.картинок}, текстовые=${t?.текстовые}, промахи=[${t?.промахи.join("; ")}]`,
+        ok:
+          t !== null &&
+          !t.текстовые &&
+          t.картинок === 3 &&
+          t.промахи.some((m) => m.startsWith("картинок")),
+      };
+    })(),
+    (() => {
+      const t = r3flat(макетОдинСтолбец);
+      return {
+        name: "round3 замер 1 (отрицательный): макет в один столбец признаком не отбирается",
+        input: макетОдинСтолбец,
+        output: `размер ${t?.строк}×${t?.колонок}, текстовые=${t?.текстовые}, промахи=[${t?.промахи.join("; ")}]`,
+        ok: t !== null && !t.текстовые && t.колонок === 1,
+      };
+    })(),
+    (() => {
+      const t = r3flat(рядСColspan);
+      return {
+        name: "round3 замер 1: ряд-заголовок в одну ячейку не мешает — считается доля рядов основной ширины",
+        input: рядСColspan,
+        output: `размер ${t?.строк}×${t?.колонок}, рядов основной ширины ${((t?.доляОсновной ?? 0) * 100).toFixed(0)} %, текстовые=${t?.текстовые}`,
+        ok: t !== null && t.текстовые && t.колонок === 3 && t.доляОсновной === 0.8,
+      };
+    })(),
+    (() => {
+      // Контроль сцепки с боевым признаком: цифровая таблица остаётся таблицей
+      // в теле, в абзацы не разворачивается и в замер не попадает вовсе.
+      const { таблицы } = profFlattenedTables(цифровая, `${SITE}/news.html`);
+      const тело = sanitizeBody(цифровая, { baseUrl: `${SITE}/news.html`, silent: true });
+      return {
+        name: "round3 замер 1 (контроль): таблица данных не разворачивается и в замер не попадает",
+        input: цифровая,
+        output: `развёрнутых ${таблицы.length}, в теле <table: ${(тело.match(/<table\b/g) ?? []).length}`,
+        ok: таблицы.length === 0 && тело.includes("<table>"),
+      };
+    })(),
+    (() => {
+      const html =
+        '<p>Смотрите <a href="download/setki.xls">ТУРНИРНЫЕ СЕТКИ</a> и ' +
+        '<a href="foto/1.jpg">фотогалерею</a>, а также <a href="https://x.ru/p.pdf">положение</a>.</p>';
+      const hits = profDocHits(html, `${SITE}/news.html`);
+      return {
+        name: "round3 замер 2: ссылка на документ распознаётся, ссылка на картинку — нет",
+        input: html,
+        output: hits.map((h) => `${docFileName(h.abs)}=«${stripTags(h.inner)}»`).join(", "),
+        ok:
+          hits.length === 2 &&
+          docFileName(hits[0].abs) === "setki.xls" &&
+          stripTags(hits[0].inner) === "ТУРНИРНЫЕ СЕТКИ" &&
+          docFileName(hits[1].abs) === "p.pdf",
+      };
+    })(),
+    (() => {
+      const пустые = ["ЗДЕСЬ", "тут", "скачать", "по ссылке"].map(isEmptyLinkText);
+      const живые = ["ТУРНИРНЫЕ СЕТКИ", "Положение о турнире", "скачать положение"].map(
+        isEmptyLinkText,
+      );
+      return {
+        name: "round3 замер 2: «пустые» слова отделяются от осмысленного текста ссылки",
+        input:
+          "ЗДЕСЬ / тут / скачать / по ссылке ↔ ТУРНИРНЫЕ СЕТКИ / Положение о турнире / скачать положение",
+        output: `пустые=${пустые.join(",")}; живые=${живые.join(",")}`,
+        ok: пустые.every(Boolean) && живые.every((x) => !x),
+      };
+    })(),
+  ];
+  for (const c of round3Cases) {
+    if (!c.ok) failed += 1;
+    console.log(`[${c.ok ? "OK" : "FAIL"}] ${c.name}`);
+    console.log(`  вход:  ${c.input}`);
+    console.log(`  выход: ${c.output}`);
+  }
+
   const total =
     cases.length +
     profCases.length +
     invCases.length +
     cleanupCases.length +
     feedCases.length +
-    round2Cases.length;
+    round2Cases.length +
+    round3Cases.length;
   console.log(`\nСамотест: ${total - failed}/${total} прошло`);
   return failed === 0 ? 0 : 1;
 }
@@ -7079,14 +8229,22 @@ function main(): void {
 
   mkdirSync(OUT_DIR, { recursive: true });
   const json = JSON.stringify(records, null, 2) + "\n";
+  const reportMd = renderReport(records);
   writeFileSync(join(OUT_DIR, "news_export_local.json"), json, "utf-8");
-  writeFileSync(join(OUT_DIR, "parse-report.md"), renderReport(records), "utf-8");
+  writeFileSync(join(OUT_DIR, "parse-report.md"), reportMd, "utf-8");
+  // Хеши считаются по тем же строкам, что записаны в файлы, — контроль
+  // «выгрузка не изменилась» в профиле сверяет их с заморозкой.
+  const sha = (s: string): string => createHash("sha256").update(s, "utf-8").digest("hex");
+  const exportSha = sha(json);
+  const reportSha = sha(reportMd);
 
   console.log(`Записей: ${records.length}`);
   console.log(`JSON: ${join(OUT_DIR, "news_export_local.json")} (${json.length} байт)`);
   console.log(`Отчёт: ${join(OUT_DIR, "parse-report.md")}`);
+  console.log(`sha256 выгрузки: ${exportSha}`);
+  console.log(`sha256 отчёта разбора: ${reportSha}`);
 
-  if (PROFILING) runProfile(records);
+  if (PROFILING) runProfile(records, exportSha, reportSha);
 }
 
 main();

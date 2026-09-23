@@ -14,7 +14,7 @@
  * идут без расширения (в отличие от scripts/archive-markers.ts, который
  * делят node и bun).
  */
-import { LEGACY_SLUG_MAX_LENGTH, slugify, truncateSlug } from "../src/server/slug";
+import { LEGACY_SLUG_MAX_LENGTH, slugify, truncateSlug } from "../src/server/slug.ts";
 
 // ───────────────────────── общее ─────────────────────────
 
