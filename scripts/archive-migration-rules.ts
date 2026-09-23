@@ -23,9 +23,14 @@ export function normalizeTitle(title: string): string {
   return title.trim().replace(/\s+/g, " ");
 }
 
-/** Ключ сравнения «заголовок + дата» — им пользуются справка и старый контроль. */
+/**
+ * Ключ сравнения «заголовок + дата» — им пользуются и справка, и пропуск по
+ * ключу --skip-title-date. Регистр не учитывается: легаси писал один и тот же
+ * заголовок то капслоком, то строчными, и пара «архивная ↔ заведённая руками»
+ * из-за регистра терялась бы молча.
+ */
 export function titleDateKey(title: string, publishedAt: string): string {
-  return `${normalizeTitle(title)}|${publishedAt}`;
+  return `${normalizeTitle(title).toLowerCase()}|${publishedAt}`;
 }
 
 // ───────────────────────── часть D: created_at ─────────────────────────
@@ -111,7 +116,15 @@ export type ExistingNewsRow = {
   deletedAt: Date | string | null;
 };
 
-export type SkipReason = "active" | "soft-deleted";
+/** Личность записи выгрузки — всё, что нужно и предохранителю, и справке. */
+export type PlanIdentity = { slug: string; title: string; publishedAt: string };
+
+/**
+ * `active` и `soft-deleted` — совпал слаг; `title-date` — совпали
+ * нормализованный заголовок и дата под другим слагом (только при
+ * --skip-title-date).
+ */
+export type SkipReason = "active" | "soft-deleted" | "title-date";
 
 export type AddOnlyDecision = { action: "insert" } | { action: "skip"; reason: SkipReason };
 
@@ -134,31 +147,62 @@ export function decideAddOnly(
 
 export type AddOnlyPartition<T> = {
   insert: T[];
-  skipped: Array<{ item: T; reason: SkipReason }>;
+  skipped: Array<{ item: T; reason: SkipReason; existing?: ExistingNewsRow }>;
 };
 
-/** Разделение рабочего списка на вставляемые и пропускаемые, порядок сохраняется. */
-export function partitionAddOnly<T extends { slug: string }>(
+/**
+ * Карта «заголовок + дата → новость схемы» для пропуска по --skip-title-date.
+ *
+ * Не идут в карту:
+ *   - мягко удалённые: версии сайта у такой пары нет, человек её стёр, и
+ *     архивную запись вместо неё оставляем;
+ *   - новости, чей слаг выгрузка и так занимает (`exportSlugs`): это след
+ *     прошлого прогона архива, а не версия сайта. Условие то же, что у
+ *     справки (titleDateOverlap), и означает буквально «под другим слагом».
+ */
+export function indexByTitleDate(
+  rows: ReadonlyArray<ExistingNewsRow>,
+  exportSlugs: ReadonlySet<string> = new Set(),
+): Map<string, ExistingNewsRow> {
+  const map = new Map<string, ExistingNewsRow>();
+  for (const row of rows) {
+    if (row.deletedAt != null || exportSlugs.has(row.slug)) continue;
+    const key = titleDateKey(row.title, row.publishedAt);
+    if (!map.has(key)) map.set(key, row);
+  }
+  return map;
+}
+
+/**
+ * Разделение рабочего списка на вставляемые и пропускаемые, порядок
+ * сохраняется. `existingByTitleDate` передаётся только при --skip-title-date;
+ * без неё поведение прежнее. Совпадение слага решает раньше: это одна и та же
+ * новость по одному адресу, причина у неё своя.
+ */
+export function partitionAddOnly<T extends PlanIdentity>(
   items: ReadonlyArray<T>,
   existingBySlug: ReadonlyMap<string, ExistingNewsRow>,
+  existingByTitleDate?: ReadonlyMap<string, ExistingNewsRow>,
 ): AddOnlyPartition<T> {
   const insert: T[] = [];
-  const skipped: Array<{ item: T; reason: SkipReason }> = [];
+  const skipped: AddOnlyPartition<T>["skipped"] = [];
   for (const item of items) {
     const decision = decideAddOnly(item.slug, existingBySlug);
-    if (decision.action === "insert") {
-      insert.push(item);
-    } else {
+    if (decision.action === "skip") {
       skipped.push({ item, reason: decision.reason });
+      continue;
     }
+    const match = existingByTitleDate?.get(titleDateKey(item.title, item.publishedAt));
+    if (match !== undefined) {
+      skipped.push({ item, reason: "title-date", existing: match });
+      continue;
+    }
+    insert.push(item);
   }
   return { insert, skipped };
 }
 
 // ───────────────── справка о совпадениях по «заголовок + дата» ─────────────────
-
-/** Личность записи выгрузки — всё, что нужно и предохранителю, и справке. */
-export type PlanIdentity = { slug: string; title: string; publishedAt: string };
 
 export type TitleDateOverlap = {
   existing: ExistingNewsRow;

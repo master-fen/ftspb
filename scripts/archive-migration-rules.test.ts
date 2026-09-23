@@ -9,6 +9,7 @@ import {
   createdAtForRank,
   decideAddOnly,
   decideUpload,
+  indexByTitleDate,
   partitionAddOnly,
   resolveSlugs,
   titleDateOverlap,
@@ -149,11 +150,11 @@ describe("только добавить: что пропускается", () =>
 
   test("порядок выгрузки сохраняется в обоих списках", () => {
     const items = [
-      { slug: "a" },
-      { slug: "est-1" },
-      { slug: "b" },
-      { slug: "est-2" },
-      { slug: "c" },
+      plan("a", "Первая", "2024-03-01"),
+      plan("est-1", "Уже есть", "2024-01-01"),
+      plan("b", "Вторая", "2024-03-02"),
+      plan("est-2", "Мягко удалена", "2024-01-02"),
+      plan("c", "Третья", "2024-03-03"),
     ];
     const got = partitionAddOnly(items, existing);
     expect(got.insert.map((x) => x.slug)).toEqual(["a", "b", "c"]);
@@ -183,6 +184,107 @@ describe("только добавить: что пропускается", () =>
     const ex = [row("ruchnaya", "Совсем другое", "2026-05-11")];
     const plans = [plan("match-gorodov", "Матч городов", "2026-05-11")];
     expect(titleDateOverlap(ex, plans)).toEqual([]);
+  });
+});
+
+describe("пропуск совпадений «заголовок + дата» (--skip-title-date)", () => {
+  // Решение Антона 21.09.2026: если на сайте уже есть новость с тем же
+  // заголовком и датой под другим слагом, оставляется версия сайта.
+  const site = [
+    row("ruchnaya", "Матч городов", "2026-05-11"),
+    row("udalyonnaya", "Стёртая руками", "2026-05-12", new Date("2026-06-01T00:00:00.000Z")),
+    row("est-1", "Уже есть", "2024-01-01"),
+  ];
+  const bySlug = new Map(site.map((r) => [r.slug, r]));
+  const byTitleDate = indexByTitleDate(site);
+
+  test("совпадение по заголовку и дате под другим слагом — запись пропускается целиком", () => {
+    const got = partitionAddOnly(
+      [plan("match-gorodov", "Матч городов", "2026-05-11")],
+      bySlug,
+      byTitleDate,
+    );
+    expect(got.insert).toEqual([]);
+    expect(got.skipped).toHaveLength(1);
+    expect(got.skipped[0].reason).toBe("title-date");
+    expect(got.skipped[0].existing?.slug).toBe("ruchnaya");
+  });
+
+  test("несовпадение по дате — запись добавляется", () => {
+    const got = partitionAddOnly(
+      [plan("match-gorodov", "Матч городов", "2026-05-12")],
+      bySlug,
+      byTitleDate,
+    );
+    expect(got.insert.map((x) => x.slug)).toEqual(["match-gorodov"]);
+    expect(got.skipped).toEqual([]);
+  });
+
+  test("та же дата, другой заголовок — запись добавляется", () => {
+    const got = partitionAddOnly(
+      [plan("drugoe", "Совсем другое", "2026-05-11")],
+      bySlug,
+      byTitleDate,
+    );
+    expect(got.insert.map((x) => x.slug)).toEqual(["drugoe"]);
+    expect(got.skipped).toEqual([]);
+  });
+
+  test("регистр и лишние пробелы в заголовке совпадению не мешают", () => {
+    const got = partitionAddOnly(
+      [plan("match-gorodov", "  МАТЧ   ГОРОДОВ ", "2026-05-11")],
+      bySlug,
+      byTitleDate,
+    );
+    expect(got.skipped.map((x) => x.reason)).toEqual(["title-date"]);
+  });
+
+  test("без ключа (карта не передана) та же запись добавляется", () => {
+    const got = partitionAddOnly([plan("match-gorodov", "Матч городов", "2026-05-11")], bySlug);
+    expect(got.insert.map((x) => x.slug)).toEqual(["match-gorodov"]);
+    expect(got.skipped).toEqual([]);
+  });
+
+  test("мягко удалённая новость сайта совпадением не считается", () => {
+    // Версии сайта у такой пары нет: человек её стёр. Архивную оставляем.
+    const got = partitionAddOnly(
+      [plan("styortaya", "Стёртая руками", "2026-05-12")],
+      bySlug,
+      byTitleDate,
+    );
+    expect(got.insert.map((x) => x.slug)).toEqual(["styortaya"]);
+  });
+
+  test("новость под слагом, который занимает сама выгрузка, версией сайта не считается", () => {
+    // След прошлого прогона архива: та же пара «заголовок + дата», но слаг —
+    // из выгрузки. Пропускать по ней нельзя, иначе запись потерялась бы.
+    const prev = [row("match-gorodov", "Матч городов", "2026-05-11")];
+    const idx = indexByTitleDate(prev, new Set(["match-gorodov"]));
+    expect(idx.size).toBe(0);
+    const got = partitionAddOnly(
+      [plan("match-gorodov-2", "Матч городов", "2026-05-11")],
+      new Map(prev.map((r) => [r.slug, r])),
+      idx,
+    );
+    expect(got.insert.map((x) => x.slug)).toEqual(["match-gorodov-2"]);
+  });
+
+  test("совпадение по слагу сильнее: причина остаётся active", () => {
+    const got = partitionAddOnly([plan("est-1", "Уже есть", "2024-01-01")], bySlug, byTitleDate);
+    expect(got.skipped.map((x) => x.reason)).toEqual(["active"]);
+  });
+
+  test("порядок выгрузки сохраняется в обоих списках", () => {
+    const items = [
+      plan("a", "Первая", "2024-02-01"),
+      plan("match-gorodov", "Матч городов", "2026-05-11"),
+      plan("b", "Вторая", "2024-02-02"),
+      plan("est-1", "Уже есть", "2024-01-01"),
+    ];
+    const got = partitionAddOnly(items, bySlug, byTitleDate);
+    expect(got.insert.map((x) => x.slug)).toEqual(["a", "b"]);
+    expect(got.skipped.map((x) => x.item.slug)).toEqual(["match-gorodov", "est-1"]);
+    expect(got.skipped.map((x) => x.reason)).toEqual(["title-date", "active"]);
   });
 });
 

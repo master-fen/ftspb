@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { count, eq, inArray } from "drizzle-orm";
+import sharp from "sharp";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { describeTarget, sslFor } from "../src/db/ssl";
@@ -17,6 +18,7 @@ import {
   checkReplaceAllCoverage,
   createdAtByIndex,
   decideUpload,
+  indexByTitleDate,
   normalizeTitle,
   partitionAddOnly,
   resolveSlugs,
@@ -68,6 +70,7 @@ function parseArgs(argv: string[]) {
   let replaceAll = false;
   let addOnly = false;
   let skipUploaded = false;
+  let skipTitleDate = false;
   let allowDataLoss = false;
   let assets: string | undefined;
 
@@ -80,6 +83,8 @@ function parseArgs(argv: string[]) {
       addOnly = true;
     } else if (arg === "--skip-uploaded") {
       skipUploaded = true;
+    } else if (arg === "--skip-title-date") {
+      skipTitleDate = true;
     } else if (arg === "--allow-data-loss") {
       allowDataLoss = true;
     } else if (arg.startsWith("--source=")) {
@@ -110,6 +115,9 @@ function parseArgs(argv: string[]) {
   if (allowDataLoss && !replaceAll) {
     throw new Error("--allow-data-loss имеет смысл только вместе с --replace-all");
   }
+  if (skipTitleDate && !addOnly) {
+    throw new Error("--skip-title-date имеет смысл только вместе с --add-only");
+  }
 
   // База относительных путей Обложка/Галерея/Документы; по умолчанию —
   // прежнее поведение (файлы рядом с news_export_local.json).
@@ -121,6 +129,7 @@ function parseArgs(argv: string[]) {
     replaceAll,
     addOnly,
     skipUploaded,
+    skipTitleDate,
     allowDataLoss,
     assets: assets ?? source,
   };
@@ -134,6 +143,7 @@ const {
   replaceAll,
   addOnly,
   skipUploaded,
+  skipTitleDate,
   allowDataLoss,
   assets,
 } = parseArgs(process.argv.slice(2));
@@ -290,6 +300,86 @@ function requireFile(localPath: string, context: string): void {
   }
 }
 
+// ───────────────────────── размеры фото ─────────────────────────
+
+/** Размеры кадра так, как его покажет браузер. */
+type ImageSize = { width: number; height: number };
+
+/** Сколько файлов читается одновременно — как в scripts/compress-archive.ts. */
+const SIZE_CONCURRENCY = 8;
+
+/** Прочитанные размеры по локальному пути файла; заполняется readImageSizes. */
+const imageSizes = new Map<string, ImageSize>();
+
+/**
+ * Размеры одного файла. `metadata().width/height` — размеры как они лежат в
+ * файле; при EXIF-ориентации 5–8 браузер показывает кадр повёрнутым, поэтому
+ * стороны переставляются. В архиве таких файлов нет (замер 22.09.2026 по
+ * сжатой выгрузке: 0 из 1678 обложек), но правило нужно и для будущих
+ * заливок: молчаливо перепутанные стороны не видны ни в базе, ни на глаз.
+ */
+async function readImageSize(localPath: string): Promise<ImageSize> {
+  const meta = await sharp(localPath).metadata();
+  const w = meta.width;
+  const h = meta.height;
+  if (!w || !h) {
+    throw new Error("в метаданных нет ширины или высоты");
+  }
+  const rotated = (meta.orientation ?? 1) >= 5;
+  return rotated ? { width: h, height: w } : { width: w, height: h };
+}
+
+/**
+ * Фаза целиком: размеры ВСЕХ фото рабочего набора читаются до первой записи в
+ * S3 и в базу. Задание: не прочитать размер — стоп, не заливать без размеров.
+ * Поэтому ошибки копятся и печатаются все разом, а прогон падает до заливки,
+ * а не на середине.
+ */
+async function readImageSizes(records: ReadonlyArray<ArchiveRecord>): Promise<void> {
+  const paths: string[] = [];
+  const seen = new Set<string>();
+  for (const record of records) {
+    const items = [record["Обложка"], ...(record["Галерея"] ?? [])];
+    for (const item of items) {
+      if (!item || /^https?:\/\//i.test(item)) continue;
+      const localPath = path.join(assets, item);
+      if (seen.has(localPath)) continue;
+      seen.add(localPath);
+      paths.push(localPath);
+    }
+  }
+
+  const failures: string[] = [];
+  let next = 0;
+  const worker = async () => {
+    while (next < paths.length) {
+      const localPath = paths[next++];
+      try {
+        imageSizes.set(localPath, await readImageSize(localPath));
+      } catch (error) {
+        failures.push(`${localPath}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: SIZE_CONCURRENCY }, worker));
+
+  console.log(`─── размеры фото: прочитано ${imageSizes.size} из ${paths.length} ───`);
+  if (failures.length > 0) {
+    console.error(`Размер не прочитан у ${failures.length} файлов — заливка отменена:`);
+    for (const f of failures) console.error(`  ${f}`);
+    process.exit(1);
+  }
+}
+
+/** Размер уже прочитанного файла; отсутствие — ошибка сборки плана, не заливки. */
+function sizeOf(localPath: string, context: string): ImageSize {
+  const size = imageSizes.get(localPath);
+  if (!size) {
+    throw new Error(`Размер файла не прочитан: ${localPath} (${context})`);
+  }
+  return size;
+}
+
 // ───────────────────────── план записи ─────────────────────────
 
 type Plan = {
@@ -305,8 +395,10 @@ type Plan = {
   featured: boolean;
   featuredOrder: number | null;
   mockMatched: boolean;
-  cover: { localPath: string; s3Key: string; contentType: string } | null;
-  gallery: Array<{ localPath: string; s3Key: string; contentType: string; position: number }>;
+  cover: ({ localPath: string; s3Key: string; contentType: string } & ImageSize) | null;
+  gallery: Array<
+    { localPath: string; s3Key: string; contentType: string; position: number } & ImageSize
+  >;
   galleryDroppedHttp: string[];
   documents: Array<{
     localPath: string;
@@ -354,6 +446,7 @@ function buildPlan(record: ArchiveRecord, slug: string, createdAt: Date): Plan {
           localPath,
           s3Key: `news/${slug}/cover${ext}`,
           contentType: imageContentType(ext, `обложка новости "${title}"`),
+          ...sizeOf(localPath, `обложка новости "${title}"`),
         };
       })()
     : null;
@@ -377,6 +470,7 @@ function buildPlan(record: ArchiveRecord, slug: string, createdAt: Date): Plan {
       s3Key: `news/${slug}/${nn}${ext}`,
       contentType: imageContentType(ext, `фото галереи новости "${title}"`),
       position: idx + 1,
+      ...sizeOf(localPath, `фото галереи новости "${title}"`),
     };
   });
 
@@ -529,7 +623,13 @@ async function applyPlan(plan: Plan, insertOnly = false): Promise<void> {
     uploaded += 1;
     const [photo] = await db
       .insert(newsPhoto)
-      .values({ newsId, s3Key: plan.cover.s3Key, position: 0 })
+      .values({
+        newsId,
+        s3Key: plan.cover.s3Key,
+        position: 0,
+        width: plan.cover.width,
+        height: plan.cover.height,
+      })
       .returning({ id: newsPhoto.id });
     await db.update(news).set({ coverPhotoId: photo.id }).where(eq(news.id, newsId));
   }
@@ -537,7 +637,13 @@ async function applyPlan(plan: Plan, insertOnly = false): Promise<void> {
   for (const item of plan.gallery) {
     await putFile(item.s3Key, item.localPath, item.contentType);
     uploaded += 1;
-    await db.insert(newsPhoto).values({ newsId, s3Key: item.s3Key, position: item.position });
+    await db.insert(newsPhoto).values({
+      newsId,
+      s3Key: item.s3Key,
+      position: item.position,
+      width: item.width,
+      height: item.height,
+    });
   }
 
   // Документы: удаляем document-строки, привязанные к этой новости —
@@ -725,12 +831,24 @@ async function replaceAllApply(plans: Plan[]): Promise<void> {
       if (plan.cover) {
         const [photo] = await tx
           .insert(newsPhoto)
-          .values({ newsId, s3Key: plan.cover.s3Key, position: 0 })
+          .values({
+            newsId,
+            s3Key: plan.cover.s3Key,
+            position: 0,
+            width: plan.cover.width,
+            height: plan.cover.height,
+          })
           .returning({ id: newsPhoto.id });
         await tx.update(news).set({ coverPhotoId: photo.id }).where(eq(news.id, newsId));
       }
       for (const item of plan.gallery) {
-        await tx.insert(newsPhoto).values({ newsId, s3Key: item.s3Key, position: item.position });
+        await tx.insert(newsPhoto).values({
+          newsId,
+          s3Key: item.s3Key,
+          position: item.position,
+          width: item.width,
+          height: item.height,
+        });
       }
       for (const item of plan.documents) {
         const [docRow] = await tx
@@ -832,8 +950,11 @@ async function main() {
   // и только потом хоть что-то пишется. У пропущенных записей не читается
   // диск и не заливается ни одного объекта.
   let working = identities;
-  let skippedRows: Array<{ item: (typeof identities)[number]; reason: "active" | "soft-deleted" }> =
-    [];
+  let skippedRows: Array<{
+    item: (typeof identities)[number];
+    reason: "active" | "soft-deleted" | "title-date";
+    existing?: ExistingNewsRow;
+  }> = [];
 
   if (addOnly || replaceAll) {
     const existing = await loadExistingNews();
@@ -843,12 +964,28 @@ async function main() {
     }
     if (addOnly) {
       const bySlug = new Map(existing.map((r) => [r.slug, r]));
-      const part = partitionAddOnly(identities, bySlug);
+      // Ключ --skip-title-date: совпавшая по «заголовок + дата» запись
+      // выгрузки пропускается целиком, на сайте остаётся версия схемы.
+      // Без ключа карта не передаётся, и поведение прежнее: справка
+      // печатается (printTitleDateOverlap выше), запись добавляется.
+      const byTitleDate = skipTitleDate
+        ? indexByTitleDate(existing, new Set(identities.map((i) => i.slug)))
+        : undefined;
+      const part = partitionAddOnly(identities, bySlug, byTitleDate);
       working = part.insert;
       skippedRows = part.skipped;
-      console.log(`─── только добавить: пропущено ${skippedRows.length} ───`);
+      console.log(
+        `─── только добавить: пропущено ${skippedRows.length}` +
+          (skipTitleDate ? "" : " (ключ --skip-title-date выключен)") +
+          " ───",
+      );
       for (const s of skippedRows) {
-        const what = s.reason === "active" ? "новость уже есть" : "есть МЯГКО УДАЛЁННАЯ новость";
+        const what =
+          s.reason === "active"
+            ? "новость уже есть"
+            : s.reason === "soft-deleted"
+              ? "есть МЯГКО УДАЛЁННАЯ новость"
+              : `совпало «заголовок + дата» с /news/${s.existing?.slug ?? "?"} — пропущено, оставлена версия сайта`;
         console.log(`[skip] ${s.item.slug}: ${what} — «${s.item.title}» (${s.item.publishedAt})`);
       }
     }
@@ -884,6 +1021,12 @@ async function main() {
     for (const r of markerResidue) console.error(`  "${r["Заголовок"]}" (${r["Дата"]})`);
     process.exit(1);
   }
+
+  // Фаза размеров: ВСЕ фото рабочего набора промеряются до первой записи в
+  // S3 и в базу. Пропущенные записи не промеряются — их файлы никуда не
+  // поедут. Фаза идёт и в сухом прогоне: сухой прогон затем и нужен, чтобы
+  // нечитаемый файл всплыл до боевой заливки.
+  await readImageSizes(workingRecords);
 
   let coverCount = 0;
   let noCoverCount = 0;
@@ -922,9 +1065,13 @@ async function main() {
     console.log(`Обработано записей: ${working.length}`);
     if (addOnly) {
       const soft = skippedRows.filter((s) => s.reason === "soft-deleted").length;
+      const byTitleDateCount = skippedRows.filter((s) => s.reason === "title-date").length;
+      const bySlugCount = skippedRows.length - byTitleDateCount;
       console.log(
         (dryRun ? `К добавлению: ${working.length}` : `Добавлено новостей: ${working.length}`) +
-          `, пропущено (слаг уже в схеме): ${skippedRows.length}, из них мягко удалённых: ${soft}`,
+          `, пропущено (слаг уже в схеме): ${bySlugCount}, из них мягко удалённых: ${soft}` +
+          `, пропущено по «заголовок + дата»: ${byTitleDateCount}` +
+          (skipTitleDate ? "" : " — ключ --skip-title-date выключен, пропусков быть не может"),
       );
     }
     console.log(`С обложкой: ${coverCount}, без обложки: ${noCoverCount}`);
