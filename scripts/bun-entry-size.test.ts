@@ -34,6 +34,7 @@ const MODULES = new Set([
   "archive-markers.ts",
   "archive-migration-rules.ts",
   "archive-mock-match.ts",
+  "archive-record-write.ts",
   "archive-reset-rules.ts",
   "text-to-html.ts",
 ]);

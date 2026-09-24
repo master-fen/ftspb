@@ -37,6 +37,14 @@ import {
   replaceMarkers,
   slugMapBySource,
 } from "./archive-markers";
+import {
+  type RecordObject,
+  type RecordWriteFailure,
+  formatRecordAbort,
+  repeatCommandLine,
+  retryStorage,
+  writeRecordAtomically,
+} from "./archive-record-write";
 import { newsFileHref } from "../src/lib/news-file-url";
 import { type ImageSize, readImageSizes, sizeOf } from "./archive-image-sizes";
 import { type Section, matchMock } from "./archive-mock-match";
@@ -222,10 +230,13 @@ if (!failInjection.ok) {
  *     будут пропущены по совпадению слага, и не напечатать справку о
  *     совпадениях по «заголовок + дата».
  */
-let sqlInstance: ReturnType<typeof postgres> | undefined;
-let dbInstance: PostgresJsDatabase<typeof schema> | undefined;
+type Db = PostgresJsDatabase<typeof schema>;
+type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
-function getDb(): PostgresJsDatabase<typeof schema> {
+let sqlInstance: ReturnType<typeof postgres> | undefined;
+let dbInstance: Db | undefined;
+
+function getDb(): Db {
   if (!dbInstance) {
     const connectionString = process.env.DATABASE_URL;
     if (!connectionString) {
@@ -390,9 +401,28 @@ let s3Uploaded = 0;
 let s3Reuploaded = 0;
 let s3Skipped = 0;
 
+/**
+ * Повтор с нарастающей паузой вокруг одного обращения к хранилищу. Стоит
+ * внутри `putFile`, но **внутри** его try/catch по HEAD: 404 под
+ * `--skip-uploaded` — штатный ответ «объекта нет», и повторять его нельзя.
+ */
+function withRetry<T>(what: string, operation: () => Promise<T>): Promise<T> {
+  return retryStorage(operation, {
+    onRetry: ({ attempt, total, pauseMs, error }) =>
+      console.warn(
+        `[retry] ${what}: попытка ${attempt} из ${total} через ${pauseMs / 1000} с — ` +
+          `${error instanceof Error ? error.message : String(error)}`,
+      ),
+  });
+}
+
 /** Прошло объектов и записей — счёт ведётся только ради ключей обрыва. */
 let objectsSeen = 0;
 let recordsWritten = 0;
+
+/** Записей применено и сколько их всего — для прогресса и сообщения об обрыве. */
+let recordsApplied = 0;
+let recordsTotal = 0;
 
 /**
  * Единственное место, где байты уходят в бакет. При `--skip-uploaded` сначала
@@ -412,7 +442,7 @@ async function putFile(key: string, localPath: string, contentType: string): Pro
   let remote: RemoteObject = null;
   if (skipUploaded) {
     try {
-      remote = { size: (await headObject(key)).size };
+      remote = { size: (await withRetry(`HEAD ${key}`, () => headObject(key))).size };
     } catch (error) {
       if (!isS3NotFound(error)) {
         throw error;
@@ -432,21 +462,57 @@ async function putFile(key: string, localPath: string, contentType: string): Pro
       `[warn] размер в бакете отличается: ${key} (бакет ${remote?.size ?? 0}, файл ${localSize}) — перезаливаю`,
     );
   }
-  await uploadObject(key, fs.readFileSync(localPath), contentType);
+  const body = fs.readFileSync(localPath);
+  await withRetry(`PUT ${key}`, () => uploadObject(key, body, contentType));
   s3Uploaded += 1;
 }
 
 // ───────────────────────── применение плана ─────────────────────────
 
-async function applyPlan(plan: Plan, insertOnly = false): Promise<void> {
-  if (dryRun) {
-    console.log(`[news] план: ${plan.slug}`);
-    return;
+/**
+ * Слаг занят кем-то, кого не было в разделении: ошибка логики, а не обрыв.
+ * Совет «запустите ту же команду ещё раз» тут был бы неверным.
+ */
+class AddOnlySlugConflict extends Error {}
+
+/** Объекты записи в прежнем порядке: обложка, галерея, документы. */
+function planObjects(plan: Plan): RecordObject[] {
+  const objects: RecordObject[] = [];
+  if (plan.cover) {
+    objects.push({
+      key: plan.cover.s3Key,
+      localPath: plan.cover.localPath,
+      contentType: plan.cover.contentType,
+      kind: "photo",
+    });
   }
+  for (const item of plan.gallery) {
+    objects.push({
+      key: item.s3Key,
+      localPath: item.localPath,
+      contentType: item.contentType,
+      kind: "photo",
+    });
+  }
+  for (const item of plan.documents) {
+    objects.push({
+      key: item.s3Key,
+      localPath: item.localPath,
+      contentType: item.mimeType,
+      kind: "document",
+    });
+  }
+  return objects;
+}
 
-  const db = getDb();
-
-  const existing = await db
+/**
+ * Фаза 2: все строки записи, одной транзакцией. Порядок операторов не
+ * переставляется — внешние ключи `news.cover_photo_id` ↔ `news_photo.news_id`
+ * образуют цикл и не отложены, поэтому обложка вставляется строкой
+ * `news_photo`, и только потом на неё ссылается `news`.
+ */
+async function writeRecordRows(tx: Tx, plan: Plan, insertOnly: boolean): Promise<void> {
+  const existing = await tx
     .select({ id: news.id })
     .from(news)
     .where(eq(news.slug, plan.slug))
@@ -467,10 +533,8 @@ async function applyPlan(plan: Plan, insertOnly = false): Promise<void> {
   };
 
   let newsId: string;
-  const isNew = existing.length === 0;
-
-  if (isNew) {
-    const [inserted] = await db
+  if (existing.length === 0) {
+    const [inserted] = await tx
       .insert(news)
       .values({ slug: plan.slug, ...values })
       .returning({ id: news.id });
@@ -481,12 +545,12 @@ async function applyPlan(plan: Plan, insertOnly = false): Promise<void> {
       // Сюда режим «только добавить» попасть не должен: слаг уже отсеян
       // разделением. Если попал — схема изменилась под нами, и молча
       // перезаписывать чужую новость нельзя.
-      throw new Error(
+      throw new AddOnlySlugConflict(
         `--add-only: слаг ${plan.slug} появился в схеме после разделения — перезапись запрещена`,
       );
     }
     newsId = existing[0].id;
-    await db
+    await tx
       .update(news)
       .set({ ...values, updatedAt: new Date() })
       .where(eq(news.id, newsId));
@@ -495,14 +559,10 @@ async function applyPlan(plan: Plan, insertOnly = false): Promise<void> {
 
   // Полная замена фото: удаляем все существующие — FK news.cover_photo_id
   // (ON DELETE SET NULL) сам обнулит ссылку на удалённую обложку.
-  await db.delete(newsPhoto).where(eq(newsPhoto.newsId, newsId));
-
-  let uploaded = 0;
+  await tx.delete(newsPhoto).where(eq(newsPhoto.newsId, newsId));
 
   if (plan.cover) {
-    await putFile(plan.cover.s3Key, plan.cover.localPath, plan.cover.contentType);
-    uploaded += 1;
-    const [photo] = await db
+    const [photo] = await tx
       .insert(newsPhoto)
       .values({
         newsId,
@@ -512,13 +572,11 @@ async function applyPlan(plan: Plan, insertOnly = false): Promise<void> {
         height: plan.cover.height,
       })
       .returning({ id: newsPhoto.id });
-    await db.update(news).set({ coverPhotoId: photo.id }).where(eq(news.id, newsId));
+    await tx.update(news).set({ coverPhotoId: photo.id }).where(eq(news.id, newsId));
   }
 
   for (const item of plan.gallery) {
-    await putFile(item.s3Key, item.localPath, item.contentType);
-    uploaded += 1;
-    await db.insert(newsPhoto).values({
+    await tx.insert(newsPhoto).values({
       newsId,
       s3Key: item.s3Key,
       position: item.position,
@@ -529,12 +587,12 @@ async function applyPlan(plan: Plan, insertOnly = false): Promise<void> {
 
   // Документы: удаляем document-строки, привязанные к этой новости —
   // news_document подчищается каскадом (FK document_id → document.id).
-  const existingDocIds = await db
+  const existingDocIds = await tx
     .select({ id: newsDocument.documentId })
     .from(newsDocument)
     .where(eq(newsDocument.newsId, newsId));
   if (existingDocIds.length > 0) {
-    await db.delete(document).where(
+    await tx.delete(document).where(
       inArray(
         document.id,
         existingDocIds.map((row) => row.id),
@@ -543,8 +601,7 @@ async function applyPlan(plan: Plan, insertOnly = false): Promise<void> {
   }
 
   for (const item of plan.documents) {
-    await putFile(item.s3Key, item.localPath, item.mimeType);
-    const [docRow] = await db
+    const [docRow] = await tx
       .insert(document)
       .values({
         title: plan.title,
@@ -561,7 +618,7 @@ async function applyPlan(plan: Plan, insertOnly = false): Promise<void> {
         inLibrary: true,
       })
       .returning({ id: document.id });
-    await db
+    await tx
       .insert(newsDocument)
       .values({ newsId, documentId: docRow.id, position: item.position });
   }
@@ -572,30 +629,74 @@ async function applyPlan(plan: Plan, insertOnly = false): Promise<void> {
     }
     recordsWritten += 1;
   }
+}
 
+/** Сообщение оператору вместо сырого стека, затем ненулевой код выхода. */
+function abortRun(plan: Plan, failure: RecordWriteFailure): never {
+  if (failure.error instanceof AddOnlySlugConflict) {
+    fail(failure.error.message);
+  }
+  for (const line of formatRecordAbort({
+    failure,
+    slug: plan.slug,
+    number: recordsApplied + 1,
+    total: recordsTotal,
+    applied: recordsApplied,
+    repeatCommand: repeatCommandLine(process.argv.slice(2)),
+    skipUploaded,
+  })) {
+    console.error(line);
+  }
+  process.exit(1);
+}
+
+/** Раз в сто записей — чтобы длинный прогон не выглядел зависшим. */
+const PROGRESS_EVERY = 100;
+
+function printProgress(): void {
+  if (recordsApplied % PROGRESS_EVERY !== 0) {
+    return;
+  }
+  // В поштучном режиме запись может быть обновлена, а не добавлена, и слово
+  // «добавлено» было бы неправдой — как и в printTotals.
+  const verb = addOnly ? "добавлено" : "обработано";
+  console.log(`${verb} ${recordsApplied} из ${recordsTotal}`);
+}
+
+/**
+ * Одна запись: сначала все её объекты хранилища, затем одна транзакция базы.
+ * Порядок и классификация сбоя — в scripts/archive-record-write.ts.
+ */
+async function applyPlan(plan: Plan, insertOnly = false): Promise<void> {
+  if (dryRun) {
+    console.log(`[news] план: ${plan.slug}`);
+    return;
+  }
+
+  const outcome = await writeRecordAtomically(planObjects(plan), {
+    putObject: (object) => putFile(object.key, object.localPath, object.contentType),
+    writeRows: () => getDb().transaction((tx) => writeRecordRows(tx, plan, insertOnly)),
+  });
+  if (!outcome.ok) {
+    abortRun(plan, outcome);
+  }
+
+  recordsApplied += 1;
   console.log(
-    `[news] ${plan.slug}: файлов залито ${uploaded}, документов ${plan.documents.length}`,
+    `[news] ${plan.slug}: файлов залито ${outcome.counts.photos}, документов ${plan.documents.length}`,
   );
+  printProgress();
 }
 
 // ───────────────────────── --replace-all: полная замена ─────────────────────────
 
 /** Фаза 1: заливка всех S3-объектов плана. PUT идемпотентен — повтор безопасен. */
 async function uploadPlanObjects(plan: Plan): Promise<number> {
-  let uploaded = 0;
-  if (plan.cover) {
-    await putFile(plan.cover.s3Key, plan.cover.localPath, plan.cover.contentType);
-    uploaded += 1;
+  const objects = planObjects(plan);
+  for (const object of objects) {
+    await putFile(object.key, object.localPath, object.contentType);
   }
-  for (const item of plan.gallery) {
-    await putFile(item.s3Key, item.localPath, item.contentType);
-    uploaded += 1;
-  }
-  for (const item of plan.documents) {
-    await putFile(item.s3Key, item.localPath, item.mimeType);
-    uploaded += 1;
-  }
-  return uploaded;
+  return objects.length;
 }
 
 /** Все строки news — без фильтра по статусу и deleted_at: слаг уникален для всех. */
@@ -879,6 +980,7 @@ async function main() {
   }
 
   const workingRecords = working.map((w) => records[w.index]);
+  recordsTotal = working.length;
 
   // Замена меток идёт по рабочему набору: тела пропущенных никуда не поедут,
   // и считать их в «меток заменено» было бы неправдой. Карта при этом полная,
@@ -1034,6 +1136,11 @@ async function main() {
       printTotals();
     }
   } else {
+    // Соединение открывается до первого байта в бакет: иначе битый
+    // DATABASE_URL всплыл бы уже после заливки объектов первой записи.
+    if (!dryRun) {
+      getDb();
+    }
     for (const w of working) {
       const plan = buildPlan(records[w.index], w.slug, createdAts[w.index]);
       noteAndPrintPlan(plan);
