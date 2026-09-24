@@ -2,13 +2,14 @@
  * Решения мигратора архива, вынесенные из scripts/migrate-archive.ts, чтобы
  * их можно было проверить тестами без базы, без S3 и без диска.
  *
- * Здесь живут ответы на четыре вопроса:
+ * Здесь живут ответы на пять вопросов:
  *   - какое `created_at` получает запись, чтобы порядок внутри дня на новом
  *     сайте повторял порядок ленты старого (часть D задания);
  *   - что считать совпадением и что пропускать в режиме «только добавить»;
  *   - когда массовому режиму отказываться работать, чтобы не снести новости,
  *     которых нет в выгрузке;
- *   - заливать файл в S3 или пропустить, потому что он уже там.
+ *   - заливать файл в S3 или пропустить, потому что он уже там;
+ *   - какой тип содержимого у кадра и у приложенного документа.
  *
  * Потребитель один — scripts/migrate-archive.ts под bun, поэтому импорты
  * идут без расширения (в отличие от scripts/archive-markers.ts, который
@@ -370,4 +371,61 @@ export function resolveSlugs(records: ReadonlyArray<SlugSource>): string[] {
   }
 
   return finalSlugs;
+}
+
+// ───────────────────────── тип содержимого по расширению ─────────────────────────
+
+/**
+ * Тип содержимого кадра. Список закрыт намеренно: неизвестное расширение
+ * роняет сборку плана, а не уезжает в бакет с `application/octet-stream` —
+ * браузер такой объект предложит скачать вместо показа.
+ */
+export function imageContentType(ext: string, context: string): string {
+  switch (ext) {
+    case ".jpg":
+    case ".jpeg":
+      return "image/jpeg";
+    case ".png":
+      return "image/png";
+    case ".webp":
+      return "image/webp";
+    case ".gif":
+      return "image/gif";
+    default:
+      throw new Error(`Неизвестное расширение изображения "${ext}" (${context})`);
+  }
+}
+
+/**
+ * То же для приложенного документа. Список — расширения, реально
+ * встреченные в архиве легаси; новое расширение обязано попасть сюда
+ * осознанно, вместе с решением, чем его отдавать.
+ */
+export function documentMimeType(ext: string, context: string): string {
+  switch (ext) {
+    case ".pdf":
+      return "application/pdf";
+    case ".doc":
+      return "application/msword";
+    case ".docx":
+      return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    case ".xls":
+      return "application/vnd.ms-excel";
+    case ".xlsx":
+      return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    case ".pptx":
+      return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+    case ".rtf":
+      return "application/rtf";
+    case ".zip":
+      return "application/zip";
+    case ".rar":
+      return "application/x-rar-compressed";
+    case ".mp4":
+      return "video/mp4";
+    case ".mov":
+      return "video/quicktime";
+    default:
+      throw new Error(`Неизвестное расширение документа "${ext}" (${context})`);
+  }
 }

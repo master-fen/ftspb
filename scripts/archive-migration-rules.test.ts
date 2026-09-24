@@ -9,6 +9,8 @@ import {
   createdAtForRank,
   decideAddOnly,
   decideUpload,
+  documentMimeType,
+  imageContentType,
   indexByTitleDate,
   partitionAddOnly,
   resolveSlugs,
@@ -396,5 +398,52 @@ describe("слаги: срез не меняет результат", () => {
     // Срез из двух записей коллизии не видит — поэтому слаги считаются по
     // полному списку, а рабочим берётся префикс.
     expect(resolveSlugs(records.slice(0, 2))[0]).toBe("match-gorodov");
+  });
+});
+
+describe("тип содержимого по расширению", () => {
+  test("кадры: четыре расширения архива", () => {
+    expect(imageContentType(".jpg", "тест")).toBe("image/jpeg");
+    expect(imageContentType(".jpeg", "тест")).toBe("image/jpeg");
+    expect(imageContentType(".png", "тест")).toBe("image/png");
+    expect(imageContentType(".webp", "тест")).toBe("image/webp");
+    expect(imageContentType(".gif", "тест")).toBe("image/gif");
+  });
+
+  test("кадр с неизвестным расширением роняет сборку плана, а не уезжает в бакет", () => {
+    expect(() => imageContentType(".bmp", "обложка новости «Х»")).toThrow(
+      'Неизвестное расширение изображения ".bmp" (обложка новости «Х»)',
+    );
+  });
+
+  test("регистр не подставляется сам: вызывающий приводит расширение к нижнему", () => {
+    // buildPlan делает toLowerCase() до вызова; правило про это не знает и
+    // обязано отказать, иначе ошибка вызывающего стала бы молчаливой.
+    expect(() => imageContentType(".JPG", "тест")).toThrow("Неизвестное расширение");
+  });
+
+  test("документы: одиннадцать расширений архива", () => {
+    const expected: Array<[string, string]> = [
+      [".pdf", "application/pdf"],
+      [".doc", "application/msword"],
+      [".docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+      [".xls", "application/vnd.ms-excel"],
+      [".xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"],
+      [".pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation"],
+      [".rtf", "application/rtf"],
+      [".zip", "application/zip"],
+      [".rar", "application/x-rar-compressed"],
+      [".mp4", "video/mp4"],
+      [".mov", "video/quicktime"],
+    ];
+    expect(expected.map(([ext]) => documentMimeType(ext, "тест"))).toEqual(
+      expected.map(([, mime]) => mime),
+    );
+  });
+
+  test("документ с неизвестным расширением — отказ с именем расширения", () => {
+    expect(() => documentMimeType(".odt", "документ новости «Х»")).toThrow(
+      'Неизвестное расширение документа ".odt" (документ новости «Х»)',
+    );
   });
 });
