@@ -1,9 +1,13 @@
+import path from "node:path";
+import process from "node:process";
 import { describe, expect, test } from "bun:test";
+import { isS3NotFound } from "../src/server/storage";
 import {
   CREATED_AT_STEP_MS,
   MAX_RECORDS_PER_DAY,
   type ExistingNewsRow,
   type PlanIdentity,
+  checkFailInjection,
   checkReplaceAllCoverage,
   createdAtByIndex,
   createdAtForRank,
@@ -14,6 +18,8 @@ import {
   indexByTitleDate,
   partitionAddOnly,
   resolveSlugs,
+  syntheticDatabaseBreak,
+  syntheticStorageBreak,
   titleDateOverlap,
 } from "./archive-migration-rules";
 
@@ -445,5 +451,162 @@ describe("тип содержимого по расширению", () => {
     expect(() => documentMimeType(".odt", "документ новости «Х»")).toThrow(
       'Неизвестное расширение документа ".odt" (документ новости «Х»)',
     );
+  });
+});
+
+describe("искусственные ошибки обрыва", () => {
+  test("ошибка хранилища: сетевой код, счёт попыток, метка synthetic", () => {
+    const error = syntheticStorageBreak("news/kubok/03.jpg");
+    expect(error.code).toBe("ECONNREFUSED");
+    expect(error.$metadata).toEqual({ attempts: 3 });
+    expect(error.synthetic).toBe(true);
+    expect(error.message).toContain("news/kubok/03.jpg");
+    expect(error.message).toContain("--fail-after-objects");
+  });
+
+  test("кода ответа нет — настоящая isS3NotFound за 404 её не принимает", () => {
+    // Сверка с боевой функцией, а не с её пересказом: если у ошибки появится
+    // `$metadata.httpStatusCode: 404`, обрыв превратится в «объекта нет» и
+    // заливка молча пойдёт дальше.
+    expect(isS3NotFound(syntheticStorageBreak("news/kubok/03.jpg"))).toBe(false);
+    // Положительный контроль самой проверки.
+    expect(isS3NotFound({ $metadata: { httpStatusCode: 404 } })).toBe(true);
+  });
+
+  test("ошибка базы называет слаг и ключ", () => {
+    const error = syntheticDatabaseBreak("kubok-severnoy-stolitsy");
+    expect(error.message).toContain("kubok-severnoy-stolitsy");
+    expect(error.message).toContain("--fail-after-records");
+  });
+});
+
+const REMOTE = "postgresql://u:p@db.example.com:5432/prod";
+const LOCAL = "postgresql://postgres:p@localhost:5432/ftspb_local";
+
+describe("ключи обрыва: где разрешены", () => {
+  test("ключей нет — можно при любом хосте", () => {
+    // Отрицательный контроль всей затеи: обычный прогон, в том числе боевой,
+    // этого предохранителя не видит вовсе.
+    expect(checkFailInjection({}, REMOTE)).toEqual({ ok: true });
+    expect(checkFailInjection({}, undefined)).toEqual({ ok: true });
+  });
+
+  test("localhost и 127.0.0.1 — можно", () => {
+    expect(checkFailInjection({ afterObjects: 4000 }, LOCAL).ok).toBe(true);
+    expect(checkFailInjection({ afterRecords: 5 }, "postgresql://u:p@127.0.0.1:5432/db").ok).toBe(
+      true,
+    );
+  });
+
+  test("ноль — законное значение ключа, а не «ключа нет»", () => {
+    const verdict = checkFailInjection({ afterObjects: 0 }, REMOTE);
+    expect(verdict.ok).toBe(false);
+  });
+
+  test("удалённый хост — отказ, хост и ключ названы", () => {
+    const verdict = checkFailInjection({ afterObjects: 4000 }, REMOTE);
+    expect(verdict.ok).toBe(false);
+    if (verdict.ok) throw new Error("ожидался отказ");
+    expect(verdict.message).toContain("db.example.com");
+    expect(verdict.message).toContain("ключ --fail-after-objects");
+    expect(verdict.message).not.toContain("ключи");
+  });
+
+  test("два ключа разом — во множественном числе и оба поимённо", () => {
+    const verdict = checkFailInjection({ afterObjects: 1, afterRecords: 2 }, REMOTE);
+    if (verdict.ok) throw new Error("ожидался отказ");
+    expect(verdict.message).toContain("ключи --fail-after-objects, --fail-after-records");
+  });
+
+  test("DATABASE_URL не задан — отказ", () => {
+    const verdict = checkFailInjection({ afterRecords: 5 }, undefined);
+    expect(verdict.ok).toBe(false);
+    if (verdict.ok) throw new Error("ожидался отказ");
+    expect(verdict.message).toContain("DATABASE_URL не задан");
+  });
+
+  test("DATABASE_URL не разбирается — отказ, а не исключение", () => {
+    const verdict = checkFailInjection({ afterObjects: 1 }, "это не строка подключения");
+    expect(verdict.ok).toBe(false);
+    if (verdict.ok) throw new Error("ожидался отказ");
+    expect(verdict.message).toContain("не разбирается");
+  });
+});
+
+/**
+ * Контракт предохранителя — код выхода процесса, поэтому он проверяется
+ * запуском самого мигратора, как у reset-archive. Строка подключения ведёт на
+ * заведомо удалённый хост, а `--source` указывает в несуществующий каталог:
+ * если отказ не сработает, прогон споткнётся о чтение файла — и это видно по
+ * отсутствию слова «Отказ» в последнем тесте.
+ */
+describe("мигратор: отказ ключу обрыва по хосту", () => {
+  const root = path.resolve(import.meta.dir, "..");
+  const cli = (env: Record<string, string>, ...args: string[]) => {
+    const p = Bun.spawnSync([process.execPath, "scripts/migrate-archive.ts", ...args], {
+      cwd: root,
+      env: { ...process.env, ...env },
+    });
+    return { code: p.exitCode, out: p.stdout.toString(), err: p.stderr.toString() };
+  };
+  const remote = { DATABASE_URL: REMOTE };
+  const nowhere = "--source=C:/такого/каталога/нет";
+
+  test("--fail-after-objects на удалённом хосте — код 1, хост назван, строка хоста напечатана", () => {
+    const r = cli(remote, nowhere, "--schema=dev", "--add-only", "--fail-after-objects=5");
+    expect(r.code).toBe(1);
+    expect(r.err).toContain("Отказ:");
+    expect(r.err).toContain("db.example.com");
+    expect(r.out).toContain("Хост: db.example.com/prod");
+  });
+
+  test("--fail-after-records на удалённом хосте — код 1", () => {
+    const r = cli(remote, nowhere, "--schema=dev", "--add-only", "--fail-after-records=5");
+    expect(r.code).toBe(1);
+    expect(r.err).toContain("Отказ:");
+    expect(r.err).toContain("--fail-after-records");
+  });
+
+  test("ключ обрыва вместе с --dry-run — отказ разбора аргументов, до строки хоста", () => {
+    const r = cli(
+      remote,
+      nowhere,
+      "--schema=dev",
+      "--add-only",
+      "--dry-run",
+      "--fail-after-objects=5",
+    );
+    expect(r.code).toBe(1);
+    expect(r.err).toContain("сухому рвать нечего");
+    expect(r.out).not.toContain("Хост:");
+  });
+
+  test("нечисловое значение ключа — отказ разбора аргументов", () => {
+    const r = cli(remote, nowhere, "--schema=dev", "--add-only", "--fail-after-objects=abc");
+    expect(r.code).toBe(1);
+    expect(r.err).toContain("--fail-after-objects должен быть целым неотрицательным числом");
+    expect(r.out).not.toContain("Хост:");
+  });
+
+  test("оба ключа разом — отказ разбора аргументов", () => {
+    const r = cli(
+      remote,
+      nowhere,
+      "--schema=dev",
+      "--add-only",
+      "--fail-after-objects=1",
+      "--fail-after-records=1",
+    );
+    expect(r.code).toBe(1);
+    expect(r.err).toContain("несовместимы");
+  });
+
+  test("без ключей обрыва предохранитель молчит на том же удалённом хосте", () => {
+    // Отрицательный контроль: код выхода 1 приходит от чтения выгрузки, а не
+    // от предохранителя, — иначе первые тесты этого блока проходили бы всегда.
+    const r = cli(remote, nowhere, "--schema=dev", "--add-only");
+    expect(r.code).toBe(1);
+    expect(r.err).not.toContain("Отказ:");
+    expect(r.out).toContain("Хост: db.example.com/prod");
   });
 });

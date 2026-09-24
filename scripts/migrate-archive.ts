@@ -15,6 +15,7 @@ import {
   type ExistingNewsRow,
   type PlanIdentity,
   type RemoteObject,
+  checkFailInjection,
   checkReplaceAllCoverage,
   createdAtByIndex,
   decideUpload,
@@ -24,6 +25,8 @@ import {
   normalizeTitle,
   partitionAddOnly,
   resolveSlugs,
+  syntheticDatabaseBreak,
+  syntheticStorageBreak,
   titleDateOverlap,
 } from "./archive-migration-rules";
 import {
@@ -81,6 +84,8 @@ function parseArgs(argv: string[]) {
   let skipTitleDate = false;
   let allowDataLoss = false;
   let assets: string | undefined;
+  let failAfterObjects: number | undefined;
+  let failAfterRecords: number | undefined;
 
   for (const arg of argv) {
     if (arg === "--dry-run") {
@@ -103,6 +108,10 @@ function parseArgs(argv: string[]) {
       schemaArg = arg.slice("--schema=".length);
     } else if (arg.startsWith("--limit=")) {
       limit = Number(arg.slice("--limit=".length));
+    } else if (arg.startsWith("--fail-after-objects=")) {
+      failAfterObjects = Number(arg.slice("--fail-after-objects=".length));
+    } else if (arg.startsWith("--fail-after-records=")) {
+      failAfterRecords = Number(arg.slice("--fail-after-records=".length));
     } else {
       throw new Error(`Неизвестный аргумент: ${arg}`);
     }
@@ -126,6 +135,21 @@ function parseArgs(argv: string[]) {
   if (skipTitleDate && !addOnly) {
     throw new Error("--skip-title-date имеет смысл только вместе с --add-only");
   }
+  // Ноль — законное значение: «оборвать на самом первом объекте/записи».
+  for (const [name, value] of [
+    ["--fail-after-objects", failAfterObjects],
+    ["--fail-after-records", failAfterRecords],
+  ] as const) {
+    if (value !== undefined && (!Number.isInteger(value) || value < 0)) {
+      throw new Error(`${name} должен быть целым неотрицательным числом`);
+    }
+  }
+  if (failAfterObjects !== undefined && failAfterRecords !== undefined) {
+    throw new Error("--fail-after-objects и --fail-after-records несовместимы: обрыв один");
+  }
+  if ((failAfterObjects !== undefined || failAfterRecords !== undefined) && dryRun) {
+    throw new Error("ключи обрыва имеют смысл только в боевом прогоне: сухому рвать нечего");
+  }
 
   // База относительных путей Обложка/Галерея/Документы; по умолчанию —
   // прежнее поведение (файлы рядом с news_export_local.json).
@@ -140,6 +164,8 @@ function parseArgs(argv: string[]) {
     skipTitleDate,
     allowDataLoss,
     assets: assets ?? source,
+    failAfterObjects,
+    failAfterRecords,
   };
 }
 
@@ -154,6 +180,8 @@ const {
   skipTitleDate,
   allowDataLoss,
   assets,
+  failAfterObjects,
+  failAfterRecords,
 } = parseArgs(process.argv.slice(2));
 
 const modeName = replaceAll
@@ -161,6 +189,29 @@ const modeName = replaceAll
   : addOnly
     ? "только добавить (--add-only)"
     : "поштучно, перезапись при совпадении слага";
+
+// ───────── хост и предохранитель ключей обрыва ─────────
+
+/**
+ * Строка хоста печатается на уровне модуля, а не в main: по ней человек
+ * сверяет цель глазами, и отказ предохранителя обязан идти следом за ней.
+ * Это по-прежнему первая строка вывода — сухой прогон не меняется.
+ */
+console.log(`Хост: ${describeTarget(process.env.DATABASE_URL)}`);
+
+/** Отказ до первого подключения, как в reset-archive. */
+function fail(message: string): never {
+  console.error(`Отказ: ${message}`);
+  process.exit(1);
+}
+
+const failInjection = checkFailInjection(
+  { afterObjects: failAfterObjects, afterRecords: failAfterRecords },
+  process.env.DATABASE_URL,
+);
+if (!failInjection.ok) {
+  fail(failInjection.message);
+}
 
 // ───────────────────────── подключение к БД (лениво) ─────────────────────────
 
@@ -484,6 +535,10 @@ let s3Uploaded = 0;
 let s3Reuploaded = 0;
 let s3Skipped = 0;
 
+/** Прошло объектов и записей — счёт ведётся только ради ключей обрыва. */
+let objectsSeen = 0;
+let recordsWritten = 0;
+
 /**
  * Единственное место, где байты уходят в бакет. При `--skip-uploaded` сначала
  * HEAD: объект того же размера повторно не заливается. Ошибка HEAD, не
@@ -492,6 +547,12 @@ let s3Skipped = 0;
  * состоится.
  */
 async function putFile(key: string, localPath: string, contentType: string): Promise<void> {
+  if (failAfterObjects !== undefined) {
+    if (objectsSeen === failAfterObjects) {
+      throw syntheticStorageBreak(key);
+    }
+    objectsSeen += 1;
+  }
   const localSize = fs.statSync(localPath).size;
   let remote: RemoteObject = null;
   if (skipUploaded) {
@@ -648,6 +709,13 @@ async function applyPlan(plan: Plan, insertOnly = false): Promise<void> {
     await db
       .insert(newsDocument)
       .values({ newsId, documentId: docRow.id, position: item.position });
+  }
+
+  if (failAfterRecords !== undefined) {
+    if (recordsWritten === failAfterRecords) {
+      throw syntheticDatabaseBreak(plan.slug);
+    }
+    recordsWritten += 1;
   }
 
   console.log(
@@ -874,7 +942,6 @@ async function main() {
   const allRecords: ArchiveRecord[] = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
   const records = limit !== undefined ? allRecords.slice(0, limit) : allRecords;
 
-  console.log(`Хост: ${describeTarget(process.env.DATABASE_URL)}`);
   console.log(`Режим: ${modeName}`);
   console.log(
     `Записей в файле: ${allRecords.length}, обрабатывается: ${records.length} (schema=${schemaArg}, dry-run=${dryRun})`,
