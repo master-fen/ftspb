@@ -26,7 +26,9 @@ export type RecordWriteFailure =
   | { ok: false; phase: "objects"; objectKey: string; error: unknown }
   | { ok: false; phase: "database"; error: unknown };
 
-export type RecordWriteOutcome = { ok: true; counts: ObjectCounts } | RecordWriteFailure;
+export type RecordWriteOutcome<T> =
+  | { ok: true; counts: ObjectCounts; rows: T }
+  | RecordWriteFailure;
 
 /**
  * Запись добавляется целиком или никак.
@@ -43,15 +45,17 @@ export type RecordWriteOutcome = { ok: true; counts: ObjectCounts } | RecordWrit
  * проверить `ok` — иначе обращение к `counts` не компилируется.
  *
  * Транзакцией управляет `writeRows`: здесь про неё известно только то, что
- * она либо целиком удалась, либо целиком нет.
+ * она либо целиком удалась, либо целиком нет. Её значение доезжает до
+ * вызывающего в `rows` — чтобы строку вывода «создана/обновлена» печатал он,
+ * после коммита, а не тело транзакции, которое может откатиться.
  */
-export async function writeRecordAtomically(
+export async function writeRecordAtomically<T>(
   objects: ReadonlyArray<RecordObject>,
   ops: {
     putObject: (object: RecordObject) => Promise<void>;
-    writeRows: () => Promise<void>;
+    writeRows: () => Promise<T>;
   },
-): Promise<RecordWriteOutcome> {
+): Promise<RecordWriteOutcome<T>> {
   const counts: ObjectCounts = { photos: 0, documents: 0 };
   for (const object of objects) {
     try {
@@ -65,12 +69,13 @@ export async function writeRecordAtomically(
       counts.documents += 1;
     }
   }
+  let rows: T;
   try {
-    await ops.writeRows();
+    rows = await ops.writeRows();
   } catch (error) {
     return { ok: false, phase: "database", error };
   }
-  return { ok: true, counts };
+  return { ok: true, counts, rows };
 }
 
 // ───────────────────────── повторы при сбое хранилища ─────────────────────────

@@ -45,6 +45,7 @@ function stand(options: { failOn?: string; failRows?: boolean } = {}) {
           throw new Error("база отвалилась");
         }
         log.push("tx-commit");
+        return "создана" as const;
       },
     },
   };
@@ -69,6 +70,14 @@ describe("запись целиком или никак", () => {
     );
     if (!outcome.ok) throw new Error("ожидался успех");
     expect(outcome.counts).toEqual({ photos: 2, documents: 1 });
+  });
+
+  test("успех: значение транзакции доезжает до вызывающего", async () => {
+    // По нему мигратор печатает «создана»/«обновлена» — после коммита, а не
+    // внутри тела, которое может откатиться.
+    const outcome = await writeRecordAtomically([photo("cover.jpg")], stand().ops);
+    if (!outcome.ok) throw new Error("ожидался успех");
+    expect(outcome.rows).toBe("создана");
   });
 
   test("порядок объектов буквальный: по видам не переупорядочивается", async () => {

@@ -511,7 +511,11 @@ function planObjects(plan: Plan): RecordObject[] {
  * образуют цикл и не отложены, поэтому обложка вставляется строкой
  * `news_photo`, и только потом на неё ссылается `news`.
  */
-async function writeRecordRows(tx: Tx, plan: Plan, insertOnly: boolean): Promise<void> {
+async function writeRecordRows(
+  tx: Tx,
+  plan: Plan,
+  insertOnly: boolean,
+): Promise<"создана" | "обновлена"> {
   const existing = await tx
     .select({ id: news.id })
     .from(news)
@@ -533,13 +537,14 @@ async function writeRecordRows(tx: Tx, plan: Plan, insertOnly: boolean): Promise
   };
 
   let newsId: string;
+  let verdict: "создана" | "обновлена";
   if (existing.length === 0) {
     const [inserted] = await tx
       .insert(news)
       .values({ slug: plan.slug, ...values })
       .returning({ id: news.id });
     newsId = inserted.id;
-    console.log(`[news] создана: ${plan.slug}`);
+    verdict = "создана";
   } else {
     if (insertOnly) {
       // Сюда режим «только добавить» попасть не должен: слаг уже отсеян
@@ -554,7 +559,7 @@ async function writeRecordRows(tx: Tx, plan: Plan, insertOnly: boolean): Promise
       .update(news)
       .set({ ...values, updatedAt: new Date() })
       .where(eq(news.id, newsId));
-    console.log(`[news] обновлена: ${plan.slug}`);
+    verdict = "обновлена";
   }
 
   // Полная замена фото: удаляем все существующие — FK news.cover_photo_id
@@ -629,6 +634,8 @@ async function writeRecordRows(tx: Tx, plan: Plan, insertOnly: boolean): Promise
     }
     recordsWritten += 1;
   }
+
+  return verdict;
 }
 
 /** Сообщение оператору вместо сырого стека, затем ненулевой код выхода. */
@@ -682,6 +689,9 @@ async function applyPlan(plan: Plan, insertOnly = false): Promise<void> {
   }
 
   recordsApplied += 1;
+  // Строка печатается после коммита, а не внутри транзакции: откат оставил бы
+  // в выводе «создана» у записи, которой в базе нет.
+  console.log(`[news] ${outcome.rows}: ${plan.slug}`);
   console.log(
     `[news] ${plan.slug}: файлов залито ${outcome.counts.photos}, документов ${plan.documents.length}`,
   );
