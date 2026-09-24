@@ -2,18 +2,20 @@
  * Решения мигратора архива, вынесенные из scripts/migrate-archive.ts, чтобы
  * их можно было проверить тестами без базы, без S3 и без диска.
  *
- * Здесь живут ответы на четыре вопроса:
+ * Здесь живут ответы на пять вопросов:
  *   - какое `created_at` получает запись, чтобы порядок внутри дня на новом
  *     сайте повторял порядок ленты старого (часть D задания);
  *   - что считать совпадением и что пропускать в режиме «только добавить»;
  *   - когда массовому режиму отказываться работать, чтобы не снести новости,
  *     которых нет в выгрузке;
- *   - заливать файл в S3 или пропустить, потому что он уже там.
+ *   - заливать файл в S3 или пропустить, потому что он уже там;
+ *   - можно ли на этом хосте пользоваться ключами искусственного обрыва.
  *
  * Потребитель один — scripts/migrate-archive.ts под bun, поэтому импорты
  * идут без расширения (в отличие от scripts/archive-markers.ts, который
  * делят node и bun).
  */
+import { isLocalHost } from "../src/db/ssl.ts";
 import { LEGACY_SLUG_MAX_LENGTH, slugify, truncateSlug } from "../src/server/slug.ts";
 
 // ───────────────────────── общее ─────────────────────────
@@ -370,4 +372,155 @@ export function resolveSlugs(records: ReadonlyArray<SlugSource>): string[] {
   }
 
   return finalSlugs;
+}
+
+// ───────────────── ключи искусственного обрыва: где разрешены ─────────────────
+
+/**
+ * Что передали в командной строке. `undefined` — ключ не указан вовсе; ноль
+ * значит «оборвать на самом первом объекте (или самой первой записи)», это
+ * законное значение.
+ */
+export type FailInjection = { afterObjects?: number; afterRecords?: number };
+
+export type FailInjectionVerdict = { ok: true } | { ok: false; message: string };
+
+/** Имена ключей в сообщении — ровно те, что передали, и в том же порядке. */
+function namedKeys(injection: FailInjection): string {
+  const names: string[] = [];
+  if (injection.afterObjects !== undefined) names.push("--fail-after-objects");
+  if (injection.afterRecords !== undefined) names.push("--fail-after-records");
+  return names.length === 1 ? `ключ ${names[0]}` : `ключи ${names.join(", ")}`;
+}
+
+/**
+ * Ключи обрыва существуют только ради проверки атомарности на локальной схеме
+ * и по построению портят прогон. На удалённой базе им делать нечего, поэтому
+ * решение отделено от скрипта: его проверяет тест, а скрипт зовёт до первого
+ * подключения.
+ *
+ * Без ключей ответ «можно» при любом хосте — обычные прогоны (в том числе
+ * боевые) этот предохранитель видеть не должны вовсе.
+ */
+export function checkFailInjection(
+  injection: FailInjection,
+  connectionString: string | undefined,
+): FailInjectionVerdict {
+  if (injection.afterObjects === undefined && injection.afterRecords === undefined) {
+    return { ok: true };
+  }
+  const named = namedKeys(injection);
+  if (!connectionString) {
+    return {
+      ok: false,
+      message: `DATABASE_URL не задан — ${named} работает только с локальной базой.`,
+    };
+  }
+  let hostname: string;
+  try {
+    hostname = new URL(connectionString).hostname;
+  } catch {
+    return {
+      ok: false,
+      message: `DATABASE_URL не разбирается как строка подключения — ${named} работать не может.`,
+    };
+  }
+  if (!isLocalHost(connectionString)) {
+    return {
+      ok: false,
+      message:
+        `DATABASE_URL указывает на ${hostname} — ${named} обрывает заливку искусственно ` +
+        `и работает только с локальной базой. Обрыв на удалённом сервере невозможен по построению.`,
+    };
+  }
+  return { ok: true };
+}
+
+/**
+ * Ошибка, которую бросает `--fail-after-objects`. По форме она неотличима от
+ * настоящего сетевого сбоя — тот же `code`, то же `$metadata.attempts`, — но
+ * помечена полем `synthetic`, и по нему повторы её пропускают: проверка
+ * обрывом не должна ждать полный бюджет пауз.
+ *
+ * Кода ответа у неё нет намеренно. `isS3NotFound` (`src/server/storage.ts`)
+ * смотрит именно на `$metadata.httpStatusCode`, и ошибка с кодом 404 была бы
+ * принята за «объекта в бакете нет» — заливка молча пошла бы дальше вместо
+ * обрыва.
+ */
+export type SyntheticBreak = Error & {
+  code: string;
+  $metadata: { attempts: number };
+  synthetic: true;
+};
+
+export function syntheticStorageBreak(key: string): SyntheticBreak {
+  const error = new Error(
+    `connect ECONNREFUSED 0.0.0.0:443 — искусственный обрыв по ключу --fail-after-objects, объект ${key}`,
+  ) as SyntheticBreak;
+  error.code = "ECONNREFUSED";
+  error.$metadata = { attempts: 3 };
+  error.synthetic = true;
+  return error;
+}
+
+/** То же для второй фазы: сбой базы после того, как строки записи написаны. */
+export function syntheticDatabaseBreak(slug: string): Error {
+  return new Error(`искусственный обрыв по ключу --fail-after-records, запись ${slug}`);
+}
+
+// ───────────────────────── тип содержимого по расширению ─────────────────────────
+
+/**
+ * Тип содержимого кадра. Список закрыт намеренно: неизвестное расширение
+ * роняет сборку плана, а не уезжает в бакет с `application/octet-stream` —
+ * браузер такой объект предложит скачать вместо показа.
+ */
+export function imageContentType(ext: string, context: string): string {
+  switch (ext) {
+    case ".jpg":
+    case ".jpeg":
+      return "image/jpeg";
+    case ".png":
+      return "image/png";
+    case ".webp":
+      return "image/webp";
+    case ".gif":
+      return "image/gif";
+    default:
+      throw new Error(`Неизвестное расширение изображения "${ext}" (${context})`);
+  }
+}
+
+/**
+ * То же для приложенного документа. Список — расширения, реально
+ * встреченные в архиве легаси; новое расширение обязано попасть сюда
+ * осознанно, вместе с решением, чем его отдавать.
+ */
+export function documentMimeType(ext: string, context: string): string {
+  switch (ext) {
+    case ".pdf":
+      return "application/pdf";
+    case ".doc":
+      return "application/msword";
+    case ".docx":
+      return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    case ".xls":
+      return "application/vnd.ms-excel";
+    case ".xlsx":
+      return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    case ".pptx":
+      return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+    case ".rtf":
+      return "application/rtf";
+    case ".zip":
+      return "application/zip";
+    case ".rar":
+      return "application/x-rar-compressed";
+    case ".mp4":
+      return "video/mp4";
+    case ".mov":
+      return "video/quicktime";
+    default:
+      throw new Error(`Неизвестное расширение документа "${ext}" (${context})`);
+  }
 }

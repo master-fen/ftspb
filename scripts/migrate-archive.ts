@@ -2,12 +2,10 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { count, eq, inArray } from "drizzle-orm";
-import sharp from "sharp";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { describeTarget, sslFor } from "../src/db/ssl";
 import * as schema from "../src/db/schema";
-import { allNews, featuredNews } from "../src/data/mock";
 import { LEGACY_SLUG_MAX_LENGTH, slugify, truncateSlug } from "../src/server/slug";
 import { headObject, isS3NotFound, uploadObject } from "../src/server/storage";
 import { textToHtml } from "./text-to-html";
@@ -15,13 +13,17 @@ import {
   type ExistingNewsRow,
   type PlanIdentity,
   type RemoteObject,
+  checkFailInjection,
   checkReplaceAllCoverage,
   createdAtByIndex,
   decideUpload,
+  documentMimeType,
+  imageContentType,
   indexByTitleDate,
-  normalizeTitle,
   partitionAddOnly,
   resolveSlugs,
+  syntheticDatabaseBreak,
+  syntheticStorageBreak,
   titleDateOverlap,
 } from "./archive-migration-rules";
 import {
@@ -35,7 +37,17 @@ import {
   replaceMarkers,
   slugMapBySource,
 } from "./archive-markers";
+import {
+  type RecordObject,
+  type RecordWriteFailure,
+  formatRecordAbort,
+  repeatCommandLine,
+  retryStorage,
+  writeRecordAtomically,
+} from "./archive-record-write";
 import { newsFileHref } from "../src/lib/news-file-url";
+import { type ImageSize, readImageSizes, sizeOf } from "./archive-image-sizes";
+import { type Section, matchMock } from "./archive-mock-match";
 
 const { news, newsPhoto, document, newsDocument } = schema;
 
@@ -62,10 +74,6 @@ type ArchiveRecord = {
   Якорь?: string;
 };
 
-type Section = "federation" | "referees" | null;
-
-type MockNewsItem = (typeof allNews)[number];
-
 // ───────────────────────── аргументы ─────────────────────────
 
 function parseArgs(argv: string[]) {
@@ -79,6 +87,8 @@ function parseArgs(argv: string[]) {
   let skipTitleDate = false;
   let allowDataLoss = false;
   let assets: string | undefined;
+  let failAfterObjects: number | undefined;
+  let failAfterRecords: number | undefined;
 
   for (const arg of argv) {
     if (arg === "--dry-run") {
@@ -101,6 +111,10 @@ function parseArgs(argv: string[]) {
       schemaArg = arg.slice("--schema=".length);
     } else if (arg.startsWith("--limit=")) {
       limit = Number(arg.slice("--limit=".length));
+    } else if (arg.startsWith("--fail-after-objects=")) {
+      failAfterObjects = Number(arg.slice("--fail-after-objects=".length));
+    } else if (arg.startsWith("--fail-after-records=")) {
+      failAfterRecords = Number(arg.slice("--fail-after-records=".length));
     } else {
       throw new Error(`Неизвестный аргумент: ${arg}`);
     }
@@ -124,6 +138,21 @@ function parseArgs(argv: string[]) {
   if (skipTitleDate && !addOnly) {
     throw new Error("--skip-title-date имеет смысл только вместе с --add-only");
   }
+  // Ноль — законное значение: «оборвать на самом первом объекте/записи».
+  for (const [name, value] of [
+    ["--fail-after-objects", failAfterObjects],
+    ["--fail-after-records", failAfterRecords],
+  ] as const) {
+    if (value !== undefined && (!Number.isInteger(value) || value < 0)) {
+      throw new Error(`${name} должен быть целым неотрицательным числом`);
+    }
+  }
+  if (failAfterObjects !== undefined && failAfterRecords !== undefined) {
+    throw new Error("--fail-after-objects и --fail-after-records несовместимы: обрыв один");
+  }
+  if ((failAfterObjects !== undefined || failAfterRecords !== undefined) && dryRun) {
+    throw new Error("ключи обрыва имеют смысл только в боевом прогоне: сухому рвать нечего");
+  }
 
   // База относительных путей Обложка/Галерея/Документы; по умолчанию —
   // прежнее поведение (файлы рядом с news_export_local.json).
@@ -138,6 +167,8 @@ function parseArgs(argv: string[]) {
     skipTitleDate,
     allowDataLoss,
     assets: assets ?? source,
+    failAfterObjects,
+    failAfterRecords,
   };
 }
 
@@ -152,6 +183,8 @@ const {
   skipTitleDate,
   allowDataLoss,
   assets,
+  failAfterObjects,
+  failAfterRecords,
 } = parseArgs(process.argv.slice(2));
 
 const modeName = replaceAll
@@ -159,6 +192,29 @@ const modeName = replaceAll
   : addOnly
     ? "только добавить (--add-only)"
     : "поштучно, перезапись при совпадении слага";
+
+// ───────── хост и предохранитель ключей обрыва ─────────
+
+/**
+ * Строка хоста печатается на уровне модуля, а не в main: по ней человек
+ * сверяет цель глазами, и отказ предохранителя обязан идти следом за ней.
+ * Это по-прежнему первая строка вывода — сухой прогон не меняется.
+ */
+console.log(`Хост: ${describeTarget(process.env.DATABASE_URL)}`);
+
+/** Отказ до первого подключения, как в reset-archive. */
+function fail(message: string): never {
+  console.error(`Отказ: ${message}`);
+  process.exit(1);
+}
+
+const failInjection = checkFailInjection(
+  { afterObjects: failAfterObjects, afterRecords: failAfterRecords },
+  process.env.DATABASE_URL,
+);
+if (!failInjection.ok) {
+  fail(failInjection.message);
+}
 
 // ───────────────────────── подключение к БД (лениво) ─────────────────────────
 
@@ -174,10 +230,13 @@ const modeName = replaceAll
  *     будут пропущены по совпадению слага, и не напечатать справку о
  *     совпадениях по «заголовок + дата».
  */
-let sqlInstance: ReturnType<typeof postgres> | undefined;
-let dbInstance: PostgresJsDatabase<typeof schema> | undefined;
+type Db = PostgresJsDatabase<typeof schema>;
+type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
-function getDb(): PostgresJsDatabase<typeof schema> {
+let sqlInstance: ReturnType<typeof postgres> | undefined;
+let dbInstance: Db | undefined;
+
+function getDb(): Db {
   if (!dbInstance) {
     const connectionString = process.env.DATABASE_URL;
     if (!connectionString) {
@@ -193,197 +252,12 @@ function getDb(): PostgresJsDatabase<typeof schema> {
   return dbInstance;
 }
 
-// ───────────────────────── mock.ts: section/featured ─────────────────────────
-
-function mockDateToIso(date: string): string {
-  const [d, m, y] = date.split(".");
-  return `20${y}-${m}-${d}`;
-}
-
-function mapCategoryToSection(category: MockNewsItem["category"]): Section {
-  switch (category) {
-    case "Федерация":
-      return "federation";
-    case "Коллегия судей":
-      return "referees";
-    case "Общее":
-      return null;
-    default: {
-      const exhaustive: never = category;
-      throw new Error(`Неизвестная категория mock.ts: ${String(exhaustive)}`);
-    }
-  }
-}
-
-const byNormalizedTitle = new Map<string, MockNewsItem[]>();
-for (const item of allNews) {
-  const key = normalizeTitle(item.title);
-  const arr = byNormalizedTitle.get(key) ?? [];
-  arr.push(item);
-  byNormalizedTitle.set(key, arr);
-}
-
-const featuredOrderById = new Map(featuredNews.map((item, index) => [item.id, index]));
-
-function matchMock(
-  title: string,
-  isoDate: string,
-): { section: Section; featured: boolean; featuredOrder: number | null } | null {
-  const candidates = byNormalizedTitle.get(normalizeTitle(title));
-  if (!candidates || candidates.length === 0) {
-    return null;
-  }
-
-  let matched: MockNewsItem;
-  if (candidates.length === 1) {
-    matched = candidates[0];
-  } else {
-    const sameDate = candidates.filter((c) => mockDateToIso(c.date) === isoDate);
-    if (sameDate.length !== 1) {
-      return null;
-    }
-    matched = sameDate[0];
-  }
-
-  const order = featuredOrderById.get(matched.id);
-  return {
-    section: mapCategoryToSection(matched.category),
-    featured: order !== undefined,
-    featuredOrder: order ?? null,
-  };
-}
-
 // ───────────────────────── файлы ─────────────────────────
-
-function imageContentType(ext: string, context: string): string {
-  switch (ext) {
-    case ".jpg":
-    case ".jpeg":
-      return "image/jpeg";
-    case ".png":
-      return "image/png";
-    case ".webp":
-      return "image/webp";
-    case ".gif":
-      return "image/gif";
-    default:
-      throw new Error(`Неизвестное расширение изображения "${ext}" (${context})`);
-  }
-}
-
-function documentMimeType(ext: string, context: string): string {
-  switch (ext) {
-    case ".pdf":
-      return "application/pdf";
-    case ".doc":
-      return "application/msword";
-    case ".docx":
-      return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-    case ".xls":
-      return "application/vnd.ms-excel";
-    case ".xlsx":
-      return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-    case ".pptx":
-      return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
-    case ".rtf":
-      return "application/rtf";
-    case ".zip":
-      return "application/zip";
-    case ".rar":
-      return "application/x-rar-compressed";
-    case ".mp4":
-      return "video/mp4";
-    case ".mov":
-      return "video/quicktime";
-    default:
-      throw new Error(`Неизвестное расширение документа "${ext}" (${context})`);
-  }
-}
 
 function requireFile(localPath: string, context: string): void {
   if (!fs.existsSync(localPath)) {
     throw new Error(`Файл не найден на диске: ${localPath} (${context})`);
   }
-}
-
-// ───────────────────────── размеры фото ─────────────────────────
-
-/** Размеры кадра так, как его покажет браузер. */
-type ImageSize = { width: number; height: number };
-
-/** Сколько файлов читается одновременно — как в scripts/compress-archive.ts. */
-const SIZE_CONCURRENCY = 8;
-
-/** Прочитанные размеры по локальному пути файла; заполняется readImageSizes. */
-const imageSizes = new Map<string, ImageSize>();
-
-/**
- * Размеры одного файла. `metadata().width/height` — размеры как они лежат в
- * файле; при EXIF-ориентации 5–8 браузер показывает кадр повёрнутым, поэтому
- * стороны переставляются. В архиве таких файлов нет (замер 22.09.2026 по
- * сжатой выгрузке: 0 из 1678 обложек), но правило нужно и для будущих
- * заливок: молчаливо перепутанные стороны не видны ни в базе, ни на глаз.
- */
-async function readImageSize(localPath: string): Promise<ImageSize> {
-  const meta = await sharp(localPath).metadata();
-  const w = meta.width;
-  const h = meta.height;
-  if (!w || !h) {
-    throw new Error("в метаданных нет ширины или высоты");
-  }
-  const rotated = (meta.orientation ?? 1) >= 5;
-  return rotated ? { width: h, height: w } : { width: w, height: h };
-}
-
-/**
- * Фаза целиком: размеры ВСЕХ фото рабочего набора читаются до первой записи в
- * S3 и в базу. Задание: не прочитать размер — стоп, не заливать без размеров.
- * Поэтому ошибки копятся и печатаются все разом, а прогон падает до заливки,
- * а не на середине.
- */
-async function readImageSizes(records: ReadonlyArray<ArchiveRecord>): Promise<void> {
-  const paths: string[] = [];
-  const seen = new Set<string>();
-  for (const record of records) {
-    const items = [record["Обложка"], ...(record["Галерея"] ?? [])];
-    for (const item of items) {
-      if (!item || /^https?:\/\//i.test(item)) continue;
-      const localPath = path.join(assets, item);
-      if (seen.has(localPath)) continue;
-      seen.add(localPath);
-      paths.push(localPath);
-    }
-  }
-
-  const failures: string[] = [];
-  let next = 0;
-  const worker = async () => {
-    while (next < paths.length) {
-      const localPath = paths[next++];
-      try {
-        imageSizes.set(localPath, await readImageSize(localPath));
-      } catch (error) {
-        failures.push(`${localPath}: ${error instanceof Error ? error.message : String(error)}`);
-      }
-    }
-  };
-  await Promise.all(Array.from({ length: SIZE_CONCURRENCY }, worker));
-
-  console.log(`─── размеры фото: прочитано ${imageSizes.size} из ${paths.length} ───`);
-  if (failures.length > 0) {
-    console.error(`Размер не прочитан у ${failures.length} файлов — заливка отменена:`);
-    for (const f of failures) console.error(`  ${f}`);
-    process.exit(1);
-  }
-}
-
-/** Размер уже прочитанного файла; отсутствие — ошибка сборки плана, не заливки. */
-function sizeOf(localPath: string, context: string): ImageSize {
-  const size = imageSizes.get(localPath);
-  if (!size) {
-    throw new Error(`Размер файла не прочитан: ${localPath} (${context})`);
-  }
-  return size;
 }
 
 // ───────────────────────── план записи ─────────────────────────
@@ -528,6 +402,29 @@ let s3Reuploaded = 0;
 let s3Skipped = 0;
 
 /**
+ * Повтор с нарастающей паузой вокруг одного обращения к хранилищу. Стоит
+ * внутри `putFile`, но **внутри** его try/catch по HEAD: 404 под
+ * `--skip-uploaded` — штатный ответ «объекта нет», и повторять его нельзя.
+ */
+function withRetry<T>(what: string, operation: () => Promise<T>): Promise<T> {
+  return retryStorage(operation, {
+    onRetry: ({ attempt, total, pauseMs, error }) =>
+      console.warn(
+        `[retry] ${what}: попытка ${attempt} из ${total} через ${pauseMs / 1000} с — ` +
+          `${error instanceof Error ? error.message : String(error)}`,
+      ),
+  });
+}
+
+/** Прошло объектов и записей — счёт ведётся только ради ключей обрыва. */
+let objectsSeen = 0;
+let recordsWritten = 0;
+
+/** Записей применено и сколько их всего — для прогресса и сообщения об обрыве. */
+let recordsApplied = 0;
+let recordsTotal = 0;
+
+/**
  * Единственное место, где байты уходят в бакет. При `--skip-uploaded` сначала
  * HEAD: объект того же размера повторно не заливается. Ошибка HEAD, не
  * являющаяся 404, пробрасывается — тихо заливать поверх при сетевом сбое
@@ -535,11 +432,17 @@ let s3Skipped = 0;
  * состоится.
  */
 async function putFile(key: string, localPath: string, contentType: string): Promise<void> {
+  if (failAfterObjects !== undefined) {
+    if (objectsSeen === failAfterObjects) {
+      throw syntheticStorageBreak(key);
+    }
+    objectsSeen += 1;
+  }
   const localSize = fs.statSync(localPath).size;
   let remote: RemoteObject = null;
   if (skipUploaded) {
     try {
-      remote = { size: (await headObject(key)).size };
+      remote = { size: (await withRetry(`HEAD ${key}`, () => headObject(key))).size };
     } catch (error) {
       if (!isS3NotFound(error)) {
         throw error;
@@ -559,21 +462,61 @@ async function putFile(key: string, localPath: string, contentType: string): Pro
       `[warn] размер в бакете отличается: ${key} (бакет ${remote?.size ?? 0}, файл ${localSize}) — перезаливаю`,
     );
   }
-  await uploadObject(key, fs.readFileSync(localPath), contentType);
+  const body = fs.readFileSync(localPath);
+  await withRetry(`PUT ${key}`, () => uploadObject(key, body, contentType));
   s3Uploaded += 1;
 }
 
 // ───────────────────────── применение плана ─────────────────────────
 
-async function applyPlan(plan: Plan, insertOnly = false): Promise<void> {
-  if (dryRun) {
-    console.log(`[news] план: ${plan.slug}`);
-    return;
+/**
+ * Слаг занят кем-то, кого не было в разделении: ошибка логики, а не обрыв.
+ * Совет «запустите ту же команду ещё раз» тут был бы неверным.
+ */
+class AddOnlySlugConflict extends Error {}
+
+/** Объекты записи в прежнем порядке: обложка, галерея, документы. */
+function planObjects(plan: Plan): RecordObject[] {
+  const objects: RecordObject[] = [];
+  if (plan.cover) {
+    objects.push({
+      key: plan.cover.s3Key,
+      localPath: plan.cover.localPath,
+      contentType: plan.cover.contentType,
+      kind: "photo",
+    });
   }
+  for (const item of plan.gallery) {
+    objects.push({
+      key: item.s3Key,
+      localPath: item.localPath,
+      contentType: item.contentType,
+      kind: "photo",
+    });
+  }
+  for (const item of plan.documents) {
+    objects.push({
+      key: item.s3Key,
+      localPath: item.localPath,
+      contentType: item.mimeType,
+      kind: "document",
+    });
+  }
+  return objects;
+}
 
-  const db = getDb();
-
-  const existing = await db
+/**
+ * Фаза 2: все строки записи, одной транзакцией. Порядок операторов не
+ * переставляется — внешние ключи `news.cover_photo_id` ↔ `news_photo.news_id`
+ * образуют цикл и не отложены, поэтому обложка вставляется строкой
+ * `news_photo`, и только потом на неё ссылается `news`.
+ */
+async function writeRecordRows(
+  tx: Tx,
+  plan: Plan,
+  insertOnly: boolean,
+): Promise<"создана" | "обновлена"> {
+  const existing = await tx
     .select({ id: news.id })
     .from(news)
     .where(eq(news.slug, plan.slug))
@@ -594,42 +537,37 @@ async function applyPlan(plan: Plan, insertOnly = false): Promise<void> {
   };
 
   let newsId: string;
-  const isNew = existing.length === 0;
-
-  if (isNew) {
-    const [inserted] = await db
+  let verdict: "создана" | "обновлена";
+  if (existing.length === 0) {
+    const [inserted] = await tx
       .insert(news)
       .values({ slug: plan.slug, ...values })
       .returning({ id: news.id });
     newsId = inserted.id;
-    console.log(`[news] создана: ${plan.slug}`);
+    verdict = "создана";
   } else {
     if (insertOnly) {
       // Сюда режим «только добавить» попасть не должен: слаг уже отсеян
       // разделением. Если попал — схема изменилась под нами, и молча
       // перезаписывать чужую новость нельзя.
-      throw new Error(
+      throw new AddOnlySlugConflict(
         `--add-only: слаг ${plan.slug} появился в схеме после разделения — перезапись запрещена`,
       );
     }
     newsId = existing[0].id;
-    await db
+    await tx
       .update(news)
       .set({ ...values, updatedAt: new Date() })
       .where(eq(news.id, newsId));
-    console.log(`[news] обновлена: ${plan.slug}`);
+    verdict = "обновлена";
   }
 
   // Полная замена фото: удаляем все существующие — FK news.cover_photo_id
   // (ON DELETE SET NULL) сам обнулит ссылку на удалённую обложку.
-  await db.delete(newsPhoto).where(eq(newsPhoto.newsId, newsId));
-
-  let uploaded = 0;
+  await tx.delete(newsPhoto).where(eq(newsPhoto.newsId, newsId));
 
   if (plan.cover) {
-    await putFile(plan.cover.s3Key, plan.cover.localPath, plan.cover.contentType);
-    uploaded += 1;
-    const [photo] = await db
+    const [photo] = await tx
       .insert(newsPhoto)
       .values({
         newsId,
@@ -639,13 +577,11 @@ async function applyPlan(plan: Plan, insertOnly = false): Promise<void> {
         height: plan.cover.height,
       })
       .returning({ id: newsPhoto.id });
-    await db.update(news).set({ coverPhotoId: photo.id }).where(eq(news.id, newsId));
+    await tx.update(news).set({ coverPhotoId: photo.id }).where(eq(news.id, newsId));
   }
 
   for (const item of plan.gallery) {
-    await putFile(item.s3Key, item.localPath, item.contentType);
-    uploaded += 1;
-    await db.insert(newsPhoto).values({
+    await tx.insert(newsPhoto).values({
       newsId,
       s3Key: item.s3Key,
       position: item.position,
@@ -656,12 +592,12 @@ async function applyPlan(plan: Plan, insertOnly = false): Promise<void> {
 
   // Документы: удаляем document-строки, привязанные к этой новости —
   // news_document подчищается каскадом (FK document_id → document.id).
-  const existingDocIds = await db
+  const existingDocIds = await tx
     .select({ id: newsDocument.documentId })
     .from(newsDocument)
     .where(eq(newsDocument.newsId, newsId));
   if (existingDocIds.length > 0) {
-    await db.delete(document).where(
+    await tx.delete(document).where(
       inArray(
         document.id,
         existingDocIds.map((row) => row.id),
@@ -670,8 +606,7 @@ async function applyPlan(plan: Plan, insertOnly = false): Promise<void> {
   }
 
   for (const item of plan.documents) {
-    await putFile(item.s3Key, item.localPath, item.mimeType);
-    const [docRow] = await db
+    const [docRow] = await tx
       .insert(document)
       .values({
         title: plan.title,
@@ -688,34 +623,90 @@ async function applyPlan(plan: Plan, insertOnly = false): Promise<void> {
         inLibrary: true,
       })
       .returning({ id: document.id });
-    await db
+    await tx
       .insert(newsDocument)
       .values({ newsId, documentId: docRow.id, position: item.position });
   }
 
+  if (failAfterRecords !== undefined) {
+    if (recordsWritten === failAfterRecords) {
+      throw syntheticDatabaseBreak(plan.slug);
+    }
+    recordsWritten += 1;
+  }
+
+  return verdict;
+}
+
+/** Сообщение оператору вместо сырого стека, затем ненулевой код выхода. */
+function abortRun(plan: Plan, failure: RecordWriteFailure): never {
+  if (failure.error instanceof AddOnlySlugConflict) {
+    fail(failure.error.message);
+  }
+  for (const line of formatRecordAbort({
+    failure,
+    slug: plan.slug,
+    number: recordsApplied + 1,
+    total: recordsTotal,
+    applied: recordsApplied,
+    repeatCommand: repeatCommandLine(process.argv.slice(2)),
+    skipUploaded,
+  })) {
+    console.error(line);
+  }
+  process.exit(1);
+}
+
+/** Раз в сто записей — чтобы длинный прогон не выглядел зависшим. */
+const PROGRESS_EVERY = 100;
+
+function printProgress(): void {
+  if (recordsApplied % PROGRESS_EVERY !== 0) {
+    return;
+  }
+  // В поштучном режиме запись может быть обновлена, а не добавлена, и слово
+  // «добавлено» было бы неправдой — как и в printTotals.
+  const verb = addOnly ? "добавлено" : "обработано";
+  console.log(`${verb} ${recordsApplied} из ${recordsTotal}`);
+}
+
+/**
+ * Одна запись: сначала все её объекты хранилища, затем одна транзакция базы.
+ * Порядок и классификация сбоя — в scripts/archive-record-write.ts.
+ */
+async function applyPlan(plan: Plan, insertOnly = false): Promise<void> {
+  if (dryRun) {
+    console.log(`[news] план: ${plan.slug}`);
+    return;
+  }
+
+  const outcome = await writeRecordAtomically(planObjects(plan), {
+    putObject: (object) => putFile(object.key, object.localPath, object.contentType),
+    writeRows: () => getDb().transaction((tx) => writeRecordRows(tx, plan, insertOnly)),
+  });
+  if (!outcome.ok) {
+    abortRun(plan, outcome);
+  }
+
+  recordsApplied += 1;
+  // Строка печатается после коммита, а не внутри транзакции: откат оставил бы
+  // в выводе «создана» у записи, которой в базе нет.
+  console.log(`[news] ${outcome.rows}: ${plan.slug}`);
   console.log(
-    `[news] ${plan.slug}: файлов залито ${uploaded}, документов ${plan.documents.length}`,
+    `[news] ${plan.slug}: файлов залито ${outcome.counts.photos}, документов ${plan.documents.length}`,
   );
+  printProgress();
 }
 
 // ───────────────────────── --replace-all: полная замена ─────────────────────────
 
 /** Фаза 1: заливка всех S3-объектов плана. PUT идемпотентен — повтор безопасен. */
 async function uploadPlanObjects(plan: Plan): Promise<number> {
-  let uploaded = 0;
-  if (plan.cover) {
-    await putFile(plan.cover.s3Key, plan.cover.localPath, plan.cover.contentType);
-    uploaded += 1;
+  const objects = planObjects(plan);
+  for (const object of objects) {
+    await putFile(object.key, object.localPath, object.contentType);
   }
-  for (const item of plan.gallery) {
-    await putFile(item.s3Key, item.localPath, item.contentType);
-    uploaded += 1;
-  }
-  for (const item of plan.documents) {
-    await putFile(item.s3Key, item.localPath, item.mimeType);
-    uploaded += 1;
-  }
-  return uploaded;
+  return objects.length;
 }
 
 /** Все строки news — без фильтра по статусу и deleted_at: слаг уникален для всех. */
@@ -917,7 +908,6 @@ async function main() {
   const allRecords: ArchiveRecord[] = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
   const records = limit !== undefined ? allRecords.slice(0, limit) : allRecords;
 
-  console.log(`Хост: ${describeTarget(process.env.DATABASE_URL)}`);
   console.log(`Режим: ${modeName}`);
   console.log(
     `Записей в файле: ${allRecords.length}, обрабатывается: ${records.length} (schema=${schemaArg}, dry-run=${dryRun})`,
@@ -1000,6 +990,7 @@ async function main() {
   }
 
   const workingRecords = working.map((w) => records[w.index]);
+  recordsTotal = working.length;
 
   // Замена меток идёт по рабочему набору: тела пропущенных никуда не поедут,
   // и считать их в «меток заменено» было бы неправдой. Карта при этом полная,
@@ -1066,7 +1057,7 @@ async function main() {
   // S3 и в базу. Пропущенные записи не промеряются — их файлы никуда не
   // поедут. Фаза идёт и в сухом прогоне: сухой прогон затем и нужен, чтобы
   // нечитаемый файл всплыл до боевой заливки.
-  await readImageSizes(workingRecords);
+  await readImageSizes(workingRecords, assets);
 
   let coverCount = 0;
   let noCoverCount = 0;
@@ -1155,6 +1146,11 @@ async function main() {
       printTotals();
     }
   } else {
+    // Соединение открывается до первого байта в бакет: иначе битый
+    // DATABASE_URL всплыл бы уже после заливки объектов первой записи.
+    if (!dryRun) {
+      getDb();
+    }
     for (const w of working) {
       const plan = buildPlan(records[w.index], w.slug, createdAts[w.index]);
       noteAndPrintPlan(plan);
