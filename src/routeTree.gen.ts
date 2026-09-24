@@ -27,6 +27,7 @@ import { Route as AdminAuthedRouteRouteImport } from './routes/admin/_authed/rou
 import { Route as AdminAuthedIndexRouteImport } from './routes/admin/_authed/index'
 import { Route as SiteNewsIndexRouteImport } from './routes/_site.news.index'
 import { Route as SiteFederationIndexRouteImport } from './routes/_site.federation.index'
+import { Route as NewsFileSlugFileRouteImport } from './routes/news-file.$slug.$file'
 import { Route as ApiAdminUploadRouteImport } from './routes/api/admin/upload'
 import { Route as ApiAdminPhotoSourceRouteImport } from './routes/api/admin/photo-source'
 import { Route as SiteNewsNewsIdRouteImport } from './routes/_site.news.$newsId'
@@ -140,6 +141,11 @@ const SiteFederationIndexRoute = SiteFederationIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => SiteFederationRoute,
+} as any)
+const NewsFileSlugFileRoute = NewsFileSlugFileRouteImport.update({
+  id: '/news-file/$slug/$file',
+  path: '/news-file/$slug/$file',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAdminUploadRoute = ApiAdminUploadRouteImport.update({
   id: '/api/admin/upload',
@@ -297,6 +303,7 @@ export interface FileRoutesByFullPath {
   '/news/$newsId': typeof SiteNewsNewsIdRoute
   '/api/admin/photo-source': typeof ApiAdminPhotoSourceRoute
   '/api/admin/upload': typeof ApiAdminUploadRoute
+  '/news-file/$slug/$file': typeof NewsFileSlugFileRoute
   '/federation/': typeof SiteFederationIndexRoute
   '/news/': typeof SiteNewsIndexRoute
   '/admin/': typeof AdminAuthedIndexRoute
@@ -339,6 +346,7 @@ export interface FileRoutesByTo {
   '/news/$newsId': typeof SiteNewsNewsIdRoute
   '/api/admin/photo-source': typeof ApiAdminPhotoSourceRoute
   '/api/admin/upload': typeof ApiAdminUploadRoute
+  '/news-file/$slug/$file': typeof NewsFileSlugFileRoute
   '/federation': typeof SiteFederationIndexRoute
   '/news': typeof SiteNewsIndexRoute
   '/federation/charter/text': typeof SiteFederationCharterTextRoute
@@ -384,6 +392,7 @@ export interface FileRoutesById {
   '/_site/news/$newsId': typeof SiteNewsNewsIdRoute
   '/api/admin/photo-source': typeof ApiAdminPhotoSourceRoute
   '/api/admin/upload': typeof ApiAdminUploadRoute
+  '/news-file/$slug/$file': typeof NewsFileSlugFileRoute
   '/_site/federation/': typeof SiteFederationIndexRoute
   '/_site/news/': typeof SiteNewsIndexRoute
   '/admin/_authed/': typeof AdminAuthedIndexRoute
@@ -429,6 +438,7 @@ export interface FileRouteTypes {
     | '/news/$newsId'
     | '/api/admin/photo-source'
     | '/api/admin/upload'
+    | '/news-file/$slug/$file'
     | '/federation/'
     | '/news/'
     | '/admin/'
@@ -471,6 +481,7 @@ export interface FileRouteTypes {
     | '/news/$newsId'
     | '/api/admin/photo-source'
     | '/api/admin/upload'
+    | '/news-file/$slug/$file'
     | '/federation'
     | '/news'
     | '/federation/charter/text'
@@ -515,6 +526,7 @@ export interface FileRouteTypes {
     | '/_site/news/$newsId'
     | '/api/admin/photo-source'
     | '/api/admin/upload'
+    | '/news-file/$slug/$file'
     | '/_site/federation/'
     | '/_site/news/'
     | '/admin/_authed/'
@@ -540,6 +552,7 @@ export interface RootRouteChildren {
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   ApiAdminPhotoSourceRoute: typeof ApiAdminPhotoSourceRoute
   ApiAdminUploadRoute: typeof ApiAdminUploadRoute
+  NewsFileSlugFileRoute: typeof NewsFileSlugFileRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -669,6 +682,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/federation/'
       preLoaderRoute: typeof SiteFederationIndexRouteImport
       parentRoute: typeof SiteFederationRoute
+    }
+    '/news-file/$slug/$file': {
+      id: '/news-file/$slug/$file'
+      path: '/news-file/$slug/$file'
+      fullPath: '/news-file/$slug/$file'
+      preLoaderRoute: typeof NewsFileSlugFileRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/admin/upload': {
       id: '/api/admin/upload'
@@ -967,6 +987,7 @@ const rootRouteChildren: RootRouteChildren = {
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   ApiAdminPhotoSourceRoute: ApiAdminPhotoSourceRoute,
   ApiAdminUploadRoute: ApiAdminUploadRoute,
+  NewsFileSlugFileRoute: NewsFileSlugFileRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -1,9 +1,16 @@
 import { describe, expect, test } from "bun:test";
 import {
+  DOCUMENT_MARKER_SCHEME,
   RECORD_MARKER_SCHEME,
+  documentFileName,
+  documentHrefsByPath,
+  documentMarkerHref,
+  findDocumentMarkerPaths,
   findMarkerSources,
+  hasDocumentMarkerResidue,
   hasMarkerResidue,
   markerHref,
+  replaceDocumentMarkers,
   replaceMarkers,
   slugMapBySource,
 } from "./archive-markers.ts";
@@ -120,5 +127,132 @@ describe("findMarkerSources", () => {
 
   test("markerHref строит href из схемы и источника", () => {
     expect(markerHref(SRC_A)).toBe(`${RECORD_MARKER_SCHEME}${SRC_A}`);
+  });
+});
+
+// ───────────────────── метка на приложенный документ ─────────────────────
+
+const DOC_A = "download\\news\\2013\\setki.xls";
+const DOC_B = "download\\news\\2013\\polozhenie.pdf";
+const DOC_MISSING = "download\\news\\2013\\net-takogo.doc";
+
+/** Адрес файла новости — так его строит мигратор (src/lib/news-file-url.ts). */
+const href = (fileName: string) => `/news-file/perehodyaschiy-kubok/${fileName}`;
+const docMap = documentHrefsByPath([DOC_A, DOC_B], href);
+const docAnchor = (path: string, text: string) =>
+  `<a href="${documentMarkerHref(path)}">${text}</a>`;
+
+describe("documentFileName", () => {
+  test("номер двузначный с единицы, расширение из пути и в нижнем регистре", () => {
+    expect(documentFileName(DOC_A, 0)).toBe("01.xls");
+    expect(documentFileName(DOC_B, 1)).toBe("02.pdf");
+    expect(documentFileName("a/B.PDF", 9)).toBe("10.pdf");
+  });
+
+  test("путь без расширения даёт голый номер", () => {
+    expect(documentFileName("download/news/readme", 0)).toBe("01");
+  });
+});
+
+describe("documentHrefsByPath", () => {
+  test("карта строится по полю Документы записи, номера идут по порядку", () => {
+    expect([...docMap]).toEqual([
+      [DOC_A, "/news-file/perehodyaschiy-kubok/01.xls"],
+      [DOC_B, "/news-file/perehodyaschiy-kubok/02.pdf"],
+    ]);
+  });
+
+  test("документа чужой записи в карте нет — метка на него не разрешится", () => {
+    expect(docMap.has(DOC_MISSING)).toBe(false);
+  });
+});
+
+describe("replaceDocumentMarkers", () => {
+  test("метка разрешается в адрес файла", () => {
+    const body = `<p>Смотрите ${docAnchor(DOC_A, "ТУРНИРНЫЕ СЕТКИ")}.</p>`;
+    const r = replaceDocumentMarkers(body, docMap);
+    expect(r.html).toBe(
+      '<p>Смотрите <a href="/news-file/perehodyaschiy-kubok/01.xls">ТУРНИРНЫЕ СЕТКИ</a>.</p>',
+    );
+    expect(r.replaced).toBe(1);
+    expect(r.dropped).toEqual([]);
+    expect(hasDocumentMarkerResidue(r.html)).toBe(false);
+  });
+
+  test("две метки в одном теле заменяются обе", () => {
+    const body = `<p>${docAnchor(DOC_A, "сетки")} и ${docAnchor(DOC_B, "положение")}</p>`;
+    const r = replaceDocumentMarkers(body, docMap);
+    expect(r.html).toBe(
+      '<p><a href="/news-file/perehodyaschiy-kubok/01.xls">сетки</a> и ' +
+        '<a href="/news-file/perehodyaschiy-kubok/02.pdf">положение</a></p>',
+    );
+    expect(r.replaced).toBe(2);
+    expect(hasDocumentMarkerResidue(r.html)).toBe(false);
+  });
+
+  test("метка на отсутствующий документ становится обычным текстом", () => {
+    const body = `<p>до ${docAnchor(DOC_MISSING, "видимый текст")} после</p>`;
+    const r = replaceDocumentMarkers(body, docMap);
+    expect(r.html).toBe("<p>до видимый текст после</p>");
+    expect(r.replaced).toBe(0);
+    expect(r.dropped).toEqual([DOC_MISSING]);
+    expect(hasDocumentMarkerResidue(r.html)).toBe(false);
+  });
+
+  test("тело без меток не меняется", () => {
+    const body = '<p>Обычный текст и <a href="https://example.com/a.pdf">внешний файл</a>.</p>';
+    const r = replaceDocumentMarkers(body, docMap);
+    expect(r.html).toBe(body);
+    expect(r.replaced).toBe(0);
+    expect(r.dropped).toEqual([]);
+  });
+
+  test("метка с разметкой внутри сохраняет разметку", () => {
+    const body = `<p>${docAnchor(DOC_A, "<b>СЕТКИ</b> турнира")}</p>`;
+    const r = replaceDocumentMarkers(body, docMap);
+    expect(r.html).toBe(
+      '<p><a href="/news-file/perehodyaschiy-kubok/01.xls"><b>СЕТКИ</b> турнира</a></p>',
+    );
+  });
+
+  test("метка записи и метка документа в одном теле не мешают друг другу", () => {
+    const body = `<p>${anchor(SRC_A, "отчёт")} и ${docAnchor(DOC_A, "сетки")}</p>`;
+    const шаг1 = replaceMarkers(body, map);
+    const шаг2 = replaceDocumentMarkers(шаг1.html, docMap);
+    expect(шаг1.replaced).toBe(1);
+    expect(шаг2.replaced).toBe(1);
+    expect(шаг2.html).toBe(
+      '<p><a href="/news/festivalnye-rasskazy">отчёт</a> и ' +
+        '<a href="/news-file/perehodyaschiy-kubok/01.xls">сетки</a></p>',
+    );
+    expect(hasMarkerResidue(шаг2.html)).toBe(false);
+    expect(hasDocumentMarkerResidue(шаг2.html)).toBe(false);
+  });
+});
+
+describe("остаток схемы метки документа", () => {
+  test("hasDocumentMarkerResidue ловит незаменённую метку", () => {
+    // Форма метки разошлась с формой замены: href в одинарных кавычках.
+    const broken = `<p><a href='${documentMarkerHref(DOC_A)}'>текст</a></p>`;
+    const r = replaceDocumentMarkers(broken, docMap);
+    expect(r.replaced).toBe(0);
+    expect(hasDocumentMarkerResidue(r.html)).toBe(true);
+  });
+
+  test("hasDocumentMarkerResidue не срабатывает на чистом теле", () => {
+    expect(hasDocumentMarkerResidue("<p>обычное тело</p>")).toBe(false);
+    expect(DOCUMENT_MARKER_SCHEME).toBe("archive-document:");
+  });
+});
+
+describe("findDocumentMarkerPaths", () => {
+  test("перечисляет пути в порядке появления, с повторами", () => {
+    const body = `<p>${docAnchor(DOC_B, "п")} ${docAnchor(DOC_A, "с")} ${docAnchor(DOC_B, "ещё")}</p>`;
+    expect(findDocumentMarkerPaths(body)).toEqual([DOC_B, DOC_A, DOC_B]);
+  });
+
+  test("метки записей в список документов не попадают", () => {
+    expect(findDocumentMarkerPaths(anchor(SRC_A, "отчёт"))).toEqual([]);
+    expect(findMarkerSources(docAnchor(DOC_A, "сетки"))).toEqual([]);
   });
 });
