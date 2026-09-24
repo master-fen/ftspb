@@ -2,12 +2,10 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { count, eq, inArray } from "drizzle-orm";
-import sharp from "sharp";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { describeTarget, sslFor } from "../src/db/ssl";
 import * as schema from "../src/db/schema";
-import { allNews, featuredNews } from "../src/data/mock";
 import { LEGACY_SLUG_MAX_LENGTH, slugify, truncateSlug } from "../src/server/slug";
 import { headObject, isS3NotFound, uploadObject } from "../src/server/storage";
 import { textToHtml } from "./text-to-html";
@@ -22,7 +20,6 @@ import {
   documentMimeType,
   imageContentType,
   indexByTitleDate,
-  normalizeTitle,
   partitionAddOnly,
   resolveSlugs,
   syntheticDatabaseBreak,
@@ -41,6 +38,8 @@ import {
   slugMapBySource,
 } from "./archive-markers";
 import { newsFileHref } from "../src/lib/news-file-url";
+import { type ImageSize, readImageSizes, sizeOf } from "./archive-image-sizes";
+import { type Section, matchMock } from "./archive-mock-match";
 
 const { news, newsPhoto, document, newsDocument } = schema;
 
@@ -66,10 +65,6 @@ type ArchiveRecord = {
   Источник?: string;
   Якорь?: string;
 };
-
-type Section = "federation" | "referees" | null;
-
-type MockNewsItem = (typeof allNews)[number];
 
 // ───────────────────────── аргументы ─────────────────────────
 
@@ -246,152 +241,12 @@ function getDb(): PostgresJsDatabase<typeof schema> {
   return dbInstance;
 }
 
-// ───────────────────────── mock.ts: section/featured ─────────────────────────
-
-function mockDateToIso(date: string): string {
-  const [d, m, y] = date.split(".");
-  return `20${y}-${m}-${d}`;
-}
-
-function mapCategoryToSection(category: MockNewsItem["category"]): Section {
-  switch (category) {
-    case "Федерация":
-      return "federation";
-    case "Коллегия судей":
-      return "referees";
-    case "Общее":
-      return null;
-    default: {
-      const exhaustive: never = category;
-      throw new Error(`Неизвестная категория mock.ts: ${String(exhaustive)}`);
-    }
-  }
-}
-
-const byNormalizedTitle = new Map<string, MockNewsItem[]>();
-for (const item of allNews) {
-  const key = normalizeTitle(item.title);
-  const arr = byNormalizedTitle.get(key) ?? [];
-  arr.push(item);
-  byNormalizedTitle.set(key, arr);
-}
-
-const featuredOrderById = new Map(featuredNews.map((item, index) => [item.id, index]));
-
-function matchMock(
-  title: string,
-  isoDate: string,
-): { section: Section; featured: boolean; featuredOrder: number | null } | null {
-  const candidates = byNormalizedTitle.get(normalizeTitle(title));
-  if (!candidates || candidates.length === 0) {
-    return null;
-  }
-
-  let matched: MockNewsItem;
-  if (candidates.length === 1) {
-    matched = candidates[0];
-  } else {
-    const sameDate = candidates.filter((c) => mockDateToIso(c.date) === isoDate);
-    if (sameDate.length !== 1) {
-      return null;
-    }
-    matched = sameDate[0];
-  }
-
-  const order = featuredOrderById.get(matched.id);
-  return {
-    section: mapCategoryToSection(matched.category),
-    featured: order !== undefined,
-    featuredOrder: order ?? null,
-  };
-}
-
 // ───────────────────────── файлы ─────────────────────────
 
 function requireFile(localPath: string, context: string): void {
   if (!fs.existsSync(localPath)) {
     throw new Error(`Файл не найден на диске: ${localPath} (${context})`);
   }
-}
-
-// ───────────────────────── размеры фото ─────────────────────────
-
-/** Размеры кадра так, как его покажет браузер. */
-type ImageSize = { width: number; height: number };
-
-/** Сколько файлов читается одновременно — как в scripts/compress-archive.ts. */
-const SIZE_CONCURRENCY = 8;
-
-/** Прочитанные размеры по локальному пути файла; заполняется readImageSizes. */
-const imageSizes = new Map<string, ImageSize>();
-
-/**
- * Размеры одного файла. `metadata().width/height` — размеры как они лежат в
- * файле; при EXIF-ориентации 5–8 браузер показывает кадр повёрнутым, поэтому
- * стороны переставляются. В архиве таких файлов нет (замер 22.09.2026 по
- * сжатой выгрузке: 0 из 1678 обложек), но правило нужно и для будущих
- * заливок: молчаливо перепутанные стороны не видны ни в базе, ни на глаз.
- */
-async function readImageSize(localPath: string): Promise<ImageSize> {
-  const meta = await sharp(localPath).metadata();
-  const w = meta.width;
-  const h = meta.height;
-  if (!w || !h) {
-    throw new Error("в метаданных нет ширины или высоты");
-  }
-  const rotated = (meta.orientation ?? 1) >= 5;
-  return rotated ? { width: h, height: w } : { width: w, height: h };
-}
-
-/**
- * Фаза целиком: размеры ВСЕХ фото рабочего набора читаются до первой записи в
- * S3 и в базу. Задание: не прочитать размер — стоп, не заливать без размеров.
- * Поэтому ошибки копятся и печатаются все разом, а прогон падает до заливки,
- * а не на середине.
- */
-async function readImageSizes(records: ReadonlyArray<ArchiveRecord>): Promise<void> {
-  const paths: string[] = [];
-  const seen = new Set<string>();
-  for (const record of records) {
-    const items = [record["Обложка"], ...(record["Галерея"] ?? [])];
-    for (const item of items) {
-      if (!item || /^https?:\/\//i.test(item)) continue;
-      const localPath = path.join(assets, item);
-      if (seen.has(localPath)) continue;
-      seen.add(localPath);
-      paths.push(localPath);
-    }
-  }
-
-  const failures: string[] = [];
-  let next = 0;
-  const worker = async () => {
-    while (next < paths.length) {
-      const localPath = paths[next++];
-      try {
-        imageSizes.set(localPath, await readImageSize(localPath));
-      } catch (error) {
-        failures.push(`${localPath}: ${error instanceof Error ? error.message : String(error)}`);
-      }
-    }
-  };
-  await Promise.all(Array.from({ length: SIZE_CONCURRENCY }, worker));
-
-  console.log(`─── размеры фото: прочитано ${imageSizes.size} из ${paths.length} ───`);
-  if (failures.length > 0) {
-    console.error(`Размер не прочитан у ${failures.length} файлов — заливка отменена:`);
-    for (const f of failures) console.error(`  ${f}`);
-    process.exit(1);
-  }
-}
-
-/** Размер уже прочитанного файла; отсутствие — ошибка сборки плана, не заливки. */
-function sizeOf(localPath: string, context: string): ImageSize {
-  const size = imageSizes.get(localPath);
-  if (!size) {
-    throw new Error(`Размер файла не прочитан: ${localPath} (${context})`);
-  }
-  return size;
 }
 
 // ───────────────────────── план записи ─────────────────────────
@@ -1090,7 +945,7 @@ async function main() {
   // S3 и в базу. Пропущенные записи не промеряются — их файлы никуда не
   // поедут. Фаза идёт и в сухом прогоне: сухой прогон затем и нужен, чтобы
   // нечитаемый файл всплыл до боевой заливки.
-  await readImageSizes(workingRecords);
+  await readImageSizes(workingRecords, assets);
 
   let coverCount = 0;
   let noCoverCount = 0;
