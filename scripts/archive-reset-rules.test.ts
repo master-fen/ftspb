@@ -31,6 +31,16 @@ describe("архивная строка отличается по source", () =>
     expect(isArchiveSource("http://www.tennisfed.spb.ru/2025/0531")).toBe(false);
     expect(isArchiveSource("")).toBe(false);
   });
+
+  // Разбор переписывает `Источник` записи-оригинала на адрес страницы-синонима
+  // (PAGE_SYNONYMS в scripts/parse-archive.ts, решение Антона 24.09.2026):
+  // «ЗИМНИЙ КУБОК … ИТОГИ» получает …/2024/0222 вместо …/newsarch_2013.html.
+  // Перезаливка локальной схемы обязана отбирать такую запись по-прежнему —
+  // иначе после правки она осталась бы на схеме как «заведённая руками».
+  test("переписанный Источник страницы-синонима остаётся архивным", () => {
+    expect(isArchiveSource("https://www.tennisfed.spb.ru/2024/0222")).toBe(true);
+    expect(isArchiveSource("https://www.tennisfed.spb.ru/2024/1119")).toBe(true);
+  });
 });
 
 describe("отбор строк к удалению", () => {
