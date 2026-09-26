@@ -17,13 +17,14 @@
 | `bun run format`          | `prettier --write .`                 |
 | `bun run charter:check`   | сверка выгрузки Устава с PDF         |
 
-База на 24.09.2026 (после PR «мигратор добавляет запись целиком»):
-`bun test` — 712 тестов в 51 файле, 3662 вызова `expect()`, 0 падений. Из них
-в `scripts/` — 266 тестов в двенадцати файлах: `archive-image-rule` 16,
+База на 25.09.2026 (после PR «четыре страницы — в новости, четыре галереи — в
+свои новости»):
+`bun test` — 715 тестов в 52 файлах, 3670 вызовов `expect()`, 0 падений. Из них
+в `scripts/` — 269 тестов в тринадцати файлах: `archive-image-rule` 16,
 `archive-markers` 26, `archive-migration-rules` 63, `archive-record-write` 24,
-`archive-reset-rules` 13, `bun-entry-size` 21, `css-extract` 19,
-`css-rule-forms` 11, `snapshot-align` 10, `snapshot-compare` 11,
-`snapshot-locate` 25, `ssr-snapshot` 27. `bun run lint`
+`archive-reset-rules` 14, `bun-entry-size` 21, `css-extract` 19,
+`css-rule-forms` 11, `parse-archive-node` 2, `snapshot-align` 10,
+`snapshot-compare` 11, `snapshot-locate` 25, `ssr-snapshot` 27. `bun run lint`
 — 0 ошибок, 6 предупреждений `react-refresh/only-export-components` в
 `src/components/ui/` (`badge.tsx`, `button.tsx`, `form.tsx`,
 `navigation-menu.tsx`, `sidebar.tsx`, `toggle.tsx`). Lint сравнивается списком
@@ -133,8 +134,14 @@
   (`festvest.html`, `pobeda.html`, `150.html`); идёт двумя проходами —
   разведочный даёт множество страниц, уже ставших телом записи, его счётчики
   сбрасываются. `--profile=ПАПКА` пишет профиль и раздел «Контроли» —
-  31 контроль, любой НЕТ — exit 1 после записи файлов. `--self-test` —
-  82 кейса на буквальном входе и выходе. Файлов профиля шесть: к
+  37 контролей, любой НЕТ — exit 1 после записи файлов. `--self-test` —
+  87 кейсов на буквальном входе и выходе. Запускаемость под `node` сторожит
+  `scripts/parse-archive-node.test.ts`: ни один job CI этот скрипт не
+  запускает, и поломка импорта в его цепочке оставляет CI зелёным (так и
+  случилось с `src/db/ssl.ts` 24.09.2026). Четыре поимённых списка
+  (`PAGE_RECORDS`, `PAGE_SYNONYMS`, `PAGE_GALLERIES`, `PAGES_UNTOUCHED`) раздают
+  судьбу тринадцати необъяснённым страницам — `docs/archive-notes.md`. Файлов
+  профиля шесть: к
   `profile.json`, `profile-report.md`, `sample.md` и `excerpt-preview.md`
   третий круг (23.09.2026) добавил `tables.md` (таблицы без цифр: отобранные
   признаком и развёрнутые в абзацы) и `file-links.md` (ссылки на документы в

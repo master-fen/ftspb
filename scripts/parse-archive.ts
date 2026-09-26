@@ -212,17 +212,20 @@ const MEDIA_RECORDS_MAX = 110;
  * сверяет с ними то, что записал этот прогон: задания-замеры обязаны не
  * менять экспорт ни на байт, и хеш ловит это раньше, чем глаза.
  *
- * Перезаморожены частями A (таблицы с текстовыми данными) и B (метки на
- * приложенные документы): тела изменились у 536 записей, изменение названо в
- * отчёте задания и в docs/archive-notes.md. Прежние значения —
- * 539a2221…0891ecde и 49c99491…97f4384 (прогон 23.09.2026).
+ * Перезаморожены заданием «четыре страницы — в новости, четыре галереи — в свои
+ * новости» (25.09.2026): записей 1978 → 1982, различий у старых записей ровно
+ * шесть — галерея у четырёх адресатов, тело у записи со ссылкой на 2024/0222 и
+ * `Источник` у записи-оригинала этого синонима. Сверка выгрузок запись за
+ * записью — в отчёте задания. Прежние значения — 7ca96bcf…ced4393d и
+ * b1c3326f…d9646d6ec (прогон 24.09.2026); до них — 539a2221…0891ecde и
+ * 49c99491…97f4384 (23.09.2026).
  *
  * Это сторож, а не бюджет: задача, которая меняет разбор сознательно,
  * перезамораживает обе строки тем же PR и называет изменение в отчёте —
  * как перезамораживаются `EXPECTED_RECORDS` и `EXPECTED_MEDIA_RECORDS`.
  */
-const EXPECTED_EXPORT_SHA256 = "7ca96bcf2ac9cb576d598fb722f6aac0134d81b4b54d21589f37e4b1ced4393d";
-const EXPECTED_REPORT_SHA256 = "b1c3326fce27c62eaf81552834d004e38113c9e3257f16a89b8d5fdd9646d6ec";
+const EXPECTED_EXPORT_SHA256 = "518449d89b7b55b68c52c24768d2b9728fc109955b0f869061c5a714ec5a36c8";
+const EXPECTED_REPORT_SHA256 = "5c385425c699997c1e3e036a646dcdca1968ac6c1912a2731600f04ab7499ac8";
 
 /**
  * Меток на приложенные документы в экспорте (третий круг, 24.09.2026). Замер
@@ -230,8 +233,13 @@ const EXPECTED_REPORT_SHA256 = "b1c3326fce27c62eaf81552834d004e38113c9e3257f16a8
  * становятся те, что попали в тело и сохранили видимый текст (28 пустых
  * якорей, 7 попаданий в ленточный фрагмент тизерной записи и 1 фрагмент, не
  * попавший в выгрузку, метки не дают). Сторож, а не бюджет.
+ *
+ * 25.09.2026: 1211 → 1214. Три метки добавили записи поимённого списка страниц
+ * — по одной ссылке на приложенный документ у 2016/0901, 2017/0901 и 2019/0908
+ * (у 2024/0520 документов нет). Четвёртая ссылка 2019/0908 лежит внутри
+ * HTML-комментария и меткой не становится.
  */
-const EXPECTED_DOCUMENT_MARKERS = 1211;
+const EXPECTED_DOCUMENT_MARKERS = 1214;
 
 /**
  * Файлы лент легаси: когда легаси умрёт, цели у такой ссылки не станет. Тег
@@ -266,6 +274,234 @@ let allRecordPages: ReadonlySet<string> = new Set<string>();
 /** Страницы-тела записей по проходам — сторож неподвижности (см. контроли). */
 let bodyPagesPass1: ReadonlySet<string> = new Set<string>();
 let bodyPagesPass2: ReadonlySet<string> = new Set<string>();
+
+// ──────────────── поимённые списки тринадцати страниц ────────────────
+//
+// Тринадцать article-страниц, на которые не ссылается ни одна лента, до
+// 24.09.2026 записями не становились и разбор их не читал (замер —
+// batch.local\18-thirteen-pages.md). Решение Антона 24.09.2026 раздаёт каждой
+// судьбу, и четыре списка ниже эту роспись и есть: вместе они обязаны покрыть
+// ровно тринадцать страниц, и ни один ключ не имеет права сработать иначе, чем
+// объявлено. Образец — MANUAL_EXCLUSIONS и TEXT_TABLE_ALLOWED: молчаливое «не
+// нашлось» скрыло бы сдвиг данных, поэтому промах любого ключа роняет прогон.
+
+/**
+ * Страница становится отдельной записью. Конвейер — тот же, что у
+ * записи-страницы смежной ленты (`buildPageRecord` рядом с
+ * `buildMediaRecord`): общие правила шапки, чистки, документов и меток, без
+ * особых случаев. Объявленные заголовок, дата, число фото и число документов —
+ * ожидание по ключу: разошлось хоть одно, прогон падает.
+ *
+ * `2016/0901` и `2017/0901` дают один базовый слаг (заголовки совпадают
+ * дословно, страницы различаются 13 символами — год и даты сезонов). Разводит
+ * их мигратор датным суффиксом; ни один из трёх базовых слагов не занят в
+ * выгрузке, поэтому суффиксы существующих записей не двигаются.
+ */
+const PAGE_RECORDS: ReadonlyArray<{
+  страница: string;
+  заголовок: string;
+  дата: string;
+  фото: number;
+  документов: number;
+}> = [
+  {
+    страница: "2016/0901.html",
+    заголовок: 'ПОЛОЖЕНИЕ о турнире "Кубок Вице-президента ФТ СПб С.А.Кравцова"',
+    дата: "2016-08-23",
+    фото: 1,
+    документов: 1,
+  },
+  {
+    страница: "2017/0901.html",
+    заголовок: 'ПОЛОЖЕНИЕ о турнире "Кубок Вице-президента ФТ СПб С.А.Кравцова"',
+    дата: "2017-08-23",
+    фото: 1,
+    документов: 1,
+  },
+  {
+    страница: "2019/0908.html",
+    заголовок: 'Результаты "Кубка Вице-президента ФТ СПб" на Динамите 08 сентября',
+    дата: "2019-09-17",
+    фото: 3,
+    // Второй документ страницы (vp_cup_points.xls, «Таблица начисления очков в
+    // Чемпионской Гонке») лежит внутри HTML-комментария и гасится
+    // blankComments. Доклад замера считал сырые href и дал два.
+    документов: 1,
+  },
+  {
+    страница: "2024/0520.html",
+    заголовок: "Муниципальные корты на Ушинского: загадочный грунт",
+    дата: "2024-05-20",
+    фото: 4,
+    документов: 0,
+  },
+];
+
+/**
+ * Страница-дубль уже существующей записи: записью не становится, а ссылка на
+ * неё в любом теле становится меткой на запись-оригинал.
+ *
+ * Метка разрешается мигратором по полю `Источник` записи-цели
+ * (`slugMapBySource`), а у обоих оригиналов `Источник` — файл ленты без якоря,
+ * общий на все записи файла; якоря на их рядах нет (в `newsarch_2024.html`
+ * якорей нет вовсе). Поэтому `Источник` записи-оригинала переписывается на
+ * адрес страницы-синонима — ровно по правилу `inheritsSourceOnDedupe`: у
+ * оригинала адрес не адресует одну запись, у синонима это адрес отдельной
+ * article-страницы. Решение Антона 24.09.2026. Префикс адреса легаси
+ * сохраняется, поэтому `reset:archive` запись по-прежнему отбирает
+ * (`isArchiveSource`, `scripts/archive-reset-rules.ts`).
+ *
+ * `источник` — `Источник` оригинала ДО правки: несовпадение роняет прогон,
+ * иначе адрес мог бы перейти не той записи. `меток` — сколько ссылок на
+ * страницу-синоним в телах; у `2024/1119` их нет ни одной (единственная ведёт
+ * из `download/antidope.html`, а этот раздел легаси в перенос не входит), и её
+ * ключ работает сторожем: появится ссылка — счёт разойдётся с нулём.
+ */
+const PAGE_SYNONYMS: ReadonlyArray<{
+  страница: string;
+  заголовок: string;
+  дата: string;
+  источник: string;
+  меток: number;
+}> = [
+  {
+    страница: "2024/0222.html",
+    заголовок: "ЗИМНИЙ КУБОК САНКТ-ПЕТЕРБУРГА СРЕДИ ЛЮБИТЕЛЕЙ - ИТОГИ",
+    дата: "2013-04-10",
+    источник: `${SITE}/newsarch_2013.html`,
+    меток: 1,
+  },
+  {
+    страница: "2024/1119.html",
+    заголовок: "Запрещенный в спорте мельдоний может называться по-разному",
+    дата: "2024-11-19",
+    источник: `${SITE}/newsarch_2024.html`,
+    меток: 0,
+  },
+];
+
+/**
+ * Страница-фотогалерея без текста: записью не становится, её кадры
+ * дописываются в галерею существующей записи-адресата — после уже имеющихся, в
+ * порядке страницы галереи.
+ *
+ * Кадр, совпавший по sha256 с любым фото адресата (обложкой или кадром
+ * галереи), не дублируется. Правило общее, а не поимённое: путь у кадра
+ * галереи и у той же картинки в записи разный
+ * (`pic\gallery\2018\20180126\bg\07.jpg` против `news\2018\01\kubok3.jpg`), и
+ * дедупликация по пути его не поймала бы. Объявленные `кадров`, `дублей` и
+ * `добавлено` — ожидание по ключу.
+ *
+ * Адресаты — из замера: три галереи `photogallery_2018.html` и пятый день
+ * летнего чемпионата 2013 года, у которого в записи уже лежат четыре дня из
+ * пяти. Запись-адресат ищется по паре «заголовок + дата» — у всех четырёх она
+ * в выгрузке уникальна.
+ */
+const PAGE_GALLERIES: ReadonlyArray<{
+  страница: string;
+  заголовок: string;
+  дата: string;
+  кадров: number;
+  дублей: number;
+  добавлено: number;
+}> = [
+  {
+    страница: "2018/0119.html",
+    заголовок: 'Завершилось зимнее первенство Санкт-Петербурга по теннису в категории "до 13 лет"',
+    дата: "2018-01-21",
+    кадров: 30,
+    дублей: 0,
+    добавлено: 30,
+  },
+  {
+    страница: "2018/0126.html",
+    заголовок: "Результаты Кубка Санкт-Петербурга по теннису",
+    дата: "2018-01-28",
+    кадров: 8,
+    дублей: 1,
+    добавлено: 7,
+  },
+  {
+    страница: "2018/0202.html",
+    заголовок: 'Результаты зимнего первенства Санкт-Петербурга по теннису в категории "9-10" лет',
+    дата: "2018-02-03",
+    кадров: 24,
+    дублей: 0,
+    добавлено: 24,
+  },
+  {
+    страница: "article20130728.html",
+    заголовок: "Летний чемпионат Санкт-Петербурга",
+    дата: "2013-07-26",
+    кадров: 60,
+    дублей: 0,
+    добавлено: 60,
+  },
+];
+
+/**
+ * Страницы, с которыми не делается ничего. Поведения за списком нет — он
+ * замыкает роспись тринадцати, чтобы «не тронули» отличалось от «забыли».
+ * Разбор их по-прежнему не читает, и они остаются в списке необъяснённых
+ * article-файлов вместе с двумя синонимами.
+ */
+const PAGES_UNTOUCHED: ReadonlyArray<{ страница: string; почему: string }> = [
+  {
+    страница: "2018/0520.html",
+    почему: "утрачена на сервере: «No type», ни заголовка, ни даты, ни текста, ни кадров",
+  },
+  { страница: "2025/0529.html", почему: "утрачена на сервере: «No type», 7 байт" },
+  { страница: "2017/0320.html", почему: "27 знаков текста, фото нет" },
+];
+
+/**
+ * Сколько всего необъяснённых страниц было замерено 20–24.09.2026 и роздано
+ * решением Антона. Число — заморозка: роспись обязана покрыть ровно его, иначе
+ * у какой-то страницы судьбы нет, а у какой-то она названа дважды.
+ */
+const UNEXPLAINED_PAGES_TOTAL = 13;
+
+/** Роспись тринадцати: страница → судьба. Строится один раз, сторожится контролем. */
+const PAGE_FATES: ReadonlyMap<string, string> = new Map<string, string>([
+  ...PAGE_RECORDS.map((p) => [p.страница, "запись архива"] as const),
+  ...PAGE_SYNONYMS.map((p) => [p.страница, `синоним записи «${p.заголовок}» (${p.дата})`] as const),
+  ...PAGE_GALLERIES.map((p) => [p.страница, `галерея → «${p.заголовок}» (${p.дата})`] as const),
+  ...PAGES_UNTOUCHED.map((p) => [p.страница, `не тронута: ${p.почему}`] as const),
+]);
+
+/** Страницы-синонимы: ссылка на такую страницу — метка на запись-оригинал. */
+const SYNONYM_PAGES: ReadonlySet<string> = new Set(PAGE_SYNONYMS.map((p) => p.страница));
+
+/** Страницы-синонимы, на которые метка в телах прохода 2 действительно встала. */
+const referencedSynonyms = new Set<string>();
+
+/**
+ * Факт по каждому ключу трёх поимённых списков. Промах ключа роняет прогон
+ * раньше, чем профиль соберётся, — накопитель нужен не для решения, а чтобы
+ * контроли профиля печатали числа, а не отсутствие ошибки.
+ */
+const pageListFacts: {
+  записи: Array<{ страница: string; фото: number; документов: number; промахи: string[] }>;
+  синонимы: Array<{
+    страница: string;
+    меток: number;
+    ждём: number;
+    источник: string;
+    ок: boolean;
+  }>;
+  галереи: Array<{
+    страница: string;
+    кадров: number;
+    ждёмКадров: number;
+    дублей: number;
+    ждёмДублей: number;
+    добавлено: number;
+    ждёмДобавлено: number;
+    галереяДо: number;
+    галереяПосле: number;
+    ок: boolean;
+  }>;
+} = { записи: [], синонимы: [], галереи: [] };
 
 // ───────────────────────── выходной формат ─────────────────────────
 
@@ -369,6 +605,12 @@ type ReportBag = {
   navRemnants: string[];
   /** Якорь ленты, дописанный в `Источник` записи-цели. */
   feedAnchorSources: string[];
+  /** Записи, собранные из страниц поимённого списка PAGE_RECORDS. */
+  pageRecords: string[];
+  /** Страницы-синонимы: метки в телах и переписанный `Источник` оригинала. */
+  pageSynonyms: string[];
+  /** Галереи, дописанные в записи-адресаты: кадры, дубли, добавлено. */
+  pageGalleries: string[];
 };
 
 const report: ReportBag = {
@@ -418,6 +660,9 @@ const report: ReportBag = {
   feedFileLinks: [],
   navRemnants: [],
   feedAnchorSources: [],
+  pageRecords: [],
+  pageSynonyms: [],
+  pageGalleries: [],
 };
 
 /** Свежий отчёт: проход 1 — разведочный, его счётчики в итог не идут (см. main). */
@@ -459,9 +704,11 @@ type DocFragmentRole = "тело" | "анонс" | "невыгружен";
 type ProfCapture = {
   file: string;
   position: number; // 1-based, стабилен при правках текста
-  titleVia: "td" | "span" | "media" | null;
+  titleVia: "td" | "span" | "media" | "page" | null;
   /** Запись из строки смежной ленты: тело — сама страница, фрагмента ленты нет. */
   media: boolean;
+  /** Запись из поимённого списка PAGE_RECORDS: ни ленты, ни строки ленты нет. */
+  pageOnly: boolean;
   merged: boolean;
   syntheticTitle: boolean;
   dateFix: boolean;
@@ -503,6 +750,7 @@ function newProfCapture(item: FeedItem, feedUrl: string): ProfCapture {
     position: item.position + 1,
     titleVia: item.titleVia,
     media: false,
+    pageOnly: false,
     merged: item.mergedFrom.length > 0,
     syntheticTitle: false,
     dateFix: false,
@@ -539,6 +787,7 @@ function newMediaProfCapture(row: MediaRow, page: ArticlePage): ProfCapture {
     position: row.position,
     titleVia: "media",
     media: true,
+    pageOnly: false,
     merged: false,
     syntheticTitle: false,
     dateFix: page.dateOriginal !== null,
@@ -1790,6 +2039,22 @@ function inlineParagraphs(work: string, ctx: SanitizeCtx): string[] {
           inlineStack.push("a");
           continue;
         }
+        // Ссылка на страницу-дубль существующей записи. Страница записью не
+        // стала, поэтому её адрес сам по себе метку не разрешает — его получит
+        // `Источник` записи-оригинала после прохода 2 (см. main и
+        // PAGE_SYNONYMS). Ворота стоят после `allRecordPages` намеренно: стань
+        // такая страница когда-нибудь записью, метка на неё останется той же
+        // строкой, а лишний ключ поймает контроль числа меток.
+        if (targetRel !== null && SYNONYM_PAGES.has(targetRel)) {
+          if (!ctx.silent) {
+            report.recordMarkers += 1;
+            referencedSynonyms.add(targetRel);
+          }
+          const marker = markerHref(canonicalArticleUrl(targetRel));
+          current.push(`<a href="${marker.replace(/"/g, "&quot;")}">`);
+          inlineStack.push("a");
+          continue;
+        }
         const href = rawHref.toLowerCase().startsWith("mailto:")
           ? rawHref
           : isTennisfed(abs)
@@ -2198,6 +2463,30 @@ function loadArticle(relFile: string, url: string): ArticlePage | null {
  */
 function canonicalArticleUrl(rel: string): string {
   return `${SITE}/${rel.replace(/\.html$/, "").replace(/^article(\d{8})$/, "article$1.html")}`;
+}
+
+const articleTitleCache = new Map<string, string | null>();
+
+/**
+ * Заголовок article-страницы — её `<title>`, приведённый тем же `stripTags`,
+ * которым берётся заголовок строки ленты: сущности декодируются, повторы
+ * пробелов сворачиваются. Других источников заголовка у страницы нет — её
+ * собственный заголовочный блок срезается вместе с шапкой, а у части страниц
+ * он набран в несколько строк и заголовком новости не годится.
+ *
+ * Читается сырой файл, а не регион контента: `<title>` стоит в `<head>`.
+ */
+function articleTitle(relFile: string): string | null {
+  const cached = articleTitleCache.get(relFile);
+  if (cached !== undefined) return cached;
+  const fullPath = join(ARCHIVE, "download", relFile.split("/").join("\\"));
+  let title: string | null = null;
+  if (existsSync(fullPath)) {
+    const m = readCp1251(fullPath).match(/<title>([\s\S]*?)<\/title>/i);
+    if (m) title = stripTags(m[1]);
+  }
+  articleTitleCache.set(relFile, title);
+  return title;
 }
 
 /** href → относительный файл article-страницы ("2024/0219.html") или null. */
@@ -2961,6 +3250,270 @@ function buildMediaRecord(row: MediaRow): OutputRecord | null {
   return record;
 }
 
+// ─────────────── записи из поимённого списка страниц ───────────────
+
+/**
+ * Capture записи-страницы поимённого списка. От capture записи смежной ленты
+ * отличается двумя полями — `titleVia` и `pageOnly`: ленты у неё нет вовсе, а
+ * не «есть, но плоскими полями». Остальное совпадает: страница стоит и в
+ * `absorbed`, и тизерной, поэтому профиль видит её источником тела, а детектор
+ * д7 её пропускает — она телом и стала.
+ */
+function newPageProfCapture(page: ArticlePage): ProfCapture {
+  return {
+    file: page.relFile,
+    position: 1,
+    titleVia: "page",
+    media: false,
+    pageOnly: true,
+    merged: false,
+    syntheticTitle: false,
+    dateFix: page.dateOriginal !== null,
+    foreignYear: false,
+    feedFragment: "",
+    feedUrl: page.url,
+    absorbed: [
+      {
+        relFile: page.relFile,
+        url: page.url,
+        bodyHtml: page.bodyHtml,
+        layout: page.layout,
+        date: page.date,
+      },
+    ],
+    teaserRelFile: page.relFile,
+    teaserUrl: page.url,
+    teaserBodyHtml: page.bodyHtml,
+    links: [],
+    lostArticle: false,
+    winOpenNonImage: 0,
+    previewReplaced: 0,
+    photoFeed: { taken: 0, dup: 0, unresolved: 0 },
+    photoArticle: { taken: 0, dup: 0, unresolved: 0 },
+    videoSrcs: [],
+    bodySource: null,
+    docSources: [],
+  };
+}
+
+/**
+ * Расхождения готовой записи с объявленным в `PAGE_RECORDS`. Пустой массив —
+ * ключ дал ожидаемое. Вынесено отдельно, чтобы правило проверялось самотестом
+ * без диска.
+ */
+function pageRecordMismatches(entry: (typeof PAGE_RECORDS)[number], rec: OutputRecord): string[] {
+  const промахи: string[] = [];
+  const фото = (rec["Обложка"] ? 1 : 0) + (rec["Галерея"]?.length ?? 0);
+  const документов = rec["Документы"]?.length ?? 0;
+  if (rec["Заголовок"] !== entry.заголовок) {
+    промахи.push(`заголовок «${rec["Заголовок"]}», ожидался «${entry.заголовок}»`);
+  }
+  if (rec["Дата"] !== entry.дата) промахи.push(`дата ${rec["Дата"]}, ожидалась ${entry.дата}`);
+  if (фото !== entry.фото) промахи.push(`фото ${фото}, ожидалось ${entry.фото}`);
+  if (документов !== entry.документов) {
+    промахи.push(`документов ${документов}, ожидалось ${entry.документов}`);
+  }
+  return промахи;
+}
+
+/**
+ * Запись из страницы поимённого списка. Конвейер — тот же, что у записи-страницы
+ * смежной ленты (`buildMediaRecord`): баннер шаблона, шапка, документы, фото,
+ * чистка тела. Отличий два, и оба от отсутствия строки ленты: заголовок берётся
+ * из `<title>` страницы, `Анонса` нет вовсе.
+ */
+function buildPageRecord(entry: (typeof PAGE_RECORDS)[number]): OutputRecord | null {
+  const rel = entry.страница;
+  const context = `PAGE_RECORDS ${rel}`;
+  const url = canonicalArticleUrl(rel);
+  const page = loadArticle(rel, url);
+  if (!page) {
+    runErrors.push(`${context}: страницы нет в архиве`);
+    return null;
+  }
+  if (page.lost) {
+    runErrors.push(`${context}: страница утрачена на сервере`);
+    return null;
+  }
+  if (!page.date) {
+    runErrors.push(`${context}: у страницы не установлена дата`);
+    return null;
+  }
+  const title = articleTitle(rel);
+  if (!title) {
+    runErrors.push(`${context}: у страницы нет непустого <title>`);
+    return null;
+  }
+
+  const cap: ProfCapture | null = PROFILING ? newPageProfCapture(page) : null;
+  curProf = cap;
+
+  const isoDate = page.date;
+  if (page.dateOriginal) {
+    report.dateFixes.push(`${context}: «${title}»: ${page.dateOriginal} → ${isoDate}`);
+  }
+
+  let bodyRegion = cutTemplateBanner(page.bodyHtml).html;
+  const label = `${context}: «${title}»`;
+  if (page.layout === "D" && !page.headerCut) {
+    const extra = cutPageTitleBlock(bodyRegion);
+    if (extra.cut) {
+      bodyRegion = extra.html;
+      report.mediaHeaderCutExtra.push(`${label}: срезано абзацев ${extra.paras}`);
+    } else {
+      report.mediaHeaderNotCut.push(label);
+    }
+  }
+
+  const docs: string[] = [];
+  if (cap) cap.docSources.push({ html: bodyRegion, baseUrl: url, роль: "тело" });
+  const prepared = extractDocuments(bodyRegion, url, label, docs);
+
+  const photoPaths: string[] = [];
+  for (const p of extractPhotos(page.photosHtml, url)) {
+    const resolved = resolvePhoto(p, label);
+    if (resolved && !photoPaths.includes(resolved)) {
+      photoPaths.push(resolved);
+      if (cap) cap.photoArticle.taken += 1;
+    } else if (cap) {
+      if (resolved) cap.photoArticle.dup += 1;
+      else cap.photoArticle.unresolved += 1;
+    }
+  }
+  if (photoPaths.length === 0) report.mediaNoCover.push(label);
+
+  const bodyHtmlOut = sanitizeBody(prepared, {
+    baseUrl: url,
+    videoLinks: true,
+    ключ: `${rel}#1`,
+  });
+  const bodyPlainLen = stripTags(bodyHtmlOut).length;
+  if (bodyPlainLen < HEADER_CUT_MIN_BODY) {
+    report.mediaShortBody.push(`${label}: тело ${bodyPlainLen} знаков`);
+  }
+
+  if (cap) {
+    cap.teaserBodyHtml = prepared;
+    cap.absorbed[0].bodyHtml = prepared;
+    cap.videoSrcs.push(...videoSrcsOf(prepared));
+    cap.bodySource = { html: prepared, baseUrl: url };
+  }
+
+  const record: OutputRecord = {
+    Заголовок: title,
+    Дата: isoDate,
+    ...(page.dateOriginal ? { ДатаИсходная: page.dateOriginal } : {}),
+    ТекстHTML: bodyHtmlOut,
+    ...(photoPaths.length > 0 ? { Обложка: photoPaths[0] } : {}),
+    ...(photoPaths.length > 1 ? { Галерея: photoPaths.slice(1) } : {}),
+    ...(docs.length > 0 ? { Документы: docs } : {}),
+    Источник: url,
+  };
+  curProf = null;
+  if (cap) profByRecord.set(record, cap);
+
+  const промахи = pageRecordMismatches(entry, record);
+  if (промахи.length > 0) runErrors.push(`${context}: ${промахи.join("; ")}`);
+  pageListFacts.записи.push({
+    страница: rel,
+    фото: photoPaths.length,
+    документов: docs.length,
+    промахи,
+  });
+  report.pageRecords.push(
+    `${rel} → «${title}» (${isoDate}), фото ${photoPaths.length}, документов ${docs.length}, тело ${bodyPlainLen} знаков`,
+  );
+  return record;
+}
+
+// ─────────────── галереи, дописываемые в записи-адресаты ───────────────
+
+/** Кадр страницы-галереи: путь в выгрузке и sha256 самого файла. */
+type GalleryFrame = { путь: string; sha: string };
+
+type GalleryPlan = {
+  /** Кадры к дописыванию, в порядке страницы галереи. */
+  добавить: string[];
+  /** Совпало по sha256 с фото, уже имеющимся в записи. */
+  дублей: number;
+  /** Совпало по sha256 с другим кадром той же галереи. */
+  внутренних: number;
+};
+
+/**
+ * Какие кадры страницы-галереи дописываются в галерею записи-адресата.
+ *
+ * Сравнение по sha256, а не по пути: та же картинка лежит в архиве и кадром
+ * галереи, и файлом новости под разными путями
+ * (`pic\gallery\2018\20180126\bg\07.jpg` = `news\2018\01\kubok3.jpg`), и
+ * дедупликация по пути её не поймала бы. `свои` — хеши ВСЕХ фото записи,
+ * включая обложку: задвоить обложку кадром галереи так же плохо, как задвоить
+ * кадр.
+ *
+ * Порядок сохраняется — порядок страницы галереи; дописываются кадры в конец
+ * уже имеющихся, поэтому функция возвращает только добавляемый хвост.
+ */
+function galleryAppendPlan(
+  свои: ReadonlySet<string>,
+  кадры: ReadonlyArray<GalleryFrame>,
+): GalleryPlan {
+  const добавить: string[] = [];
+  const видели = new Set<string>();
+  let дублей = 0;
+  let внутренних = 0;
+  for (const кадр of кадры) {
+    if (свои.has(кадр.sha)) {
+      дублей += 1;
+      continue;
+    }
+    if (видели.has(кадр.sha)) {
+      внутренних += 1;
+      continue;
+    }
+    видели.add(кадр.sha);
+    добавить.push(кадр.путь);
+  }
+  return { добавить, дублей, внутренних };
+}
+
+const sha256Cache = new Map<string, string>();
+
+/** sha256 файла выгрузки по относительному пути (`download\…`). */
+function sha256OfExportPath(relPath: string): string {
+  const cached = sha256Cache.get(relPath);
+  if (cached !== undefined) return cached;
+  const hash = createHash("sha256")
+    .update(readFileSync(join(ARCHIVE, relPath)))
+    .digest("hex");
+  sha256Cache.set(relPath, hash);
+  return hash;
+}
+
+/**
+ * Кадры страницы-галереи: те же `extractPhotos` + `resolvePhoto`, что у любой
+ * записи, и sha256 каждого разрешённого файла. Неразрешённый кадр — ошибка
+ * прогона: галерея берётся целиком либо не берётся.
+ */
+function galleryFrames(rel: string): GalleryFrame[] {
+  const context = `PAGE_GALLERIES ${rel}`;
+  const url = canonicalArticleUrl(rel);
+  const page = loadArticle(rel, url);
+  if (!page || page.lost) {
+    runErrors.push(`${context}: страницы нет в архиве или она утрачена`);
+    return [];
+  }
+  const кадры: GalleryFrame[] = [];
+  const пути = new Set<string>();
+  for (const p of extractPhotos(page.photosHtml, url)) {
+    const resolved = resolvePhoto(p, context);
+    if (!resolved) continue;
+    if (пути.has(resolved)) continue;
+    пути.add(resolved);
+    кадры.push({ путь: resolved, sha: sha256OfExportPath(resolved) });
+  }
+  return кадры;
+}
+
 /**
  * Строки трёх смежных лент в порядке `MEDIA_FEED_FILES`, дубль страницы между
  * лентами берётся один раз — побеждает первая лента.
@@ -3042,9 +3595,11 @@ const MANUAL_EXCLUSIONS: Array<{ file: string; title: string; date: string; reas
 
 /**
  * Ожидаемое число записей экспорта: 1882 по рекогносцировке годовых лент минус
- * точечные исключения плюс записи смежных лент.
+ * точечные исключения, плюс записи смежных лент, плюс записи поимённого списка
+ * страниц (`PAGE_RECORDS`, решение Антона 24.09.2026).
  */
-const EXPECTED_RECORDS = 1882 - MANUAL_EXCLUSIONS.length + EXPECTED_MEDIA_RECORDS;
+const EXPECTED_RECORDS =
+  1882 - MANUAL_EXCLUSIONS.length + EXPECTED_MEDIA_RECORDS + PAGE_RECORDS.length;
 
 /**
  * Адресует ли `Источник` ровно одну запись экспорта. Видов адреса два: адрес
@@ -3340,6 +3895,26 @@ function renderReport(records: OutputRecord[]): string {
   section("Якорь ленты, дописанный в Источник записи-цели", report.feedAnchorSources);
   section("Снятые ссылки на поглощённые страницы поимённо", report.absorbedLinkTexts);
   section("Ссылки на файлы годовых лент в телах", report.feedFileLinks);
+
+  // ── поимённые списки тринадцати страниц (решение Антона 24.09.2026) ──
+  section("Записи из поимённого списка страниц (PAGE_RECORDS)", report.pageRecords);
+  section("Страницы-синонимы существующих записей (PAGE_SYNONYMS)", report.pageSynonyms);
+  section("Галереи, дописанные в записи-адресаты (PAGE_GALLERIES)", report.pageGalleries);
+  L.push(`## Судьба тринадцати необъяснённых страниц`);
+  L.push("");
+  L.push(
+    "Страницы архива, на которые не ссылается ни одна лента. Роспись замкнута:" +
+      ` ${PAGE_RECORDS.length} записей, ${PAGE_SYNONYMS.length} синонимов,` +
+      ` ${PAGE_GALLERIES.length} галерей, ${PAGES_UNTOUCHED.length} нетронутых —` +
+      ` всего ${PAGE_FATES.size} из ${UNEXPLAINED_PAGES_TOTAL}.`,
+  );
+  L.push("");
+  L.push("| страница | судьба |");
+  L.push("|---|---|");
+  for (const [страница, судьба] of [...PAGE_FATES].sort((a, b) => a[0].localeCompare(b[0]))) {
+    L.push(`| ${страница} | ${судьба.replace(/\|/g, "\\|")} |`);
+  }
+  L.push("");
 
   return L.join("\n") + "\n";
 }
@@ -3961,20 +4536,6 @@ function profD8(bodyPlain: string, titles: string[]): D8 {
 }
 
 /** <title> article-страницы — читается из файла архива (только чтение, кэш по relFile). */
-const articleTitleCache = new Map<string, string | null>();
-
-function profArticleTitle(relFile: string): string | null {
-  const cached = articleTitleCache.get(relFile);
-  if (cached !== undefined) return cached;
-  const fullPath = join(ARCHIVE, "download", relFile.split("/").join("\\"));
-  let title: string | null = null;
-  if (existsSync(fullPath)) {
-    const m = readCp1251(fullPath).match(/<title>([\s\S]*?)<\/title>/i);
-    if (m) title = plainProf(m[1]);
-  }
-  articleTitleCache.set(relFile, title);
-  return title;
-}
 
 /** Повторяющийся src: ключ src встречается одиночным не менее чем в minRecords записях. */
 function profRepeatedSrcKeys(perRecord: string[][], minRecords = 3): Set<string> {
@@ -4158,8 +4719,8 @@ type ProfileKey = {
 };
 
 type TransformFeatures = {
-  /** M — строка смежной ленты вёрстки `media` (запись-страница). */
-  схемаЛенты: "A" | "B" | "C" | "M";
+  /** M — строка смежной ленты вёрстки `media`; P — страница поимённого списка. */
+  схемаЛенты: "A" | "B" | "C" | "M" | "P";
   схемаArticle: "C" | "D" | null;
   /** «страница» — запись смежной ленты: телом стала сама article-страница. */
   кейсArticle: "нет" | "цитата" | "тизер" | "галерея" | "утрачена" | "страница";
@@ -4395,7 +4956,7 @@ function profDetectors(rec: OutputRecord, cap: ProfCapture): Detectors {
   // д8 — только у тизерных записей: заголовок записи и <title> article-страницы.
   let д8: D8 | null = null;
   if (cap.teaserRelFile !== null) {
-    const artTitle = profArticleTitle(cap.teaserRelFile);
+    const artTitle = articleTitle(cap.teaserRelFile);
     д8 = profD8(pBody, artTitle === null ? [rec["Заголовок"]] : [rec["Заголовок"], artTitle]);
   }
 
@@ -4420,17 +4981,18 @@ function buildProfileRecord(rec: OutputRecord, cap: ProfCapture, пара: boole
   }
   const сумма = article === null ? лента : mergeSrcFeatures(лента, article);
 
-  const кейс: TransformFeatures["кейсArticle"] = cap.media
-    ? "страница"
-    : cap.teaserRelFile
-      ? "тизер"
-      : cap.absorbed.length > 0
-        ? "галерея"
-        : cap.links.some((l) => l.kase === "утрачена")
-          ? "утрачена"
-          : cap.links.some((l) => l.kase === "цитата")
-            ? "цитата"
-            : "нет";
+  const кейс: TransformFeatures["кейсArticle"] =
+    cap.media || cap.pageOnly
+      ? "страница"
+      : cap.teaserRelFile
+        ? "тизер"
+        : cap.absorbed.length > 0
+          ? "галерея"
+          : cap.links.some((l) => l.kase === "утрачена")
+            ? "утрачена"
+            : cap.links.some((l) => l.kase === "цитата")
+              ? "цитата"
+              : "нет";
   const схемаArticle =
     cap.absorbed.find((a) => a.relFile === cap.teaserRelFile)?.layout ??
     cap.absorbed[0]?.layout ??
@@ -4446,13 +5008,15 @@ function buildProfileRecord(rec: OutputRecord, cap: ProfCapture, пара: boole
 
   const трансформация: TransformFeatures = {
     схемаЛенты:
-      cap.titleVia === "media"
-        ? "M"
-        : cap.titleVia === null
-          ? "A"
-          : cap.titleVia === "span"
-            ? "B"
-            : "C",
+      cap.titleVia === "page"
+        ? "P"
+        : cap.titleVia === "media"
+          ? "M"
+          : cap.titleVia === null
+            ? "A"
+            : cap.titleVia === "span"
+              ? "B"
+              : "C",
     схемаArticle,
     кейсArticle: кейс,
     ссылкиArticle: cap.links,
@@ -5386,7 +5950,7 @@ function profUnexplainedPages(rels: string[]): UnexplainedPage[] {
         : 0;
     return {
       relFile: rel,
-      заголовок: profArticleTitle(rel) ?? "—",
+      заголовок: articleTitle(rel) ?? "—",
       дата: page?.date ?? "—",
       длинаТекста: текст,
       фото: page && !page.lost ? extractPhotos(page.photosHtml, page.url).length : 0,
@@ -5416,21 +5980,41 @@ type InventoryExtras = {
  * Часть D задания: таблица по article-файлам, которые не объясняются ни одной
  * лентой. Записями они не становятся — это данные для решения глазами.
  */
-function renderUnexplained(L: string[], pages: UnexplainedPage[]): void {
-  L.push(`## Необъяснённые article-файлы (${pages.length})`);
+/**
+ * Тринадцать необъяснённых страниц: у каждой — её судьба по решению Антона
+ * 24.09.2026 и замеренные данные.
+ *
+ * Таблица идёт по росписи (`PAGE_FATES`), а не по списку необъяснённых: восемь
+ * страниц из тринадцати разбор теперь читает (четыре стали записями, четыре
+ * отдали кадры), и из списка необъяснённых они ушли — но судьба обязана быть
+ * видна у всех тринадцати, иначе «не тронули» не отличить от «потеряли».
+ * Колонка «в списке» и говорит, какие пять остались необъяснёнными.
+ */
+function renderUnexplained(
+  L: string[],
+  pages: UnexplainedPage[],
+  unreferenced: ReadonlySet<string>,
+): void {
+  L.push(`## Тринадцать необъяснённых страниц (${pages.length})`);
   L.push("");
   L.push(
-    "Страницы архива, на которые нет ссылок ни с годовых, ни со смежных лент. Записями в этой" +
-      " задаче они не становятся. «Ссылки из архива» — html-файлы архива, в которых встречается" +
-      " ссылка на эту страницу (сама страница не считается).",
+    "Страницы архива, на которые нет ссылок ни с годовых, ни со смежных лент. Судьба каждой —" +
+      " решение Антона 24.09.2026, поимённые списки разбора (PAGE_RECORDS, PAGE_SYNONYMS," +
+      " PAGE_GALLERIES, PAGES_UNTOUCHED). «Ссылки из архива» — html-файлы архива, в которых" +
+      " встречается ссылка на эту страницу (сама страница не считается). «В списке» — страница" +
+      " по-прежнему не прочитана разбором и остаётся в списке необъяснённых article-файлов.",
   );
   L.push("");
-  L.push("| файл | заголовок | дата | знаков текста | фото | ссылки из архива |");
-  L.push("|---|---|---|---|---|---|");
+  L.push(
+    "| файл | судьба | в списке | заголовок | дата | знаков текста | фото | ссылки из архива |",
+  );
+  L.push("|---|---|---|---|---|---|---|---|");
   for (const p of pages) {
     const links = p.ссылкиИзАрхива.length === 0 ? "нет" : p.ссылкиИзАрхива.join(", ");
+    const судьба = PAGE_FATES.get(p.relFile) ?? "СУДЬБЫ НЕТ — страница не в росписи";
     L.push(
-      `| ${p.relFile} | ${mdEsc(p.заголовок)} | ${p.дата} | ${p.длинаТекста} | ${p.фото} | ${mdEsc(links)} |`,
+      `| ${p.relFile} | ${mdEsc(судьба)} | ${unreferenced.has(p.relFile) ? "да" : "нет"} |` +
+        ` ${mdEsc(p.заголовок)} | ${p.дата} | ${p.длинаТекста} | ${p.фото} | ${mdEsc(links)} |`,
     );
   }
   L.push("");
@@ -5830,7 +6414,7 @@ function renderProfileReport(
   L.push("");
 
   renderAdjacentFeeds(L, inv.feeds, inv.unreferenced);
-  renderUnexplained(L, inv.unexplained13);
+  renderUnexplained(L, inv.unexplained13, new Set(inv.unreferenced));
   renderExcerptStats(L, inv.excerpt, inv.previewSize);
   renderTitles(L, profs);
   renderCandidates2026(L, profs);
@@ -6232,6 +6816,18 @@ function runProfile(records: OutputRecord[], exportSha: string, reportSha: strin
     (p) => p.детекторы.д8 !== null && p.трансформация.кейсArticle === "тизер",
   );
   const pageRecords = profs.filter((p) => p.трансформация.кейсArticle === "страница");
+  const mediaPageRecords = pageRecords.filter((p) => p.трансформация.схемаЛенты === "M");
+  const listedPageRecords = pageRecords.filter((p) => p.трансформация.схемаЛенты === "P");
+
+  // Факт по ключам трёх поимённых списков — накоплен в main, здесь только печать.
+  const pageRecordFact = pageListFacts.записи;
+  const synonymFact = pageListFacts.синонимы;
+  const galleryFact = pageListFacts.галереи;
+  const unexplainedLeft = [...report.unreferencedArticles].sort((x, y) => x.localeCompare(y));
+  const ожидаемыйОстаток = [
+    ...PAGE_SYNONYMS.map((x) => x.страница),
+    ...PAGES_UNTOUCHED.map((x) => x.страница),
+  ].sort((x, y) => x.localeCompare(y));
   const pageTeasers = pageRecords.filter((p) => p.детекторы.д8 !== null);
   const d8a = teasersFeed.filter((p) => p.детекторы.д8!.а).length;
   const d8b = teasersFeed.filter((p) => p.детекторы.д8!.б).length;
@@ -6370,14 +6966,28 @@ function runProfile(records: OutputRecord[], exportSha: string, reportSha: strin
       факт: `${videoChecks.length - videoMissing.length}/${videoChecks.length}${videoMissing.length ? ": нет — " + videoMissing.map((v) => `${v.key} ${v.src}`).join("; ") : ""}`,
     },
     {
-      текст: `записей в экспорте ${EXPECTED_RECORDS} (1881 годовых лент плюс ${EXPECTED_MEDIA_RECORDS} смежных)`,
+      текст:
+        `записей в экспорте ${EXPECTED_RECORDS} ` +
+        `(1881 годовых лент, ${EXPECTED_MEDIA_RECORDS} смежных, ${PAGE_RECORDS.length} поимённого списка страниц)`,
       ок: profs.length === EXPECTED_RECORDS,
-      факт: `${profs.length}; из них записей-страниц ${pageRecords.length}`,
+      факт: `${profs.length}; из них записей-страниц ${pageRecords.length} (смежных лент ${mediaPageRecords.length}, поимённого списка ${listedPageRecords.length})`,
     },
     {
-      текст: `новых записей из смежных лент в диапазоне ${MEDIA_RECORDS_MIN}–${MEDIA_RECORDS_MAX}`,
-      ок: pageRecords.length >= MEDIA_RECORDS_MIN && pageRecords.length <= MEDIA_RECORDS_MAX,
-      факт: `${pageRecords.length}`,
+      // Предмет контроля сузился: до 24.09.2026 «записи-страницы» и «записи
+      // смежных лент» были одним множеством, теперь к ним добавились записи
+      // поимённого списка страниц, у которых ленты нет вовсе. Диапазон
+      // по-прежнему про смежные ленты, поэтому считается схема ленты M.
+      текст: `новых записей из смежных лент (схема ленты M) в диапазоне ${MEDIA_RECORDS_MIN}–${MEDIA_RECORDS_MAX}`,
+      ок:
+        mediaPageRecords.length >= MEDIA_RECORDS_MIN &&
+        mediaPageRecords.length <= MEDIA_RECORDS_MAX,
+      факт: `${mediaPageRecords.length}`,
+    },
+    {
+      текст: `записей из поимённого списка страниц (схема ленты P) ровно ${PAGE_RECORDS.length}`,
+      ок: listedPageRecords.length === PAGE_RECORDS.length,
+      факт:
+        `${listedPageRecords.length}: ` + (listedPageRecords.map(profKeyShort).join(", ") || "нет"),
     },
     {
       текст: "ни одна страница не стала записью дважды: адреса article-источников уникальны",
@@ -6532,6 +7142,52 @@ function runProfile(records: OutputRecord[], exportSha: string, reportSha: strin
           ? `таблиц ${round3.таблицы.length}, расхождений 0`
           : round3.зеркалоРазошлось.join(", "),
     },
+    // ── контроли поимённых списков страниц (решение Антона 24.09.2026) ──
+    // Прогон до этого места не дошёл бы, если бы какой-то ключ дал не то:
+    // промахи копятся в runErrors и роняют разбор до записи файлов. Контроли
+    // ниже печатают факт по каждому ключу — чтобы «сошлось» читалось числами, а
+    // не отсутствием ошибки.
+    {
+      текст: `каждый ключ PAGE_RECORDS дал запись с объявленными заголовком, датой, фото и документами (${PAGE_RECORDS.length})`,
+      ок: pageRecordFact.every((f) => f.промахи.length === 0),
+      факт: pageRecordFact
+        .map((f) =>
+          f.промахи.length === 0
+            ? `${f.страница}: фото ${f.фото}, док ${f.документов}`
+            : `${f.страница}: ${f.промахи.join("; ")}`,
+        )
+        .join(" | "),
+    },
+    {
+      текст: `каждый ключ PAGE_SYNONYMS дал объявленное число меток, Источник переписан только там, где метка встала`,
+      ок: synonymFact.every((f) => f.ок),
+      факт: synonymFact
+        .map((f) => `${f.страница}: меток ${f.меток}/${f.ждём}, ${f.источник}`)
+        .join(" | "),
+    },
+    {
+      текст: `каждый ключ PAGE_GALLERIES дал объявленные кадры, дубли и прирост (дописано ${galleryFact.reduce((n, f) => n + f.добавлено, 0)} кадров)`,
+      ок: galleryFact.every((f) => f.ок),
+      факт: galleryFact
+        .map(
+          (f) =>
+            `${f.страница}: кадров ${f.кадров}/${f.ждёмКадров}, дублей ${f.дублей}/${f.ждёмДублей}, +${f.добавлено}/${f.ждёмДобавлено} (галерея ${f.галереяДо} → ${f.галереяПосле})`,
+        )
+        .join(" | "),
+    },
+    {
+      текст: `роспись тринадцати страниц замкнута: ${PAGE_RECORDS.length} записей + ${PAGE_SYNONYMS.length} синонимов + ${PAGE_GALLERIES.length} галерей + ${PAGES_UNTOUCHED.length} нетронутых = ${UNEXPLAINED_PAGES_TOTAL}`,
+      ок: PAGE_FATES.size === UNEXPLAINED_PAGES_TOTAL,
+      факт: `${PAGE_FATES.size}`,
+    },
+    {
+      текст:
+        "необъяснёнными остались ровно синонимы и нетронутые: восемь прочитанных страниц из списка ушли",
+      ок:
+        unexplainedLeft.length === ожидаемыйОстаток.length &&
+        unexplainedLeft.every((rel) => ожидаемыйОстаток.includes(rel)),
+      факт: `${unexplainedLeft.length}: ${unexplainedLeft.join(", ") || "нет"} (ожидалось ${ожидаемыйОстаток.length}: ${ожидаемыйОстаток.join(", ")})`,
+    },
   ];
 
   mkdirSync(PROFILE_DIR, { recursive: true });
@@ -6547,7 +7203,11 @@ function runProfile(records: OutputRecord[], exportSha: string, reportSha: strin
       records,
       controls,
       videos: videoChecks,
-      unexplained13: profUnexplainedPages(report.unreferencedArticles),
+      // Замеряются все тринадцать по росписи, а не только оставшиеся в списке
+      // необъяснённых: восемь из них разбор теперь читает и из списка они ушли.
+      unexplained13: profUnexplainedPages(
+        [...PAGE_FATES.keys()].sort((x, y) => x.localeCompare(y)),
+      ),
       round3,
     }),
     "utf-8",
@@ -8032,6 +8692,114 @@ function runSelfTest(): number {
           ) && out.includes('href="http://tennisfed.spb.ru/2023/0630">на обычную</a>'),
       };
     })(),
+    // ── поимённые списки страниц (решение Антона 24.09.2026) ──
+    (() => {
+      // Страница-синоним записью не стала и в allRecordPages её нет: метку даёт
+      // отдельные ворота. Отрицательный контроль рядом — страница, которой ни в
+      // одном списке нет, остаётся адресом легаси.
+      const savedNew = newRecordPages;
+      const savedAll = allRecordPages;
+      newRecordPages = new Set<string>();
+      allRecordPages = new Set<string>();
+      const синоним = PAGE_SYNONYMS[0].страница.replace(/\.html$/, "");
+      const input =
+        `<p><a href="http://tennisfed.spb.ru/${синоним}">Отчёт о турнире</a> и ` +
+        '<a href="http://tennisfed.spb.ru/2019/0101">на постороннюю</a></p>';
+      const out = sanitizeBody(input, { baseUrl: pageUrl, silent: true });
+      newRecordPages = savedNew;
+      allRecordPages = savedAll;
+      return {
+        name: "списки: ссылка на страницу-синоним становится меткой на её адрес, посторонняя — нет",
+        input,
+        output: out,
+        ok:
+          out.includes(`href="${markerHref(`${SITE}/${синоним}`)}">Отчёт о турнире</a>`) &&
+          out.includes('href="http://tennisfed.spb.ru/2019/0101">на постороннюю</a>'),
+      };
+    })(),
+    (() => {
+      // Кадр, совпавший по sha256 с фото записи, не дублируется; совпавший с
+      // другим кадром той же галереи — тоже; порядок страницы сохраняется.
+      const свои = new Set(["hash-обложки", "hash-кадра-записи"]);
+      const кадры = [
+        { путь: "a.jpg", sha: "hash-новый-1" },
+        { путь: "b.jpg", sha: "hash-кадра-записи" },
+        { путь: "c.jpg", sha: "hash-новый-2" },
+        { путь: "d.jpg", sha: "hash-новый-1" },
+        { путь: "e.jpg", sha: "hash-обложки" },
+      ];
+      const план = galleryAppendPlan(свои, кадры);
+      return {
+        name: "списки: кадр-дубль по sha256 (с фото записи и внутри галереи) не дописывается, порядок сохранён",
+        input: JSON.stringify({ свои: [...свои], кадры }),
+        output: JSON.stringify(план),
+        ok:
+          JSON.stringify(план.добавить) === JSON.stringify(["a.jpg", "c.jpg"]) &&
+          план.дублей === 2 &&
+          план.внутренних === 1,
+      };
+    })(),
+    (() => {
+      // Пустая галерея и полностью дублирующая: ни одного кадра, но и ни одной
+      // ошибки — решение принимает вызывающий по числам.
+      const план1 = galleryAppendPlan(new Set(["x"]), []);
+      const план2 = galleryAppendPlan(new Set(["x"]), [{ путь: "p.jpg", sha: "x" }]);
+      return {
+        name: "списки: галерея без кадров и галерея целиком из дублей дают пустой прирост",
+        input: JSON.stringify([[], [{ путь: "p.jpg", sha: "x" }]]),
+        output: JSON.stringify([план1, план2]),
+        ok:
+          план1.добавить.length === 0 &&
+          план1.дублей === 0 &&
+          план2.добавить.length === 0 &&
+          план2.дублей === 1,
+      };
+    })(),
+    (() => {
+      // Ключ PAGE_RECORDS, давший не то: каждое расхождение названо отдельно.
+      const entry = PAGE_RECORDS[0];
+      const годная: OutputRecord = {
+        Заголовок: entry.заголовок,
+        Дата: entry.дата,
+        ТекстHTML: "<p>тело</p>",
+        Обложка: "download\\a.jpg",
+        Документы: ["download\\d.xls"],
+        Источник: `${SITE}/2016/0901`,
+      };
+      const порченая: OutputRecord = {
+        ...годная,
+        Заголовок: "Чужой заголовок",
+        Дата: "2016-08-24",
+        Галерея: ["download\\b.jpg"],
+        Документы: [],
+      };
+      const ок = pageRecordMismatches(entry, годная);
+      const промахи = pageRecordMismatches(entry, порченая);
+      return {
+        name: "списки: расхождения ключа PAGE_RECORDS названы поимённо (заголовок, дата, фото, документы)",
+        input: JSON.stringify({ ждём: entry, порченая }),
+        output: JSON.stringify({ годная: ок, порченая: промахи }),
+        ok:
+          ок.length === 0 &&
+          промахи.length === 4 &&
+          промахи.some((m) => m.startsWith("заголовок")) &&
+          промахи.some((m) => m.startsWith("дата")) &&
+          промахи.some((m) => m === "фото 2, ожидалось 1") &&
+          промахи.some((m) => m === "документов 0, ожидалось 1"),
+      };
+    })(),
+    (() => {
+      // Роспись тринадцати: замкнута и без повторов. Кейс сторожит сами списки,
+      // а не код — ключ, попавший в два списка, схлопнулся бы в карте молча.
+      const ключей =
+        PAGE_RECORDS.length + PAGE_SYNONYMS.length + PAGE_GALLERIES.length + PAGES_UNTOUCHED.length;
+      return {
+        name: `списки: роспись страниц замкнута на ${UNEXPLAINED_PAGES_TOTAL} и без повторов`,
+        input: `ключей ${ключей}`,
+        output: `различных ${PAGE_FATES.size}, ожидалось ${UNEXPLAINED_PAGES_TOTAL}`,
+        ok: ключей === UNEXPLAINED_PAGES_TOTAL && PAGE_FATES.size === UNEXPLAINED_PAGES_TOTAL,
+      };
+    })(),
     (() => {
       const input =
         '<p>до <a href="http://www.tennisfed.spb.ru/festvest.html">ФЕСТИВАЛЬ</a> и ' +
@@ -8669,7 +9437,21 @@ function main(): void {
   // Строки трёх смежных лент — только разметка строк, страницы не грузятся.
   // Читаются после сброса: их счётчики принадлежат итоговому прогону.
   const mediaRows = collectMediaRows();
-  newRecordPages = new Set(mediaRows.map((r) => r.relFile).filter((rel) => !bodyPages.has(rel)));
+  // Страницы поимённого списка становятся записями наравне со страницами
+  // смежных лент, поэтому входят в те же множества и до прохода 2: ссылка на
+  // любую из них в любом теле становится меткой общим механизмом. Страница,
+  // уже ставшая телом записи годовой ленты, записью списка быть не может —
+  // иначе одна страница стала бы записью дважды.
+  const listedPages = PAGE_RECORDS.map((p) => p.страница);
+  for (const rel of listedPages) {
+    if (bodyPages.has(rel)) {
+      runErrors.push(`PAGE_RECORDS ${rel}: страница уже стала телом записи годовой ленты`);
+    }
+  }
+  newRecordPages = new Set([
+    ...mediaRows.map((r) => r.relFile).filter((rel) => !bodyPages.has(rel)),
+    ...listedPages,
+  ]);
   allRecordPages = new Set([...bodyPages, ...newRecordPages]);
 
   // ── проход 2, итоговый ──
@@ -8722,6 +9504,22 @@ function main(): void {
     });
   }
 
+  // Записи поимённого списка — в конец, как записи смежных лент: ранги
+  // `created_at` внутри дня и разрешение коллизий слагов мигратор считает по
+  // порядку выгрузки, и дописывание в конец не двигает ни одного соседа.
+  for (const entry of PAGE_RECORDS) {
+    const rec = buildPageRecord(entry);
+    if (rec) collected.push({ file: entry.страница, rec });
+  }
+
+  // Кадры галерей читаются здесь, до listUnreferencedArticles: страница,
+  // прочитанная разбором, объяснена — и из списка необъяснённых уходит.
+  // Дописываются они после дедупликации, когда запись-адресат уже известна
+  // окончательно.
+  const galleryFramesByPage = new Map<string, GalleryFrame[]>(
+    PAGE_GALLERIES.map((g) => [g.страница, galleryFrames(g.страница)]),
+  );
+
   listUnreferencedArticles();
 
   // Якорь ленты в `Источник` записи-цели. Метка несёт адрес
@@ -8755,6 +9553,148 @@ function main(): void {
   failOnRunErrors("проход 2");
 
   const records = dedupeRecords(collected);
+
+  // Запись-цель поимённого списка: ровно одна по паре «заголовок + дата».
+  // Дедупликация уже прошла, поэтому пара однозначна (одноимённые с разными
+  // телами печатаются в отчёт, и ни одна из целей в них не входит).
+  const normTitle = (t: string) => t.trim().replace(/\s+/g, " ");
+  const findTarget = (ключ: string, заголовок: string, дата: string): OutputRecord | null => {
+    const попадания = records.filter(
+      (r) => normTitle(r["Заголовок"]) === normTitle(заголовок) && r["Дата"] === дата,
+    );
+    if (попадания.length !== 1) {
+      runErrors.push(
+        `${ключ}: «${заголовок}» (${дата}) совпало с ${попадания.length} записями, ожидалась ровно одна`,
+      );
+      return null;
+    }
+    return попадания[0];
+  };
+
+  // ── страницы-синонимы: адрес страницы уходит в `Источник` оригинала ──
+  // Правило то же, что у `inheritsSourceOnDedupe`: у оригинала адрес файла
+  // ленты без якоря (одну запись он не адресует), у синонима — адрес отдельной
+  // article-страницы. Без этого метка не разрешилась бы и стала простым
+  // текстом. Ключ, на который меток не встало, `Источник` не трогает.
+  for (const entry of PAGE_SYNONYMS) {
+    // Счёт берётся по готовым телам выгрузки, а не по срабатыванию ворот:
+    // метка, поставленная в тело записи, которую потом схлопнула
+    // дедупликация, в выгрузку не попадёт, и `Источник` ей отдавать не за что.
+    const факт = records.reduce(
+      (n, r) =>
+        n +
+        findMarkerSources(r["ТекстHTML"]).filter(
+          (src) => src === canonicalArticleUrl(entry.страница),
+        ).length,
+      0,
+    );
+    if (факт !== entry.меток) {
+      runErrors.push(
+        `PAGE_SYNONYMS ${entry.страница}: меток в телах ${факт}, ожидалось ${entry.меток}`,
+      );
+    }
+    if (факт > 0 !== referencedSynonyms.has(entry.страница)) {
+      runErrors.push(
+        `PAGE_SYNONYMS ${entry.страница}: ворота метки и тела выгрузки разошлись ` +
+          `(ворота ${referencedSynonyms.has(entry.страница) ? "сработали" : "не сработали"}, меток в телах ${факт})`,
+      );
+      continue;
+    }
+    const target = факт === 0 ? null : findTarget("PAGE_SYNONYMS", entry.заголовок, entry.дата);
+    if (!target) {
+      report.pageSynonyms.push(
+        `${entry.страница}: меток ${факт} — «${entry.заголовок}» (${entry.дата}), Источник не тронут`,
+      );
+      pageListFacts.синонимы.push({
+        страница: entry.страница,
+        меток: факт,
+        ждём: entry.меток,
+        источник: "Источник не тронут",
+        ок: факт === entry.меток,
+      });
+      continue;
+    }
+    if (target["Источник"] !== entry.источник) {
+      runErrors.push(
+        `PAGE_SYNONYMS ${entry.страница}: у записи-оригинала Источник ${target["Источник"]}, ожидался ${entry.источник}`,
+      );
+      continue;
+    }
+    target["Источник"] = canonicalArticleUrl(entry.страница);
+    report.pageSynonyms.push(
+      `${entry.страница}: меток ${факт} — «${target["Заголовок"]}» (${target["Дата"]}): ` +
+        `${entry.источник} → ${target["Источник"]}`,
+    );
+    pageListFacts.синонимы.push({
+      страница: entry.страница,
+      меток: факт,
+      ждём: entry.меток,
+      источник: `${entry.источник} → ${target["Источник"]}`,
+      ок: факт === entry.меток,
+    });
+  }
+
+  // ── галереи: кадры в конец галереи записи-адресата ──
+  for (const entry of PAGE_GALLERIES) {
+    const кадры = galleryFramesByPage.get(entry.страница) ?? [];
+    const target = findTarget("PAGE_GALLERIES", entry.заголовок, entry.дата);
+    if (!target) continue;
+    const свои = new Set(
+      [target["Обложка"], ...(target["Галерея"] ?? [])]
+        .filter((p): p is string => p !== undefined)
+        .map(sha256OfExportPath),
+    );
+    const было = target["Галерея"]?.length ?? 0;
+    const план = galleryAppendPlan(свои, кадры);
+    if (
+      кадры.length !== entry.кадров ||
+      план.дублей !== entry.дублей ||
+      план.добавить.length !== entry.добавлено
+    ) {
+      runErrors.push(
+        `PAGE_GALLERIES ${entry.страница}: кадров ${кадры.length} (ожидалось ${entry.кадров}), ` +
+          `дублей ${план.дублей} (ожидалось ${entry.дублей}), ` +
+          `к добавлению ${план.добавить.length} (ожидалось ${entry.добавлено})`,
+      );
+      continue;
+    }
+    target["Галерея"] = [...(target["Галерея"] ?? []), ...план.добавить];
+    pageListFacts.галереи.push({
+      страница: entry.страница,
+      кадров: кадры.length,
+      ждёмКадров: entry.кадров,
+      дублей: план.дублей,
+      ждёмДублей: entry.дублей,
+      добавлено: план.добавить.length,
+      ждёмДобавлено: entry.добавлено,
+      галереяДо: было,
+      галереяПосле: target["Галерея"].length,
+      ок: true,
+    });
+    report.pageGalleries.push(
+      `${entry.страница} → «${target["Заголовок"]}» (${target["Дата"]}): кадров ${кадры.length}, ` +
+        `дублей по sha256 ${план.дублей}, внутренних ${план.внутренних}, ` +
+        `дописано ${план.добавить.length}, галерея ${было} → ${target["Галерея"].length}`,
+    );
+  }
+
+  // Роспись тринадцати обязана быть замкнутой и без повторов: два ключа на одну
+  // страницу схлопнулись бы в карте молча, а лишний или недостающий ключ увёл
+  // бы судьбу страницы из отчёта.
+  const росписьКлючей =
+    PAGE_RECORDS.length + PAGE_SYNONYMS.length + PAGE_GALLERIES.length + PAGES_UNTOUCHED.length;
+  if (PAGE_FATES.size !== росписьКлючей) {
+    runErrors.push(
+      `роспись страниц: ключей ${росписьКлючей}, различных ${PAGE_FATES.size} — есть повтор`,
+    );
+  }
+  if (PAGE_FATES.size !== UNEXPLAINED_PAGES_TOTAL) {
+    runErrors.push(
+      `роспись страниц: ${PAGE_FATES.size} страниц, ожидалось ${UNEXPLAINED_PAGES_TOTAL}`,
+    );
+  }
+
+  failOnRunErrors("поимённые списки страниц");
 
   mkdirSync(OUT_DIR, { recursive: true });
   const json = JSON.stringify(records, null, 2) + "\n";
