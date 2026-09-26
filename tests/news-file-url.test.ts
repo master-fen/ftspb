@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { describe, expect, test } from "bun:test";
 import {
   NEWS_FILE_PREFIX,
@@ -129,5 +131,31 @@ describe("newsFileVerdict", () => {
   test("хотя бы одна живая новость среди привязанных — перенаправление", () => {
     const v = newsFileVerdict([row({ newsDeleted: true }), row()]);
     expect(v).toEqual({ ok: true, s3Key: KEY });
+  });
+});
+
+describe("файл новости не зависит от «в общем списке документов»", () => {
+  // Архивные документы мигратор пишет с in_library = false
+  // (scripts/archive-document-values.ts); открываться из новости они обязаны.
+  // Флаг не выбирается маршрутом и не входит в NewsFileRow — значит, решение
+  // от него не зависит. Проверяется по исходникам: выборку маршрута без базы
+  // не исполнить.
+  const root = path.resolve(import.meta.dir, "..");
+  for (const file of ["src/routes/news-file.$slug.$file.ts", "src/lib/news-file-url.ts"]) {
+    test(`${file} не читает inLibrary`, () => {
+      const source = fs.readFileSync(path.join(root, file), "utf-8");
+      expect(source.length).toBeGreaterThan(0);
+      expect(source.match(/inLibrary|in_library/g) ?? []).toEqual([]);
+    });
+  }
+
+  test("решение принимается по пяти полям, флага среди них нет", () => {
+    expect(Object.keys(row()).sort()).toEqual([
+      "documentDeleted",
+      "documentPublished",
+      "newsDeleted",
+      "newsPublished",
+      "s3Key",
+    ]);
   });
 });
