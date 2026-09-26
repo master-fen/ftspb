@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { getAdminDocument } from "@/lib/documents-server-fn";
 import { AdminBackLink } from "./-components/AdminBackLink";
+import { DocumentAttachedTo } from "./-components/DocumentAttachedTo";
 import { DocumentForm } from "./-components/DocumentForm";
 
 export const Route = createFileRoute("/admin/_authed/documents/$id")({
@@ -31,7 +32,10 @@ function AdminDocumentEdit() {
         ) : query.isPending ? (
           <p className="text-sm text-muted-foreground">Загрузка…</p>
         ) : (
-          <DocumentForm mode="edit" document={query.data} />
+          <div className="flex flex-col gap-6">
+            <DocumentForm mode="edit" document={query.data} />
+            <DocumentAttachedTo documentId={id} />
+          </div>
         )}
       </div>
     </div>

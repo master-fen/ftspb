@@ -4,7 +4,16 @@ import { document, newsDocument } from "@/db/schema";
 import { normalizeDocumentSlug } from "@/lib/document-slug";
 import type { SectionCategory } from "@/lib/section-category";
 import { requireSession } from "@/server/auth";
-import { EVENT_LINK, NEWS_LINK, type DocumentLink } from "@/server/document-links";
+import {
+  EVENT_LINK,
+  EVENT_PARENT,
+  NEWS_LINK,
+  NEWS_PARENT,
+  sortDocumentParents,
+  type DocumentLink,
+  type ParentOfDocument,
+  type DocumentParentSource,
+} from "@/server/document-links";
 import { resetNewsCache } from "@/server/news-cache";
 import { buildImageUrl } from "@/server/storage";
 
@@ -92,6 +101,53 @@ export async function getAdminDocument(id: string): Promise<DocumentRow> {
     throw new Error(`Документ не найден: ${id}`);
   }
   return row;
+}
+
+/** Строки одного вида родителей документа: связь соединяется с таблицей родителя. */
+async function listParentsOf(
+  database: NonNullable<typeof db>,
+  source: DocumentParentSource,
+  documentId: string,
+): Promise<ParentOfDocument[]> {
+  const { link } = source;
+  const rows = await database
+    .select({
+      id: source.id,
+      title: source.title,
+      date: source.date,
+      datePrecision: source.datePrecision ?? sql<null>`null`,
+      status: source.status,
+      deletedAt: source.deletedAt,
+    })
+    .from(link.table)
+    .innerJoin(source.table, eq(link.parentColumn, source.id))
+    .where(eq(link.documentColumn, documentId));
+
+  return rows.map((row) => ({
+    kind: source.kind,
+    id: row.id as string,
+    title: row.title as string,
+    date: row.date as string,
+    datePrecision: row.datePrecision as ParentOfDocument["datePrecision"],
+    status: row.status as ParentOfDocument["status"],
+    deleted: row.deletedAt !== null,
+  }));
+}
+
+/**
+ * «Приложен к» на странице документа в админке: новости и события, к
+ * которым привязан документ, включая мягко удалённые — с пометкой (почему —
+ * у поля `deleted` в src/server/document-links.ts).
+ */
+export async function getDocumentParents(documentId: string): Promise<ParentOfDocument[]> {
+  await requireSession();
+  const database = requireDb();
+
+  const [newsParents, eventParents] = await Promise.all([
+    listParentsOf(database, NEWS_PARENT, documentId),
+    listParentsOf(database, EVENT_PARENT, documentId),
+  ]);
+  return sortDocumentParents([...newsParents, ...eventParents]);
 }
 
 export type CreateDocumentInput = {

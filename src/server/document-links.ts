@@ -1,5 +1,6 @@
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
-import { eventDocument, newsDocument } from "@/db/schema";
+import { event, eventDocument, news, newsDocument } from "@/db/schema";
+import type { DatePrecision } from "@/lib/event-date";
 
 /**
  * Связи «документ — родитель»: news_document и event_document. Устроены
@@ -49,3 +50,82 @@ export const EVENT_LINK: DocumentLink = {
   parentKey: "eventId",
   parentLabel: "этого события",
 };
+
+/**
+ * Родители документа — для блока «Приложен к» на странице документа в
+ * админке. Описание источника — чтобы запрос в src/server/documents.ts был
+ * написан один раз, а соответствие «связь → таблица родителя» сторожил тест
+ * без БД (tests/document-link.test.ts): связь новости, соединённая с
+ * таблицей событий, дала бы пустой список, а не ошибку.
+ */
+export type DocumentParentKind = "news" | "event";
+
+export type DocumentParentSource = {
+  kind: DocumentParentKind;
+  link: DocumentLink;
+  table: typeof news | typeof event;
+  id: AnyPgColumn;
+  title: AnyPgColumn;
+  /** `published_at` новости или якорь периода события (`starts_on`). */
+  date: AnyPgColumn;
+  /** Точность даты события; у новости её нет — дата всегда день. */
+  datePrecision: AnyPgColumn | null;
+  status: AnyPgColumn;
+  deletedAt: AnyPgColumn;
+};
+
+export const NEWS_PARENT: DocumentParentSource = {
+  kind: "news",
+  link: NEWS_LINK,
+  table: news,
+  id: news.id,
+  title: news.title,
+  date: news.publishedAt,
+  datePrecision: null,
+  status: news.status,
+  deletedAt: news.deletedAt,
+};
+
+export const EVENT_PARENT: DocumentParentSource = {
+  kind: "event",
+  link: EVENT_LINK,
+  table: event,
+  id: event.id,
+  title: event.title,
+  date: event.startsOn,
+  datePrecision: event.datePrecision,
+  status: event.status,
+  deletedAt: event.deletedAt,
+};
+
+export type ParentOfDocument = {
+  kind: DocumentParentKind;
+  id: string;
+  title: string;
+  /** `ГГГГ-ММ-ДД`. */
+  date: string;
+  datePrecision: DatePrecision | null;
+  status: "draft" | "published";
+  /**
+   * Мягко удалённый родитель показывается с пометкой, а не прячется: связь
+   * при мягком удалении остаётся в базе, и «Восстановить» в списке новостей
+   * или событий вернёт документ на место. Спрятать его — значило бы написать
+   * «ни к чему не приложен» о документе, который вернётся сам.
+   */
+  deleted: boolean;
+};
+
+/**
+ * Порядок блока: сначала живые родители, затем удалённые; внутри — свежие
+ * даты выше, при равной дате — по заголовку, затем по id (порядок не
+ * зависит от выдачи базы).
+ */
+export function sortDocumentParents(parents: readonly ParentOfDocument[]): ParentOfDocument[] {
+  return [...parents].sort(
+    (a, b) =>
+      Number(a.deleted) - Number(b.deleted) ||
+      b.date.localeCompare(a.date) ||
+      a.title.localeCompare(b.title, "ru") ||
+      a.id.localeCompare(b.id),
+  );
+}
