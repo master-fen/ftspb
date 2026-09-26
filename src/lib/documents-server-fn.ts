@@ -9,6 +9,7 @@ import {
   detachDocumentFromEvent as detachDocumentFromEventImpl,
   detachDocumentFromNews as detachDocumentFromNewsImpl,
   getAdminDocument as getAdminDocumentImpl,
+  getDocumentParents as getDocumentParentsImpl,
   getEventDocuments as getEventDocumentsImpl,
   getNewsDocuments as getNewsDocumentsImpl,
   getPublishedDocumentBySlug as getPublishedDocumentBySlugImpl,
@@ -53,6 +54,11 @@ export const getAdminDocument = createServerFn({ method: "GET" })
     const row = await getAdminDocumentImpl(data);
     return { ...row, url: buildImageUrl(row.s3Key) };
   });
+
+/** «Приложен к»: сессию проверяет getDocumentParents в src/server/documents.ts. */
+export const getDocumentParents = createServerFn({ method: "GET" })
+  .validator((id: string) => id)
+  .handler(({ data }) => getDocumentParentsImpl(data));
 
 export const createDocument = createServerFn({ method: "POST" })
   .validator(

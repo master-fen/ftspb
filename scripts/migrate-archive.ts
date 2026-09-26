@@ -46,6 +46,7 @@ import {
   writeRecordAtomically,
 } from "./archive-record-write";
 import { newsFileHref } from "../src/lib/news-file-url";
+import { archiveDocumentValues } from "./archive-document-values";
 import { type ImageSize, readImageSizes, sizeOf } from "./archive-image-sizes";
 import { type Section, matchMock } from "./archive-mock-match";
 
@@ -605,23 +606,12 @@ async function writeRecordRows(
     );
   }
 
+  // Архивный документ живёт внутри своей новости и в общий список не идёт —
+  // туда его вносит редактор галочкой (scripts/archive-document-values.ts).
   for (const item of plan.documents) {
     const [docRow] = await tx
       .insert(document)
-      .values({
-        title: plan.title,
-        s3Key: item.s3Key,
-        fileName: path.basename(item.s3Key),
-        mimeType: item.mimeType,
-        sizeBytes: item.sizeBytes,
-        section: plan.section,
-        documentDate: plan.publishedAt,
-        // Действующие документы архива: скрыты не статусом, а отсутствием
-        // страницы-библиотеки (см. scripts/backfill-document-fields.ts —
-        // тот же смысл для уже существующих строк).
-        status: "published",
-        inLibrary: true,
-      })
+      .values(archiveDocumentValues(plan, item))
       .returning({ id: document.id });
     await tx
       .insert(newsDocument)
@@ -852,17 +842,7 @@ async function replaceAllApply(plans: Plan[]): Promise<void> {
       for (const item of plan.documents) {
         const [docRow] = await tx
           .insert(document)
-          .values({
-            title: plan.title,
-            s3Key: item.s3Key,
-            fileName: path.basename(item.s3Key),
-            mimeType: item.mimeType,
-            sizeBytes: item.sizeBytes,
-            section: plan.section,
-            documentDate: plan.publishedAt,
-            status: "published",
-            inLibrary: true,
-          })
+          .values(archiveDocumentValues(plan, item))
           .returning({ id: document.id });
         await tx
           .insert(newsDocument)
@@ -1064,6 +1044,7 @@ async function main() {
   let galleryPhotoCount = 0;
   let droppedHttpCount = 0;
   let documentCount = 0;
+  let libraryDocumentCount = 0;
   let mockNotFoundCount = 0;
 
   function noteAndPrintPlan(plan: Plan): void {
@@ -1083,6 +1064,10 @@ async function main() {
     }
     galleryPhotoCount += plan.gallery.length;
     documentCount += plan.documents.length;
+    // Считается по тем же значениям, что уйдут в базу, а не по константе.
+    libraryDocumentCount += plan.documents.filter(
+      (item) => archiveDocumentValues(plan, item).inLibrary !== false,
+    ).length;
 
     console.log(
       `[plan] ${plan.slug}: section=${plan.section ?? "null"} featured=${plan.featured}` +
@@ -1109,7 +1094,10 @@ async function main() {
     console.log(
       `Фото в галереях: ${galleryPhotoCount}, http-ссылок пропущено: ${droppedHttpCount}`,
     );
-    console.log(`Документов: ${documentCount}`);
+    console.log(
+      `${dryRun ? "Документов к добавлению" : "Документов записано"}: ${documentCount}, ` +
+        `из них в общий список: ${libraryDocumentCount}`,
+    );
     console.log(
       `Меток заменено: ${markersReplaced}, снято (записи нет): ${markersDropped.length}` +
         (markersDropped.length ? ` — ${markersDropped.join("; ")}` : ""),
