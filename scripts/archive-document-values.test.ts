@@ -38,6 +38,7 @@ describe("архивные документы — вне общего списк
   test("в мигратор не вписано своё значение inLibrary", () => {
     // Перекрытие вида { ...archiveDocumentValues(…), inLibrary: true } или
     // отдельный update после вставки.
-    expect(migrator.match(/inLibrary|in_library/g) ?? []).toEqual([]);
+    // Чтение (счётчик сухого прогона) допустимо, запись — нет.
+    expect(migrator.match(/inLibrary\s*(:|=(?!=))|in_library/g) ?? []).toEqual([]);
   });
 });
