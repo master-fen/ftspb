@@ -17,14 +17,14 @@
 | `bun run format`          | `prettier --write .`                 |
 | `bun run charter:check`   | сверка выгрузки Устава с PDF         |
 
-База на 25.09.2026 (после PR «четыре страницы — в новости, четыре галереи — в
-свои новости»):
-`bun test` — 715 тестов в 52 файлах, 3670 вызовов `expect()`, 0 падений. Из них
-в `scripts/` — 269 тестов в тринадцати файлах: `archive-image-rule` 16,
-`archive-markers` 26, `archive-migration-rules` 63, `archive-record-write` 24,
-`archive-reset-rules` 14, `bun-entry-size` 21, `css-extract` 19,
-`css-rule-forms` 11, `parse-archive-node` 2, `snapshot-align` 10,
-`snapshot-compare` 11, `snapshot-locate` 25, `ssr-snapshot` 27. `bun run lint`
+База на 26.09.2026 (после PR «документы архива — вне общего списка»):
+`bun test` — 730 тестов в 53 файлах, 3697 вызовов `expect()`, 0 падений. Из них
+в `scripts/` — 272 теста в четырнадцати файлах: `archive-document-values` 3,
+`archive-image-rule` 16, `archive-markers` 26, `archive-migration-rules` 63,
+`archive-record-write` 24, `archive-reset-rules` 14, `bun-entry-size` 21,
+`css-extract` 19, `css-rule-forms` 11, `parse-archive-node` 2,
+`snapshot-align` 10, `snapshot-compare` 11, `snapshot-locate` 25,
+`ssr-snapshot` 27. `bun run lint`
 — 0 ошибок, 6 предупреждений `react-refresh/only-export-components` в
 `src/components/ui/` (`badge.tsx`, `button.tsx`, `form.tsx`,
 `navigation-menu.tsx`, `sidebar.tsx`, `toggle.tsx`). Lint сравнивается списком
@@ -174,6 +174,11 @@
   пропускаемые, предохранитель `--replace-all`, решение о заливке файла,
   разрешение коллизий слагов. Покрыт
   `scripts/archive-migration-rules.test.ts`.
+- **`scripts/archive-document-values.ts`** — значения строки `document` для
+  архивного документа, одно место на оба пути вставки мигратора;
+  `in_library = false`. Покрыт `scripts/archive-document-values.test.ts`,
+  который заодно проверяет по исходнику, что обе вставки берут значения
+  отсюда.
 - **`scripts/archive-record-write.ts`** — порядок применения одной записи
   (все объекты, затем одна транзакция), повторы при сбое хранилища и текст
   сообщения об обрыве. Операции подставляются вызывающим, поэтому модуль
