@@ -29,6 +29,7 @@ const NOT_BUN_ENTRIES = new Set(["parse-archive.ts"]);
 
 /** Импортируемые модули: у них своя запись кэша, порог входа к ним не применим. */
 const MODULES = new Set([
+  "archive-document-values.ts",
   "archive-image-rule.ts",
   "archive-image-sizes.ts",
   "archive-markers.ts",
