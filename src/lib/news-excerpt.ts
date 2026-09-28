@@ -37,7 +37,7 @@ const NAMED_ENTITIES: Record<string, string> = {
   nbsp: " ",
 };
 
-function decodeEntities(text: string): string {
+export function decodeEntities(text: string): string {
   return text.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, code: string) => {
     const lower = code.toLowerCase();
     if (lower.startsWith("#")) {
@@ -51,7 +51,7 @@ function decodeEntities(text: string): string {
 }
 
 /** Пробелы (включая неразрывный и переводы строк) — в один, края обрезаны. */
-const collapse = (text: string): string => text.replace(/\s+/g, " ").trim();
+export const collapse = (text: string): string => text.replace(/\s+/g, " ").trim();
 
 /**
  * Текст тела для правила анонса. Обычный текст (без тегов) берётся целиком.
