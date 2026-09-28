@@ -42,6 +42,9 @@ export const Route = createFileRoute("/_site/news/")({
       { title: "Новости — Федерация тенниса Санкт-Петербурга" },
       {
         name: "description",
+        // Строка используется дословно в реестре поиска
+        // (src/lib/search-registry.ts, buildDescriptionSectionEntries) —
+        // при правке см. также этот файл.
         content:
           "Все новости Федерации тенниса Санкт-Петербурга: общая лента и официальные новости Федерации.",
       },

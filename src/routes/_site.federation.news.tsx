@@ -8,6 +8,8 @@ import { listNewsPage } from "@/lib/news-server-fn";
 import { parsePageParam } from "@/lib/news-paging";
 
 const TITLE = "Новости Федерации — Федерация тенниса Санкт-Петербурга";
+// Строка используется дословно в реестре поиска (src/lib/search-registry.ts,
+// buildDescriptionSectionEntries) — при правке см. также этот файл.
 const DESCRIPTION =
   "Официальные новости Федерации тенниса Санкт-Петербурга: решения Правления, собрания, события и объявления.";
 

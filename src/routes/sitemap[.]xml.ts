@@ -21,7 +21,12 @@ export const Route = createFileRoute("/sitemap.xml")({
         // SectionPagePlaceholder, постоянный noindex в head()) и /federation
         // (редирект на /federation/about с noindex) в карту не включаются;
         // возвращать запись вместе со снятием noindex страницы и флага hidden
-        // в src/data/mock.ts.
+        // в src/data/mock.ts. Правило синхронизации записано в CLAUDE.md.
+        //
+        // Реестр поиска (src/lib/search-registry.ts) перечисляет те же
+        // публичные страницы независимо (плюс /federation/antidoping —
+        // не заглушка, но носит noindex по другой причине) — при правке
+        // списка страниц см. также тот файл.
         const entries: SitemapEntry[] = [
           { path: "/", changefreq: "weekly", priority: "1.0" },
           { path: "/news", changefreq: "daily", priority: "0.9" },

@@ -9,6 +9,8 @@ import { listPublishedEventYears, listPublishedEventsByYear } from "@/lib/events
 import { todayInMoscow } from "@/lib/today-msk";
 
 const TITLE = "События — Федерация тенниса Санкт-Петербурга";
+// Строка используется дословно в реестре поиска (src/lib/search-registry.ts,
+// buildDescriptionSectionEntries) — при правке см. также этот файл.
 const DESCRIPTION =
   "Заседания Правления, общие собрания и другие события Федерации тенниса Санкт-Петербурга — даты, повестка и документы.";
 
