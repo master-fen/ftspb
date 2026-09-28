@@ -88,15 +88,9 @@ function AntidopingPage() {
         </h2>
         <div className="mt-4 ui-card ring-card-border bg-card-surface p-5 md:p-6">
           <p className="font-semibold">{ANTIDOPING_RESPONSIBLE.name}</p>
-          <p className="mt-1">{ANTIDOPING_RESPONSIBLE.position}</p>
           <p className="mt-3">
             <a href={`mailto:${ANTIDOPING_RESPONSIBLE.email}`} className="ui-link">
               {ANTIDOPING_RESPONSIBLE.email}
-            </a>
-          </p>
-          <p className="mt-1">
-            <a href={`tel:${ANTIDOPING_RESPONSIBLE.phoneHref}`} className="ui-link">
-              {ANTIDOPING_RESPONSIBLE.phone}
             </a>
           </p>
         </div>
