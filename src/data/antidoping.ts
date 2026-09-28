@@ -1,12 +1,9 @@
 /** Дата в готовом виде, выводится как есть — без разбора через Date. */
-export const ANTIDOPING_UPDATED_AT = "16.09.2026";
+export const ANTIDOPING_UPDATED_AT = "28.09.2026";
 
 export const ANTIDOPING_RESPONSIBLE = {
-  name: "Петров Пётр Петрович",
-  position: "заместитель председателя Федерации тенниса Санкт-Петербурга",
-  email: "antidoping@example.com",
-  phone: "+7 (000) 000-00-00",
-  phoneHref: "+70000000000",
+  name: "Чертова Диана Сергеевна",
+  email: "dchertova@mail.ru",
 };
 
 export type AntidopingLink = {
