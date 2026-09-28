@@ -1,11 +1,14 @@
 import { randomBytes } from "node:crypto";
-import { and, asc, desc, eq, ilike, inArray, isNull, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lt, ne, sql } from "drizzle-orm";
+import { ADMIN_PAGE_SIZE, clampPageToLast } from "@/lib/admin-list-paging";
 import { db } from "@/db/client";
 import { news, newsPhoto } from "@/db/schema";
 import { HttpError } from "@/lib/http-error";
 import { EXTENSION_BY_TYPE, type SupportedImageType } from "@/lib/image-validation";
+import { pageCountFor } from "@/lib/news-paging";
 import { normalizeVideoUrl } from "@/lib/news-video-url";
 import { parsePhotoSize } from "@/lib/photo-dimensions";
+import { matchesQuery, visibleText } from "@/lib/search-text";
 import { requireSession } from "@/server/auth";
 import { resetNewsCache } from "@/server/news-cache";
 import { sanitizeBody } from "@/server/sanitize";
@@ -50,22 +53,67 @@ async function isSlugAvailable(slug: string, excludeId?: string): Promise<boolea
 }
 
 export type ListAdminNewsParams = {
+  /** Уже обрезан и не пуст — нормализация (`normalizeSearchQuery`) на границе HTTP, в news-admin-server-fn.ts. */
   q?: string;
   section?: Section | "none";
   status?: Status;
   includeDeleted?: boolean;
+  year?: number;
+  source?: "archive" | "manual";
+  page: number;
 };
 
-export async function listAdminNews(
-  params: ListAdminNewsParams = {},
-): Promise<(NewsRow & { photoCount: number })[]> {
+/** Строка списка `/admin/news` — без `excerpt`/`body`: тяжёлые текстовые поля нужны только для поиска, на клиент не уходят. */
+export type AdminNewsListRow = Pick<
+  NewsRow,
+  | "id"
+  | "slug"
+  | "title"
+  | "publishedAt"
+  | "section"
+  | "status"
+  | "featured"
+  | "deletedAt"
+  | "source"
+>;
+
+export type AdminNewsListPage = {
+  items: (AdminNewsListRow & { photoCount: number })[];
+  total: number;
+  pageCount: number;
+  /** Номер отданной страницы после `clampPageToLast` — не обязательно `params.page`. */
+  page: number;
+};
+
+const ADMIN_NEWS_LIST_COLUMNS = {
+  id: news.id,
+  slug: news.slug,
+  title: news.title,
+  publishedAt: news.publishedAt,
+  section: news.section,
+  status: news.status,
+  featured: news.featured,
+  deletedAt: news.deletedAt,
+  source: news.source,
+};
+
+/**
+ * Поиск — не SQL `ILIKE`: регистронезависимость кириллицы не должна
+ * зависеть от локали подключения (`ILIKE`/`lower()` в Postgres читают
+ * `lc_ctype`, а локаль боевой базы неизвестна), поэтому сравнение — в JS
+ * (`matchesQuery`, `src/lib/search-text.ts`) по видимому тексту
+ * (`visibleText` — снимает теги и их атрибуты, декодирует сущности).
+ * `excerpt`/`body` довыбираются только когда есть `q` — тяжёлые текстовые
+ * поля незачем таскать, когда фильтра по тексту нет. Тай-брейк сортировки
+ * (`createdAt`, `id`) — тот же приём, что у публичной ленты
+ * (`docs/decisions.md`): без него одна новость при равной `publishedAt`
+ * может оказаться на двух страницах или ни на одной.
+ */
+export async function listAdminNews(params: ListAdminNewsParams): Promise<AdminNewsListPage> {
   await requireSession();
   const database = requireDb();
 
   const conditions = [];
-  if (params.q) {
-    conditions.push(ilike(news.title, `%${params.q}%`));
-  }
   if (params.section === "none") {
     conditions.push(isNull(news.section));
   } else if (params.section) {
@@ -77,14 +125,45 @@ export async function listAdminNews(
   if (!params.includeDeleted) {
     conditions.push(isNull(news.deletedAt));
   }
+  if (params.source === "archive") {
+    conditions.push(isNotNull(news.source));
+  } else if (params.source === "manual") {
+    conditions.push(isNull(news.source));
+  }
+  if (params.year) {
+    conditions.push(gte(news.publishedAt, `${params.year}-01-01`));
+    conditions.push(lt(news.publishedAt, `${params.year + 1}-01-01`));
+  }
+  const where = conditions.length ? and(...conditions) : undefined;
+  const orderBy = [desc(news.publishedAt), desc(news.createdAt), desc(news.id)] as const;
 
-  const rows = await database
-    .select()
-    .from(news)
-    .where(conditions.length ? and(...conditions) : undefined)
-    .orderBy(desc(news.publishedAt));
+  const q = params.q;
+  const filteredRows: AdminNewsListRow[] = q
+    ? (
+        await database
+          .select({ ...ADMIN_NEWS_LIST_COLUMNS, excerpt: news.excerpt, body: news.body })
+          .from(news)
+          .where(where)
+          .orderBy(...orderBy)
+      ).filter((row) =>
+        matchesQuery(
+          `${visibleText(row.title)} ${visibleText(row.excerpt)} ${visibleText(row.body)}`,
+          q,
+        ),
+      )
+    : await database
+        .select(ADMIN_NEWS_LIST_COLUMNS)
+        .from(news)
+        .where(where)
+        .orderBy(...orderBy);
 
-  const ids = rows.map((row) => row.id);
+  const total = filteredRows.length;
+  const pageCount = pageCountFor(total, ADMIN_PAGE_SIZE);
+  const page = clampPageToLast(params.page, pageCount);
+  const start = (page - 1) * ADMIN_PAGE_SIZE;
+  const pageRows = filteredRows.slice(start, start + ADMIN_PAGE_SIZE);
+
+  const ids = pageRows.map((row) => row.id);
   const counts = ids.length
     ? await database
         .select({ newsId: newsPhoto.newsId, count: sql<number>`count(*)::int` })
@@ -94,7 +173,19 @@ export async function listAdminNews(
     : [];
   const countByNewsId = new Map(counts.map((row) => [row.newsId, row.count]));
 
-  return rows.map((row) => ({ ...row, photoCount: countByNewsId.get(row.id) ?? 0 }));
+  const items = pageRows.map((row) => ({ ...row, photoCount: countByNewsId.get(row.id) ?? 0 }));
+
+  return { items, total, pageCount, page };
+}
+
+/** Годы публикации новостей по убыванию, без повторов — независимо от
+ * остальных фильтров (иначе список лет прыгал бы при вводе запроса). */
+export async function listAdminNewsYears(): Promise<number[]> {
+  await requireSession();
+  const database = requireDb();
+  const year = sql<number>`extract(year from ${news.publishedAt})::int`;
+  const rows = await database.selectDistinct({ year }).from(news).orderBy(desc(year));
+  return rows.map((row) => row.year);
 }
 
 export async function getAdminNews(id: string): Promise<{ news: NewsRow; photos: NewsPhotoRow[] }> {

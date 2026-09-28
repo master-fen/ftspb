@@ -1,7 +1,10 @@
 import { and, asc, desc, eq, isNull, ne, sql } from "drizzle-orm";
+import { ADMIN_PAGE_SIZE, clampPageToLast } from "@/lib/admin-list-paging";
 import { db } from "@/db/client";
 import { document, newsDocument } from "@/db/schema";
 import { normalizeDocumentSlug } from "@/lib/document-slug";
+import { pageCountFor } from "@/lib/news-paging";
+import { matchesQuery, visibleText } from "@/lib/search-text";
 import type { SectionCategory } from "@/lib/section-category";
 import { requireSession } from "@/server/auth";
 import {
@@ -60,18 +63,13 @@ async function normalizeAndCheckSlug(
   return normalized.slug;
 }
 
-export type ListAdminDocumentsParams = {
+type BaseDocumentFilterParams = {
   section?: Section | "none";
   status?: Status;
   includeDeleted?: boolean;
 };
 
-export async function listAdminDocuments(
-  params: ListAdminDocumentsParams = {},
-): Promise<DocumentRow[]> {
-  await requireSession();
-  const database = requireDb();
-
+function buildDocumentConditions(params: BaseDocumentFilterParams) {
   const conditions = [];
   if (params.section === "none") {
     conditions.push(isNull(document.section));
@@ -84,12 +82,74 @@ export async function listAdminDocuments(
   if (!params.includeDeleted) {
     conditions.push(isNull(document.deletedAt));
   }
+  return conditions;
+}
 
+/**
+ * Без пагинации и без поиска — потребитель: диалог «Прикрепить документ»
+ * (`DocumentAttachDialog`), у которого свой клиентский фильтр по названию и
+ * имени файла сразу по всему списку. Не совмещать с `listAdminDocuments` —
+ * контракты разные (там пагинация обязательна), общая часть — только
+ * построение условий (`buildDocumentConditions`).
+ */
+export async function listAllAdminDocuments(
+  params: BaseDocumentFilterParams = {},
+): Promise<DocumentRow[]> {
+  await requireSession();
+  const database = requireDb();
+  const conditions = buildDocumentConditions(params);
   return database
     .select()
     .from(document)
     .where(conditions.length ? and(...conditions) : undefined)
-    .orderBy(desc(document.documentDate));
+    .orderBy(desc(document.documentDate), desc(document.createdAt), desc(document.id));
+}
+
+export type ListAdminDocumentsParams = BaseDocumentFilterParams & {
+  /** Уже обрезан и не пуст — нормализация на границе HTTP, в documents-server-fn.ts. */
+  q?: string;
+  page: number;
+};
+
+export type AdminDocumentsListPage = {
+  items: DocumentRow[];
+  total: number;
+  pageCount: number;
+  /** Номер отданной страницы после `clampPageToLast` — не обязательно `params.page`. */
+  page: number;
+};
+
+/**
+ * Поиск по названию — JS-сравнение (`matchesQuery`), не SQL `ILIKE`: тот же
+ * повод, что у `listAdminNews` (локаль подключения боевой базы неизвестна).
+ * Тай-брейк сортировки (`createdAt`, `id`) — та же причина, что у новостей:
+ * без него пагинация по `documentDate` при повторах даты не гарантирует
+ * «ни одного повтора и пропуска» между страницами.
+ */
+export async function listAdminDocuments(
+  params: ListAdminDocumentsParams,
+): Promise<AdminDocumentsListPage> {
+  await requireSession();
+  const database = requireDb();
+
+  const conditions = buildDocumentConditions(params);
+
+  const rows = await database
+    .select()
+    .from(document)
+    .where(conditions.length ? and(...conditions) : undefined)
+    .orderBy(desc(document.documentDate), desc(document.createdAt), desc(document.id));
+
+  const q = params.q;
+  const filtered = q ? rows.filter((row) => matchesQuery(visibleText(row.title), q)) : rows;
+
+  const total = filtered.length;
+  const pageCount = pageCountFor(total, ADMIN_PAGE_SIZE);
+  const page = clampPageToLast(params.page, pageCount);
+  const start = (page - 1) * ADMIN_PAGE_SIZE;
+  const items = filtered.slice(start, start + ADMIN_PAGE_SIZE);
+
+  return { items, total, pageCount, page };
 }
 
 export async function getAdminDocument(id: string): Promise<DocumentRow> {

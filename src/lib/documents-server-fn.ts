@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { DOCUMENT_SLUG_PATTERN } from "@/lib/document-slug";
+import { normalizeSearchQuery } from "@/lib/search-text";
 import { SECTION_CATEGORIES } from "@/lib/section-category";
 import {
   attachDocumentToEvent as attachDocumentToEventImpl,
@@ -14,6 +15,7 @@ import {
   getNewsDocuments as getNewsDocumentsImpl,
   getPublishedDocumentBySlug as getPublishedDocumentBySlugImpl,
   listAdminDocuments as listAdminDocumentsImpl,
+  listAllAdminDocuments as listAllAdminDocumentsImpl,
   listPublishedLibraryDocuments as listPublishedLibraryDocumentsImpl,
   reorderEventDocuments as reorderEventDocumentsImpl,
   reorderNewsDocuments as reorderNewsDocumentsImpl,
@@ -39,12 +41,27 @@ const statusSchema = z.enum(["draft", "published"]);
 export const listAdminDocuments = createServerFn({ method: "GET" })
   .validator(
     z.object({
+      q: z.string().optional(),
+      section: z.union([sectionSchema, z.literal("none")]).optional(),
+      status: statusSchema.optional(),
+      page: z.number().int().min(1).max(100000),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const page = await listAdminDocumentsImpl({ ...data, q: normalizeSearchQuery(data.q) });
+    return { ...page, items: page.items.map((row) => ({ ...row, url: buildImageUrl(row.s3Key) })) };
+  });
+
+/** Без пагинации — только для DocumentAttachDialog, см. src/server/documents.ts. */
+export const listAllAdminDocuments = createServerFn({ method: "GET" })
+  .validator(
+    z.object({
       section: z.union([sectionSchema, z.literal("none")]).optional(),
       status: statusSchema.optional(),
     }),
   )
   .handler(async ({ data }) => {
-    const rows = await listAdminDocumentsImpl(data);
+    const rows = await listAllAdminDocumentsImpl(data);
     return rows.map((row) => ({ ...row, url: buildImageUrl(row.s3Key) }));
   });
 

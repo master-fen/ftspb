@@ -1,11 +1,14 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { MIN_ARCHIVE_YEAR } from "@/lib/admin-list-paging";
+import { normalizeSearchQuery } from "@/lib/search-text";
 import {
   checkSlugAvailable as checkSlugAvailableImpl,
   createNews as createNewsImpl,
   deletePhotoAndS3Object as deletePhotoAndS3ObjectImpl,
   getAdminNews as getAdminNewsImpl,
   listAdminNews as listAdminNewsImpl,
+  listAdminNewsYears as listAdminNewsYearsImpl,
   listNewsPhotos as listNewsPhotosImpl,
   reorderPhotos as reorderPhotosImpl,
   restoreNews as restoreNewsImpl,
@@ -27,6 +30,15 @@ import {
 const sectionSchema = z.enum(["federation", "referees"]);
 const statusSchema = z.enum(["draft", "published"]);
 
+/** Верхняя граница — от текущей даты на момент запроса, не при старте
+ *  процесса: сервер живёт дольше года между деплоями. */
+const yearSchema = z
+  .number()
+  .int()
+  .min(MIN_ARCHIVE_YEAR)
+  .refine((year) => year <= new Date().getFullYear() + 1, "Год вне допустимого диапазона")
+  .optional();
+
 export const listAdminNews = createServerFn({ method: "GET" })
   .validator(
     z.object({
@@ -34,9 +46,16 @@ export const listAdminNews = createServerFn({ method: "GET" })
       section: z.union([sectionSchema, z.literal("none")]).optional(),
       status: statusSchema.optional(),
       includeDeleted: z.boolean().optional(),
+      year: yearSchema,
+      source: z.enum(["archive", "manual"]).optional(),
+      page: z.number().int().min(1).max(100000),
     }),
   )
-  .handler(({ data }) => listAdminNewsImpl(data));
+  .handler(({ data }) => listAdminNewsImpl({ ...data, q: normalizeSearchQuery(data.q) }));
+
+export const listAdminNewsYears = createServerFn({ method: "GET" }).handler(() =>
+  listAdminNewsYearsImpl(),
+);
 
 export const getAdminNews = createServerFn({ method: "GET" })
   .validator((id: string) => id)

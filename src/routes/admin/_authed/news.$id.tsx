@@ -40,6 +40,7 @@ import { eventIdToFormValue, formValueToEventId } from "./-components/event-sele
 import { newsDocumentParent } from "./-components/document-parent";
 import { NewsPhotoGallery } from "./-components/NewsPhotoGallery";
 import { AdminBackLink } from "./-components/AdminBackLink";
+import { useRestoredListSearch } from "./-components/admin-list-search-memory";
 import { UnsavedChangesDialog } from "./-components/UnsavedChangesDialog";
 import { useUnsavedChangesBlocker } from "./-hooks/use-unsaved-changes-blocker";
 
@@ -91,10 +92,12 @@ function AdminNewsEdit() {
     queryFn: () => getAdminNews({ data: id }),
   });
 
+  const listSearch = useRestoredListSearch("admin-news-list-search");
+
   return (
     <div className="min-h-screen bg-muted/30 px-4 py-6 md:px-8">
       <div className="mx-auto max-w-6xl">
-        <AdminBackLink to="/admin/news" label="К списку новостей" />
+        <AdminBackLink to="/admin/news" label="К списку новостей" search={listSearch} />
         {query.isError ? (
           <div className="flex flex-col items-start gap-3 rounded-xl border bg-card p-6">
             <p className="text-sm text-destructive">Не удалось загрузить новость.</p>

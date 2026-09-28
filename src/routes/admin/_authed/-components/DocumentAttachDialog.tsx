@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { listAdminDocuments } from "@/lib/documents-server-fn";
+import { listAllAdminDocuments } from "@/lib/documents-server-fn";
 import { formatFileSize } from "@/lib/format-file-size";
 import { getFileExtension } from "@/lib/image-validation";
 import { documentsQueryKey, type DocumentParent } from "./document-parent";
@@ -50,7 +50,7 @@ export function DocumentAttachDialog({
 
   const documentsQuery = useQuery({
     queryKey: ["admin-documents-all"],
-    queryFn: () => listAdminDocuments({ data: {} }),
+    queryFn: () => listAllAdminDocuments({ data: {} }),
     enabled: open,
   });
 

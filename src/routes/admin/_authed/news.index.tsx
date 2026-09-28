@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, stripSearchParams, useNavigate } from "@tanstack/react-router";
+import { zodValidator } from "@tanstack/zod-adapter";
 import { toast } from "sonner";
 import { MoreHorizontal } from "lucide-react";
+import { z } from "zod";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,52 +41,126 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { listAdminNews, restoreNews, softDeleteNews } from "@/lib/news-admin-server-fn";
+import {
+  parseDeletedParam,
+  parseSectionParam,
+  parseSourceParam,
+  parseStatusParam,
+  parseTextParam,
+  parseYearParam,
+} from "@/lib/admin-list-paging";
+import { parsePageParam } from "@/lib/news-paging";
+import {
+  listAdminNews,
+  listAdminNewsYears,
+  restoreNews,
+  softDeleteNews,
+} from "@/lib/news-admin-server-fn";
+import { NewsPagination } from "@/components/site/NewsPagination";
 import { AdminBackLink } from "./-components/AdminBackLink";
+import { rememberListSearch } from "./-components/admin-list-search-memory";
 import { FeaturedNewsManager } from "./-components/FeaturedNewsManager";
-
-export const Route = createFileRoute("/admin/_authed/news/")({
-  component: AdminNewsList,
-});
-
-type SectionFilter = "all" | "none" | "federation" | "referees";
-type StatusFilter = "all" | "draft" | "published";
 
 const SECTION_LABEL: Record<"federation" | "referees", string> = {
   federation: "Федерация",
   referees: "Коллегия судей",
 };
 
+const SOURCE_LABEL: Record<"archive" | "manual", string> = {
+  archive: "Архив старого сайта",
+  manual: "Заведены на сайте",
+};
+
+/**
+ * Состояние списка живёт в адресе. Каждое поле — тотальная функция разбора
+ * (`src/lib/admin-list-paging.ts`, `src/lib/news-paging.ts`): мусор в адресе
+ * даёт умолчание, не ошибку, поэтому `fallback` из `@tanstack/zod-adapter`
+ * не нужен вовсе (см. docs/decisions.md).
+ */
+const searchSchema = z.object({
+  q: z.unknown().transform(parseTextParam),
+  section: z.unknown().transform(parseSectionParam),
+  status: z.unknown().transform(parseStatusParam),
+  year: z.unknown().transform(parseYearParam),
+  source: z.unknown().transform(parseSourceParam),
+  deleted: z.unknown().transform(parseDeletedParam),
+  page: z.unknown().transform(parsePageParam),
+});
+
+type NewsListSearch = z.infer<typeof searchSchema>;
+
+const SEARCH_DEFAULTS: NewsListSearch = {
+  q: "",
+  section: "all",
+  status: "all",
+  year: "all",
+  source: "all",
+  deleted: false,
+  page: 1,
+};
+
+export const Route = createFileRoute("/admin/_authed/news/")({
+  validateSearch: zodValidator(searchSchema),
+  search: {
+    middlewares: [stripSearchParams(SEARCH_DEFAULTS)],
+  },
+  component: AdminNewsList,
+});
+
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("ru-RU");
 }
 
 function AdminNewsList() {
+  const search = Route.useSearch();
+  const navigate = useNavigate({ from: Route.fullPath });
   const queryClient = useQueryClient();
 
-  const [q, setQ] = useState("");
-  const [debouncedQ, setDebouncedQ] = useState("");
-  const [section, setSection] = useState<SectionFilter>("all");
-  const [status, setStatus] = useState<StatusFilter>("all");
-  const [includeDeleted, setIncludeDeleted] = useState(false);
+  const [q, setQ] = useState(search.q);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
 
+  // URL → инпут: «Назад» браузера на список с другим q должен обновить поле.
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedQ(q), 300);
-    return () => clearTimeout(timer);
-  }, [q]);
+    setQ(search.q);
+  }, [search.q]);
 
-  const queryKey = ["admin-news", { q: debouncedQ, section, status, includeDeleted }] as const;
+  // Инпут → URL: debounce как раньше, замена записи истории (не push) —
+  // ввод не должен плодить записи в истории на каждую паузу набора.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const trimmed = q.trim();
+      navigate({
+        search: (prev) => (prev.q === trimmed ? prev : { ...prev, q: trimmed, page: 1 }),
+        replace: true,
+      });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [q, navigate]);
+
+  // «К списку» с карточки новости — см. admin-list-search-memory.ts.
+  useEffect(() => {
+    rememberListSearch("admin-news-list-search", search);
+  }, [search]);
+
+  const yearsQuery = useQuery({
+    queryKey: ["admin-news-years"],
+    queryFn: () => listAdminNewsYears(),
+  });
+
+  const queryKey = ["admin-news", search] as const;
 
   const query = useQuery({
     queryKey,
     queryFn: () =>
       listAdminNews({
         data: {
-          q: debouncedQ || undefined,
-          section: section === "all" ? undefined : section,
-          status: status === "all" ? undefined : status,
-          includeDeleted,
+          q: search.q || undefined,
+          section: search.section === "all" ? undefined : search.section,
+          status: search.status === "all" ? undefined : search.status,
+          includeDeleted: search.deleted,
+          year: search.year === "all" ? undefined : search.year,
+          source: search.source === "all" ? undefined : search.source,
+          page: search.page,
         },
       }),
   });
@@ -110,6 +186,10 @@ function AdminNewsList() {
     onError: () => toast.error("Не удалось восстановить новость"),
   });
 
+  const updateFilter = (patch: Partial<Omit<NewsListSearch, "page">>) => {
+    navigate({ search: (prev) => ({ ...prev, ...patch, page: 1 }) });
+  };
+
   return (
     <div className="min-h-screen bg-background px-4 py-8">
       <div className="mx-auto flex max-w-6xl flex-col gap-6">
@@ -125,19 +205,22 @@ function AdminNewsList() {
         <div className="flex flex-wrap items-end gap-4 rounded-xl border bg-card p-4">
           <div className="flex min-w-48 flex-1 flex-col gap-1.5">
             <label className="text-sm font-medium text-foreground" htmlFor="news-search">
-              Поиск по заголовку
+              Поиск по заголовку и тексту
             </label>
             <Input
               id="news-search"
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Заголовок…"
+              placeholder="Заголовок и текст…"
             />
           </div>
 
           <div className="flex flex-col gap-1.5">
             <span className="text-sm font-medium text-foreground">Раздел</span>
-            <Select value={section} onValueChange={(value) => setSection(value as SectionFilter)}>
+            <Select
+              value={search.section}
+              onValueChange={(value) => updateFilter({ section: value as typeof search.section })}
+            >
               <SelectTrigger className="w-48">
                 <SelectValue />
               </SelectTrigger>
@@ -152,7 +235,10 @@ function AdminNewsList() {
 
           <div className="flex flex-col gap-1.5">
             <span className="text-sm font-medium text-foreground">Статус</span>
-            <Select value={status} onValueChange={(value) => setStatus(value as StatusFilter)}>
+            <Select
+              value={search.status}
+              onValueChange={(value) => updateFilter({ status: value as typeof search.status })}
+            >
               <SelectTrigger className="w-40">
                 <SelectValue />
               </SelectTrigger>
@@ -164,8 +250,50 @@ function AdminNewsList() {
             </Select>
           </div>
 
+          <div className="flex flex-col gap-1.5">
+            <span className="text-sm font-medium text-foreground">Год</span>
+            <Select
+              value={String(search.year)}
+              onValueChange={(value) =>
+                updateFilter({ year: value === "all" ? "all" : Number(value) })
+              }
+            >
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Все годы</SelectItem>
+                {(yearsQuery.data ?? []).map((year) => (
+                  <SelectItem key={year} value={String(year)}>
+                    {year}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <span className="text-sm font-medium text-foreground">Откуда</span>
+            <Select
+              value={search.source}
+              onValueChange={(value) => updateFilter({ source: value as typeof search.source })}
+            >
+              <SelectTrigger className="w-52">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Все</SelectItem>
+                <SelectItem value="archive">{SOURCE_LABEL.archive}</SelectItem>
+                <SelectItem value="manual">{SOURCE_LABEL.manual}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           <label className="flex items-center gap-2 pb-1.5">
-            <Switch checked={includeDeleted} onCheckedChange={setIncludeDeleted} />
+            <Switch
+              checked={search.deleted}
+              onCheckedChange={(checked) => updateFilter({ deleted: checked })}
+            />
             <span className="text-sm font-medium text-foreground">Показывать удалённые</span>
           </label>
         </div>
@@ -179,95 +307,103 @@ function AdminNewsList() {
           </div>
         ) : query.isPending ? (
           <p className="text-sm text-muted-foreground">Загрузка…</p>
-        ) : query.data.length === 0 ? (
+        ) : query.data.items.length === 0 ? (
           <p className="text-sm text-muted-foreground">Новостей не найдено.</p>
         ) : (
-          <div className="rounded-xl border bg-card">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Заголовок</TableHead>
-                  <TableHead>Дата</TableHead>
-                  <TableHead>Раздел</TableHead>
-                  <TableHead>Статус</TableHead>
-                  <TableHead>На главной</TableHead>
-                  <TableHead>Фото</TableHead>
-                  <TableHead className="text-right">Действия</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {query.data.map((row) => (
-                  <TableRow key={row.id} className={row.deletedAt ? "opacity-60" : undefined}>
-                    <TableCell className="min-w-52 max-w-lg whitespace-normal font-medium">
-                      <Link
-                        to="/admin/news/$id"
-                        params={{ id: row.id }}
-                        className="hover:underline"
-                      >
-                        {row.title}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap">
-                      {formatDate(row.publishedAt)}
-                    </TableCell>
-                    <TableCell>{row.section ? SECTION_LABEL[row.section] : "—"}</TableCell>
-                    <TableCell>
-                      <Badge variant={row.status === "published" ? "default" : "secondary"}>
-                        {row.status === "published" ? "Опубликовано" : "Черновик"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap">
-                      {row.featured ? "★ В подборке" : "—"}
-                    </TableCell>
-                    <TableCell>{row.photoCount}</TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" aria-label={`Действия: ${row.title}`}>
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem asChild>
-                            <Link to="/admin/news/$id" params={{ id: row.id }}>
-                              Редактировать
-                            </Link>
-                          </DropdownMenuItem>
-                          {row.status === "published" && !row.deletedAt ? (
+          <>
+            <p className="text-sm text-muted-foreground">Найдено {query.data.total}</p>
+            <div className="rounded-xl border bg-card">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Заголовок</TableHead>
+                    <TableHead>Дата</TableHead>
+                    <TableHead>Раздел</TableHead>
+                    <TableHead>Статус</TableHead>
+                    <TableHead>На главной</TableHead>
+                    <TableHead>Фото</TableHead>
+                    <TableHead className="text-right">Действия</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {query.data.items.map((row) => (
+                    <TableRow key={row.id} className={row.deletedAt ? "opacity-60" : undefined}>
+                      <TableCell className="min-w-52 max-w-lg whitespace-normal font-medium">
+                        <Link
+                          to="/admin/news/$id"
+                          params={{ id: row.id }}
+                          className="hover:underline"
+                        >
+                          {row.title}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {formatDate(row.publishedAt)}
+                      </TableCell>
+                      <TableCell>{row.section ? SECTION_LABEL[row.section] : "—"}</TableCell>
+                      <TableCell>
+                        <Badge variant={row.status === "published" ? "default" : "secondary"}>
+                          {row.status === "published" ? "Опубликовано" : "Черновик"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {row.featured ? "★ В подборке" : "—"}
+                      </TableCell>
+                      <TableCell>{row.photoCount}</TableCell>
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              aria-label={`Действия: ${row.title}`}
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
                             <DropdownMenuItem asChild>
-                              <Link
-                                to="/news/$newsId"
-                                params={{ newsId: row.slug }}
-                                target="_blank"
-                              >
-                                Открыть на сайте
+                              <Link to="/admin/news/$id" params={{ id: row.id }}>
+                                Редактировать
                               </Link>
                             </DropdownMenuItem>
-                          ) : null}
-                          <DropdownMenuSeparator />
-                          {row.deletedAt ? (
-                            <DropdownMenuItem
-                              disabled={restoreMutation.isPending}
-                              onClick={() => restoreMutation.mutate(row.id)}
-                            >
-                              Восстановить
-                            </DropdownMenuItem>
-                          ) : (
-                            <DropdownMenuItem
-                              className="text-destructive focus:text-destructive"
-                              onClick={() => setDeleteTarget({ id: row.id, title: row.title })}
-                            >
-                              Удалить
-                            </DropdownMenuItem>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                            {row.status === "published" && !row.deletedAt ? (
+                              <DropdownMenuItem asChild>
+                                <Link
+                                  to="/news/$newsId"
+                                  params={{ newsId: row.slug }}
+                                  target="_blank"
+                                >
+                                  Открыть на сайте
+                                </Link>
+                              </DropdownMenuItem>
+                            ) : null}
+                            <DropdownMenuSeparator />
+                            {row.deletedAt ? (
+                              <DropdownMenuItem
+                                disabled={restoreMutation.isPending}
+                                onClick={() => restoreMutation.mutate(row.id)}
+                              >
+                                Восстановить
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onClick={() => setDeleteTarget({ id: row.id, title: row.title })}
+                              >
+                                Удалить
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            <NewsPagination page={query.data.page} pageCount={query.data.pageCount} />
+          </>
         )}
       </div>
 
