@@ -451,6 +451,34 @@ PR «смежные ленты», 20.09.2026):
   специально для этого диалога; `listAdminDocuments` теперь безусловно
   пагинирован и общего контракта с диалогом не имеет.
 
+## Раздел «Наши спортсмены» (29.09.2026)
+
+- **`athletes` — значение общего `section_enum`, документам оно запрещено в
+  коде.** `news.section` и `document.section` делят один тип; отдельный тип
+  для новостей потребовал бы `ALTER COLUMN … TYPE … USING` с перезаписью
+  таблицы `news` в обеих схемах. Миграция `0009` — одна инструкция
+  `ALTER TYPE "section_enum" ADD VALUE 'athletes'`. Допустимые значения
+  задаёт `src/lib/section-category.ts` (`NEWS_SECTIONS`, `DOCUMENT_SECTIONS`,
+  схемы `newsSectionSchema`/`documentSectionSchema`, списки чипов и
+  фильтров, `parseNewsSectionParam`/`parseDocumentSectionParam`);
+  колонка `document.section` сужена `.$type<DocumentSection>()`.
+- **CHECK «в `document` нет `athletes`» не заводим.** Он использовал бы
+  новое значение enum в той же транзакции, что и `ADD VALUE`, а мигратор
+  (`drizzle-orm`, `migrate` через `session.transaction`) применяет все
+  ожидающие файлы одной транзакцией. Ограничение держат серверная валидация
+  документов и `tests/news-section-athletes.test.ts`.
+- **`ADD VALUE` в транзакции допустим с PostgreSQL 12**, если значение в ней
+  же не используется. Локально проверено на 17.11: чистая база и копия
+  `ftspb_local`, обе схемы, повторный прогон без ошибок, число строк
+  `news`/`document` до и после равно. Версия боевого кластера не известна —
+  первый шаг ритуала на проде: `select version();`.
+- **Откат — только пересозданием типа.** Значение enum не удаляется
+  `DROP VALUE`; если раздел придётся убрать, это отдельная миграция.
+- **Архивный документ новости с `athletes` получает раздел NULL**
+  (`scripts/archive-document-values.ts`), в форму «Документы новости»
+  умолчанием раздела для такой новости тоже идёт «Без раздела». Архив пока
+  раздел `athletes` не проставляет — разметка архива отдельной задачей.
+
 ## Публичный поиск (29.09.2026)
 
 - **Стеммер — `snowball-stemmers` (npm, mazko/jssnowball), лицензия ISC.**
