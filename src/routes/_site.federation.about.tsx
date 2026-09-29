@@ -20,10 +20,10 @@ export const Route = createFileRoute("/_site/federation/about")({
     <article>
       <h1 className="ui-h1">Общая информация</h1>
       <FederationMobileNav />
-      <div className="mt-8 space-y-6">
+      <div className="mt-8 space-y-10">
         <section
           aria-labelledby="org-about-title"
-          className="ui-card bg-card-surface p-6 font-ui text-base leading-[1.6] text-foreground ring-card-border md:p-8"
+          className="font-ui text-base leading-[1.6] text-foreground"
         >
           <h2 id="org-about-title" className="ui-h2">
             О Федерации
@@ -36,7 +36,7 @@ export const Route = createFileRoute("/_site/federation/about")({
         </section>
         <section
           aria-labelledby="org-requisites-title"
-          className="ui-card bg-card-surface p-6 font-ui text-base leading-[1.6] text-foreground ring-card-border md:p-8"
+          className="font-ui text-base leading-[1.6] text-foreground"
         >
           <h2 id="org-requisites-title" className="ui-h2">
             Реквизиты
