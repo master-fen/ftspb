@@ -1,0 +1,1 @@
+ALTER TYPE "section_enum" ADD VALUE 'athletes';

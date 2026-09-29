@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { MIN_ARCHIVE_YEAR } from "@/lib/admin-list-paging";
 import { normalizeSearchQuery } from "@/lib/search-text";
+import { newsSectionSchema } from "@/lib/section-category";
 import {
   checkSlugAvailable as checkSlugAvailableImpl,
   createNews as createNewsImpl,
@@ -27,7 +28,7 @@ import {
  * RPC-заглушка.
  */
 
-const sectionSchema = z.enum(["federation", "referees"]);
+const sectionSchema = newsSectionSchema;
 const statusSchema = z.enum(["draft", "published"]);
 
 /** Верхняя граница — от текущей даты на момент запроса, не при старте

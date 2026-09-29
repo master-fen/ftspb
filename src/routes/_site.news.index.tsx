@@ -9,12 +9,12 @@ import { NewsPagination } from "@/components/site/NewsPagination";
 import { parsePageParam } from "@/lib/news-paging";
 import {
   DEFAULT_SECTION_CATEGORY,
-  SECTION_CATEGORIES,
+  NEWS_SECTION_CATEGORIES,
   SECTION_CATEGORY_LABELS,
-  type SectionCategory,
+  type NewsSectionCategory,
 } from "@/lib/section-category";
 
-const DEFAULT_FILTER: SectionCategory = DEFAULT_SECTION_CATEGORY;
+const DEFAULT_FILTER: NewsSectionCategory = DEFAULT_SECTION_CATEGORY;
 
 const CRUMBS: Crumb[] = [{ label: "Главная", href: "/" }, { label: "Новости" }];
 
@@ -25,7 +25,7 @@ const CRUMBS: Crumb[] = [{ label: "Главная", href: "/" }, { label: "Но�
  * `page` — объект `search` в navigate заменяет всё, и страница снова первая.
  */
 const searchSchema = z.object({
-  category: fallback(z.enum(SECTION_CATEGORIES), DEFAULT_FILTER).default(DEFAULT_FILTER),
+  category: fallback(z.enum(NEWS_SECTION_CATEGORIES), DEFAULT_FILTER).default(DEFAULT_FILTER),
   // Не fallback из zod-adapter — почему, см. parsePageParam.
   page: z.unknown().transform(parsePageParam),
 });
@@ -65,9 +65,9 @@ function NewsPage() {
   const { items, page, pageCount } = Route.useLoaderData();
   const { category } = Route.useSearch();
   const navigate = useNavigate({ from: "/news/" });
-  const active: SectionCategory = category;
+  const active: NewsSectionCategory = category;
 
-  const select = (value: SectionCategory) => {
+  const select = (value: NewsSectionCategory) => {
     navigate({ search: { category: value }, resetScroll: false });
   };
 
@@ -79,7 +79,12 @@ function NewsPage() {
         <h1 className="ui-h1">Новости</h1>
       </header>
 
-      <CategoryFilterChips active={active} onSelect={select} labels={SECTION_CATEGORY_LABELS} />
+      <CategoryFilterChips
+        categories={NEWS_SECTION_CATEGORIES}
+        active={active}
+        onSelect={select}
+        labels={SECTION_CATEGORY_LABELS}
+      />
 
       {items.length === 0 ? (
         <p className="rounded-xl bg-muted p-8 text-center text-muted-foreground">

@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { DOCUMENT_SLUG_PATTERN } from "@/lib/document-slug";
 import { normalizeSearchQuery } from "@/lib/search-text";
-import { SECTION_CATEGORIES } from "@/lib/section-category";
+import { DOCUMENT_SECTION_CATEGORIES, documentSectionSchema } from "@/lib/section-category";
 import {
   attachDocumentToEvent as attachDocumentToEventImpl,
   attachDocumentToNews as attachDocumentToNewsImpl,
@@ -35,7 +35,7 @@ import { buildImageUrl } from "@/server/storage";
  * src/server/documents.ts.
  */
 
-const sectionSchema = z.enum(["federation", "referees"]);
+const sectionSchema = documentSectionSchema;
 const statusSchema = z.enum(["draft", "published"]);
 
 export const listAdminDocuments = createServerFn({ method: "GET" })
@@ -180,7 +180,7 @@ export const getPublishedDocumentBySlug = createServerFn({ method: "GET" })
 /** Публичная библиотека документов (/documents, /federation/documents) по
  * разделу. `s3Key` наружу не уходит — только готовый `url`. */
 export const listPublishedLibraryDocuments = createServerFn({ method: "GET" })
-  .validator(z.enum(SECTION_CATEGORIES))
+  .validator(z.enum(DOCUMENT_SECTION_CATEGORIES))
   .handler(async ({ data }) => {
     const rows = await listPublishedLibraryDocumentsImpl(data);
     return rows.map((row) => ({

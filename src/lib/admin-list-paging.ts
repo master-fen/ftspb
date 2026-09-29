@@ -8,6 +8,8 @@
  * концепту («admin-list»), не по потребителю.
  */
 
+import { DOCUMENT_SECTIONS, NEWS_SECTIONS } from "@/lib/section-category";
+
 export const ADMIN_PAGE_SIZE = 50;
 /** Архив старого сайта не старше начала 1990-х. */
 export const MIN_ARCHIVE_YEAR = 1990;
@@ -41,12 +43,22 @@ export function parseYearParam(raw: unknown): number | "all" {
   return Number.isInteger(n) && n >= MIN_ARCHIVE_YEAR && n <= maxYear ? n : "all";
 }
 
-const SECTION_VALUES = ["all", "none", "federation", "referees"] as const;
-export type AdminSectionFilter = (typeof SECTION_VALUES)[number];
+// Фильтры раздела двух списков разные: `athletes` есть только у новостей.
+const NEWS_SECTION_FILTER_VALUES = ["all", "none", ...NEWS_SECTIONS] as const;
+const DOCUMENT_SECTION_FILTER_VALUES = ["all", "none", ...DOCUMENT_SECTIONS] as const;
+export type AdminNewsSectionFilter = (typeof NEWS_SECTION_FILTER_VALUES)[number];
+export type AdminDocumentSectionFilter = (typeof DOCUMENT_SECTION_FILTER_VALUES)[number];
 
-export function parseSectionParam(raw: unknown): AdminSectionFilter {
-  return typeof raw === "string" && (SECTION_VALUES as readonly string[]).includes(raw)
-    ? (raw as AdminSectionFilter)
+export function parseNewsSectionParam(raw: unknown): AdminNewsSectionFilter {
+  return typeof raw === "string" && (NEWS_SECTION_FILTER_VALUES as readonly string[]).includes(raw)
+    ? (raw as AdminNewsSectionFilter)
+    : "all";
+}
+
+export function parseDocumentSectionParam(raw: unknown): AdminDocumentSectionFilter {
+  return typeof raw === "string" &&
+    (DOCUMENT_SECTION_FILTER_VALUES as readonly string[]).includes(raw)
+    ? (raw as AdminDocumentSectionFilter)
     : "all";
 }
 

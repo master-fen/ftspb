@@ -20,11 +20,12 @@ import {
   type FieldWithPositions,
 } from "@/lib/search-field-index";
 import { visibleText } from "@/lib/search-text";
+import type { NewsSection } from "@/lib/section-category";
 
 export type NewsIndexItem = {
   id: string; // slug — используется и как адрес /news/{id}
   href: string;
-  section: "federation" | "referees" | null;
+  section: NewsSection | null;
   publishedAt: string; // ГГГГ-ММ-ДД
   createdAt: string; // ISO с зоной
   title: FieldWithPositions;

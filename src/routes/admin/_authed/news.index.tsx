@@ -43,13 +43,14 @@ import {
 } from "@/components/ui/table";
 import {
   parseDeletedParam,
-  parseSectionParam,
+  parseNewsSectionParam,
   parseSourceParam,
   parseStatusParam,
   parseTextParam,
   parseYearParam,
 } from "@/lib/admin-list-paging";
 import { parsePageParam } from "@/lib/news-paging";
+import { NEWS_SECTION_OPTIONS, SECTION_LABELS } from "@/lib/section-category";
 import {
   listAdminNews,
   listAdminNewsYears,
@@ -60,11 +61,6 @@ import { NewsPagination } from "@/components/site/NewsPagination";
 import { AdminBackLink } from "./-components/AdminBackLink";
 import { rememberListSearch } from "./-components/admin-list-search-memory";
 import { FeaturedNewsManager } from "./-components/FeaturedNewsManager";
-
-const SECTION_LABEL: Record<"federation" | "referees", string> = {
-  federation: "Федерация",
-  referees: "Коллегия судей",
-};
 
 const SOURCE_LABEL: Record<"archive" | "manual", string> = {
   archive: "Архив старого сайта",
@@ -79,7 +75,7 @@ const SOURCE_LABEL: Record<"archive" | "manual", string> = {
  */
 const searchSchema = z.object({
   q: z.unknown().transform(parseTextParam),
-  section: z.unknown().transform(parseSectionParam),
+  section: z.unknown().transform(parseNewsSectionParam),
   status: z.unknown().transform(parseStatusParam),
   year: z.unknown().transform(parseYearParam),
   source: z.unknown().transform(parseSourceParam),
@@ -227,8 +223,11 @@ function AdminNewsList() {
               <SelectContent>
                 <SelectItem value="all">Все разделы</SelectItem>
                 <SelectItem value="none">Без раздела</SelectItem>
-                <SelectItem value="federation">Федерация</SelectItem>
-                <SelectItem value="referees">Коллегия судей</SelectItem>
+                {NEWS_SECTION_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -340,7 +339,7 @@ function AdminNewsList() {
                       <TableCell className="whitespace-nowrap">
                         {formatDate(row.publishedAt)}
                       </TableCell>
-                      <TableCell>{row.section ? SECTION_LABEL[row.section] : "—"}</TableCell>
+                      <TableCell>{row.section ? SECTION_LABELS[row.section] : "—"}</TableCell>
                       <TableCell>
                         <Badge variant={row.status === "published" ? "default" : "secondary"}>
                           {row.status === "published" ? "Опубликовано" : "Черновик"}

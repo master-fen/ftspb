@@ -8,6 +8,7 @@
  */
 import type { SearchSort, SearchTab } from "@/lib/search-params";
 import type { FragmentSpan } from "@/lib/search-fragment";
+import type { NewsSection } from "@/lib/section-category";
 
 export type SearchInput = {
   q: string;
@@ -21,7 +22,7 @@ export type SearchNewsRow = {
   id: string;
   href: string;
   dateFormatted: string;
-  section: "federation" | "referees" | null;
+  section: NewsSection | null;
   title: FragmentSpan[];
   fragment: FragmentSpan[];
 };

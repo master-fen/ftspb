@@ -8,6 +8,7 @@
  */
 import path from "node:path";
 import type { document } from "../src/db/schema";
+import type { NewsSection } from "../src/lib/section-category";
 
 /**
  * Архивный документ живёт внутри своей новости: файл открывается из неё по
@@ -20,7 +21,7 @@ export const ARCHIVE_DOCUMENT_IN_LIBRARY = false;
 
 export type ArchiveDocumentOwner = {
   title: string;
-  section: (typeof document.$inferInsert)["section"];
+  section: NewsSection | null | undefined;
   publishedAt: string;
 };
 
@@ -40,7 +41,8 @@ export function archiveDocumentValues(
     fileName: path.basename(file.s3Key),
     mimeType: file.mimeType,
     sizeBytes: file.sizeBytes,
-    section: owner.section,
+    // У документов нет раздела «Наши спортсмены» (docs/decisions.md).
+    section: owner.section === "athletes" ? null : owner.section,
     documentDate: owner.publishedAt,
     status: "published",
     inLibrary: ARCHIVE_DOCUMENT_IN_LIBRARY,

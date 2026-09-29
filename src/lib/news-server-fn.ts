@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { SECTION_CATEGORIES } from "@/lib/section-category";
+import { NEWS_SECTION_CATEGORIES } from "@/lib/section-category";
 import {
   getFeaturedAndLatest as getFeaturedAndLatestImpl,
   getNewsArticle as getNewsArticleImpl,
@@ -16,7 +16,7 @@ import {
  */
 export const listNewsPage = createServerFn({ method: "GET" })
   // Номер вне диапазона приводит к первой странице сама функция (clampPage).
-  .validator(z.object({ page: z.number().int(), category: z.enum(SECTION_CATEGORIES) }))
+  .validator(z.object({ page: z.number().int(), category: z.enum(NEWS_SECTION_CATEGORIES) }))
   .handler(({ data }) => listNewsPageImpl(data));
 
 export const getNewsArticle = createServerFn({ method: "GET" })

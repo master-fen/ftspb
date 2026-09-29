@@ -1,7 +1,9 @@
-export type NewsCategory = "Общее" | "Федерация" | "Коллегия судей";
+import type { NewsSection, SECTION_LABELS } from "@/lib/section-category";
 
-/** Машинное значение раздела — как в колонке `news.section` (`section_enum`). */
-export type NewsSection = "federation" | "referees";
+export type { NewsSection };
+
+/** Русская подпись раздела: «Общее» (нет раздела) или значение из `SECTION_LABELS`. */
+export type NewsCategory = "Общее" | (typeof SECTION_LABELS)[NewsSection];
 
 export type NewsAttachment = {
   kind: string;

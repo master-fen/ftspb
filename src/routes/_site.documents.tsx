@@ -9,9 +9,9 @@ import { listPublishedLibraryDocuments } from "@/lib/documents-server-fn";
 import { formatIsoDateRu } from "@/lib/format-iso-date";
 import {
   DEFAULT_SECTION_CATEGORY,
-  SECTION_CATEGORIES,
+  DOCUMENT_SECTION_CATEGORIES,
   SECTION_CATEGORY_LABELS,
-  type SectionCategory,
+  type DocumentSectionCategory,
 } from "@/lib/section-category";
 
 const TITLE = "Документы — Федерация тенниса Санкт-Петербурга";
@@ -20,14 +20,14 @@ const TITLE = "Документы — Федерация тенниса Санк
 const DESCRIPTION =
   "Библиотека документов Федерации тенниса Санкт-Петербурга с фильтром по разделам.";
 
-const DEFAULT_FILTER: SectionCategory = DEFAULT_SECTION_CATEGORY;
+const DEFAULT_FILTER: DocumentSectionCategory = DEFAULT_SECTION_CATEGORY;
 
 const CRUMBS: Crumb[] = [{ label: "Главная", href: "/" }, { label: "Документы" }];
 
 // `?category=` — по образцу /news (news.index.tsx): та же схема, тот же fallback,
 // значение по умолчанию вырезается из адреса.
 const searchSchema = z.object({
-  category: fallback(z.enum(SECTION_CATEGORIES), DEFAULT_FILTER).default(DEFAULT_FILTER),
+  category: fallback(z.enum(DOCUMENT_SECTION_CATEGORIES), DEFAULT_FILTER).default(DEFAULT_FILTER),
 });
 
 export const Route = createFileRoute("/_site/documents")({
@@ -53,9 +53,9 @@ function DocumentsPage() {
   const documents = Route.useLoaderData();
   const { category } = Route.useSearch();
   const navigate = useNavigate({ from: "/documents" });
-  const active: SectionCategory = category;
+  const active: DocumentSectionCategory = category;
 
-  const select = (value: SectionCategory) => {
+  const select = (value: DocumentSectionCategory) => {
     navigate({ search: { category: value }, resetScroll: false });
   };
 
@@ -69,7 +69,12 @@ function DocumentsPage() {
             <h1 className="ui-h1">Документы</h1>
           </header>
 
-          <CategoryFilterChips active={active} onSelect={select} labels={SECTION_CATEGORY_LABELS} />
+          <CategoryFilterChips
+            categories={DOCUMENT_SECTION_CATEGORIES}
+            active={active}
+            onSelect={select}
+            labels={SECTION_CATEGORY_LABELS}
+          />
 
           {documents.length === 0 ? (
             <p className="rounded-xl bg-muted p-8 text-center text-muted-foreground">

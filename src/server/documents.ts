@@ -5,7 +5,7 @@ import { document, newsDocument } from "@/db/schema";
 import { normalizeDocumentSlug } from "@/lib/document-slug";
 import { pageCountFor } from "@/lib/news-paging";
 import { matchesQuery, visibleText } from "@/lib/search-text";
-import type { SectionCategory } from "@/lib/section-category";
+import type { DocumentSection, DocumentSectionCategory } from "@/lib/section-category";
 import { requireSession } from "@/server/auth";
 import {
   EVENT_LINK,
@@ -22,7 +22,7 @@ import { resetSearchIndex } from "@/server/search-index";
 import { buildImageUrl } from "@/server/storage";
 
 type DocumentRow = typeof document.$inferSelect;
-type Section = "federation" | "referees";
+type Section = DocumentSection;
 type Status = "draft" | "published";
 
 function requireDb(): NonNullable<typeof db> {
@@ -578,7 +578,7 @@ export type PublishedLibraryDocument = {
  * должна автоматически утекать в SSR-ответ; `s3Key` наружу отдаёт только
  * обёртка в documents-server-fn.ts, уже как готовый URL. */
 export async function listPublishedLibraryDocuments(
-  category: SectionCategory,
+  category: DocumentSectionCategory,
 ): Promise<PublishedLibraryDocument[]> {
   if (db === null) {
     return [];
