@@ -30,7 +30,7 @@ export function SearchTabs({ active, counts }: SearchTabsProps) {
   const visible = TAB_ORDER.filter((tab) => tab === "all" || counts[tab] > 0);
 
   return (
-    <div role="group" aria-label="Тип находок" className="mb-6 flex flex-wrap gap-2">
+    <div role="group" aria-label="Тип находок" className="mt-4 mb-6 flex flex-wrap gap-2">
       {visible.map((tab) => (
         <Link
           key={tab}

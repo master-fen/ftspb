@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { SearchHighlight } from "@/components/site/SearchHighlight";
+import { SEARCH_ROW, SEARCH_ROW_LINK } from "@/components/site/search-row-classes";
 import { resolveSearchHref } from "@/lib/search-href";
 import type { SearchSectionRow as SearchSectionRowData } from "@/lib/search-response";
 
@@ -14,12 +15,12 @@ export function SearchSectionRow({ row }: { row: SearchSectionRowData }) {
   const target = resolveSearchHref(row.href);
 
   return (
-    <li className="border-b border-border py-4 last:border-b-0">
+    <li className={SEARCH_ROW}>
       {row.breadcrumb.length > 0 ? (
         <p className="ui-caption">{row.breadcrumb.join(" → ")}</p>
       ) : null}
       <h3 className="ui-card-title mt-1">
-        <Link to={target.to} hash={target.hash} className="ui-link">
+        <Link to={target.to} hash={target.hash} className={SEARCH_ROW_LINK}>
           <SearchHighlight spans={row.title} />
         </Link>
       </h3>

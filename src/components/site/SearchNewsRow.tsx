@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { SECTION_CATEGORY_LABELS } from "@/lib/section-category";
 import type { SearchNewsRow as SearchNewsRowData } from "@/lib/search-response";
 import { SearchHighlight } from "@/components/site/SearchHighlight";
+import { SEARCH_ROW, SEARCH_ROW_LINK } from "@/components/site/search-row-classes";
 
 /**
  * Строка новости в результатах поиска: дата, раздел (кроме «Общее» —
@@ -13,13 +14,13 @@ export function SearchNewsRow({ row }: { row: SearchNewsRowData }) {
   const sectionLabel = row.section ? SECTION_CATEGORY_LABELS[row.section] : null;
 
   return (
-    <li className="border-b border-border py-4 last:border-b-0">
+    <li className={SEARCH_ROW}>
       <p className="ui-caption">
         {row.dateFormatted}
         {sectionLabel ? ` · ${sectionLabel}` : ""}
       </p>
       <h3 className="ui-card-title mt-1">
-        <Link to={row.href} className="ui-link">
+        <Link to={row.href} className={SEARCH_ROW_LINK}>
           <SearchHighlight spans={row.title} />
         </Link>
       </h3>
