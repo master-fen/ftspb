@@ -179,6 +179,17 @@ describe("selectByMatchMode / decideMatchMode — одно решение на �
     expect(mode).toBe("partial");
   });
 
+  test("если вообще ни у кого нет ни одного слова — режим none, не partial (регрессия: «ничего не нашлось» не должно показывать баннер «неполное совпадение»)", () => {
+    const mode = decideMatchMode([0, 0, 0], 1);
+    expect(mode).toBe("none");
+    expect(mode).not.toBe("partial");
+  });
+
+  test("none отбирает пусто, как и partial при всех нулях", () => {
+    const candidates = [{ matchedCount: 0 }, { matchedCount: 0 }];
+    expect(selectByMatchMode(candidates, "none", 1)).toEqual([]);
+  });
+
   test("full — отбирает только кандидатов со всеми терминами", () => {
     const candidates = [{ matchedCount: 2 }, { matchedCount: 1 }, { matchedCount: 0 }];
     expect(selectByMatchMode(candidates, "full", 2)).toEqual([{ matchedCount: 2 }]);

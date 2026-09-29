@@ -22,6 +22,7 @@
     "reset:archive": "bun run scripts/reset-archive.ts",
     "create-admin": "bun run scripts/create-admin.ts",
     "delete-admin": "bun run scripts/delete-admin.ts",
+    "search:probe": "bun run scripts/search-probe.ts",
     "test": "bun test"
   },
   "dependencies": {

@@ -138,7 +138,13 @@ export function recencyBonus(publishedAtIso: string): number {
   return days / RECENCY_DIVISOR;
 }
 
-export type MatchMode = "full" | "partial";
+/**
+ * "none" — отдельно от "partial": если вообще ни один кандидат ни одного
+ * типа не содержит ни одного значимого слова, это «ничего не нашлось», а не
+ * «неполное совпадение» — баннер «Точных совпадений нет…» в этом случае
+ * показывать нечего (находок с частью слов тоже нет).
+ */
+export type MatchMode = "full" | "partial" | "none";
 
 /**
  * Решение «все слова / часть слов» — одно на весь запрос, по кандидатам
@@ -150,9 +156,9 @@ export function decideMatchMode(
   allCandidateMatchedCounts: readonly number[],
   totalSignificantTerms: number,
 ): MatchMode {
-  return allCandidateMatchedCounts.some((count) => count === totalSignificantTerms)
-    ? "full"
-    : "partial";
+  if (allCandidateMatchedCounts.some((count) => count === totalSignificantTerms)) return "full";
+  if (allCandidateMatchedCounts.some((count) => count > 0)) return "partial";
+  return "none";
 }
 
 export function selectByMatchMode<T extends { matchedCount: number }>(
@@ -163,6 +169,8 @@ export function selectByMatchMode<T extends { matchedCount: number }>(
   if (mode === "full") {
     return candidates.filter((c) => c.matchedCount === totalSignificantTerms);
   }
+  // "partial" и "none" отбирают одинаково (matchedCount > 0) — при "none"
+  // результат заведомо пуст у всех типов, отдельная ветка не нужна.
   return candidates.filter((c) => c.matchedCount > 0);
 }
 

@@ -83,6 +83,18 @@ describe("runSearchOverIndex — «уточните запрос»", () => {
     expect(result.tooVague).toBe(true);
     expect(result.news).toBeNull();
   });
+
+  test("значимый, но нигде не найденный запрос — «ничего не нашлось», не «неполное совпадение» (регрессия)", () => {
+    const index: SearchIndex = {
+      ...EMPTY_INDEX,
+      news: [news({ id: "a", ...withText("совсем другой текст") })],
+    };
+    const result = runSearchOverIndex(baseInput({ q: "ывапролд", tab: "news" }), index);
+    expect(result.tooVague).toBe(false);
+    expect(result.partialMatch).toBe(false);
+    expect(result.news).toEqual([]);
+    expect(result.totalForTab).toBe(0);
+  });
 });
 
 describe("runSearchOverIndex — числа по вкладкам не зависят от года", () => {
