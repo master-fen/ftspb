@@ -43,7 +43,7 @@ export function LeadershipCard({
           {phone ? (
             <p>
               <span className="ui-caption">Телефон:</span>{" "}
-              <a href={`tel:${phone.replace(/\s/g, "")}`} className="ui-link">
+              <a href={`tel:${phone.replace(/[^\d+]/g, "")}`} className="ui-link">
                 {phone}
               </a>
             </p>
