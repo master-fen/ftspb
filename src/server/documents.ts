@@ -18,6 +18,7 @@ import {
   type DocumentParentSource,
 } from "@/server/document-links";
 import { resetNewsCache } from "@/server/news-cache";
+import { resetSearchIndex } from "@/server/search-index";
 import { buildImageUrl } from "@/server/storage";
 
 type DocumentRow = typeof document.$inferSelect;
@@ -244,6 +245,10 @@ export async function createDocument(input: CreateDocumentInput): Promise<Docume
   };
 
   const [row] = await database.insert(document).values(values).returning();
+  // Новый документ мог быть опубликован сразу (status="published") и
+  // попасть в поиск — resetNewsCache() здесь не нужен (документы не входят
+  // в кэш ленты новостей), а resetSearchIndex() был пропущен изначально.
+  resetSearchIndex();
   return row;
 }
 
@@ -288,6 +293,7 @@ export async function updateDocument(id: string, input: UpdateDocumentInput): Pr
 
   await database.update(document).set(values).where(eq(document.id, id));
   resetNewsCache();
+  resetSearchIndex();
 }
 
 export async function softDeleteDocument(id: string): Promise<void> {
@@ -295,6 +301,7 @@ export async function softDeleteDocument(id: string): Promise<void> {
   const database = requireDb();
   await database.update(document).set({ deletedAt: new Date() }).where(eq(document.id, id));
   resetNewsCache();
+  resetSearchIndex();
 }
 
 /**
@@ -326,6 +333,7 @@ async function attachDocument(
     .insert(link.table)
     .values({ [link.parentKey]: parentId, documentId, position: pos } as never);
   resetNewsCache();
+  resetSearchIndex();
 }
 
 async function detachDocument(
@@ -339,6 +347,7 @@ async function detachDocument(
     .delete(link.table)
     .where(and(eq(link.parentColumn, parentId), eq(link.documentColumn, documentId)));
   resetNewsCache();
+  resetSearchIndex();
 }
 
 async function reorderDocuments(
@@ -378,6 +387,7 @@ async function reorderDocuments(
   });
 
   resetNewsCache();
+  resetSearchIndex();
 }
 
 /** Документы родителя с готовым URL; мягко удалённые отфильтрованы. */

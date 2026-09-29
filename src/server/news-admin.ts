@@ -11,6 +11,7 @@ import { parsePhotoSize } from "@/lib/photo-dimensions";
 import { matchesQuery, visibleText } from "@/lib/search-text";
 import { requireSession } from "@/server/auth";
 import { resetNewsCache } from "@/server/news-cache";
+import { resetSearchIndex } from "@/server/search-index";
 import { sanitizeBody } from "@/server/sanitize";
 import { slugify } from "@/server/slug";
 import { buildImageUrl, deleteObject, objectExists, uploadObject } from "@/server/storage";
@@ -271,6 +272,7 @@ export async function createNews(input: CreateNewsInput): Promise<{ id: string; 
       .values(values)
       .returning({ id: news.id, slug: news.slug });
     resetNewsCache();
+    resetSearchIndex();
     return row;
   } catch (error) {
     if (isUniqueViolation(error)) {
@@ -318,6 +320,7 @@ export async function updateNews(id: string, input: UpdateNewsInput): Promise<vo
   try {
     await database.update(news).set(values).where(eq(news.id, id));
     resetNewsCache();
+    resetSearchIndex();
   } catch (error) {
     if (isUniqueViolation(error)) {
       throw new Error(`Slug уже используется: ${input.slug}`);
@@ -331,6 +334,7 @@ export async function softDeleteNews(id: string): Promise<void> {
   const database = requireDb();
   await database.update(news).set({ deletedAt: new Date() }).where(eq(news.id, id));
   resetNewsCache();
+  resetSearchIndex();
 }
 
 export async function restoreNews(id: string): Promise<void> {
@@ -338,6 +342,7 @@ export async function restoreNews(id: string): Promise<void> {
   const database = requireDb();
   await database.update(news).set({ deletedAt: null }).where(eq(news.id, id));
   resetNewsCache();
+  resetSearchIndex();
 }
 
 /** Учитывает и мягко удалённые новости — их slug тоже занят. */
@@ -406,6 +411,7 @@ export async function addPhoto(input: AddPhotoInput): Promise<NewsPhotoRow> {
     })
     .returning();
   resetNewsCache();
+  resetSearchIndex();
   return photo;
 }
 
@@ -414,6 +420,7 @@ export async function updatePhoto(id: string, input: { alt: string | null }): Pr
   const database = requireDb();
   await database.update(newsPhoto).set({ alt: input.alt }).where(eq(newsPhoto.id, id));
   resetNewsCache();
+  resetSearchIndex();
 }
 
 export async function deletePhoto(id: string): Promise<void> {
@@ -423,6 +430,7 @@ export async function deletePhoto(id: string): Promise<void> {
   // (drizzle/0000_clumsy_namora.sql:74) — руками ничего обнулять не нужно.
   await database.delete(newsPhoto).where(eq(newsPhoto.id, id));
   resetNewsCache();
+  resetSearchIndex();
 }
 
 export async function reorderPhotos(newsId: string, orderedIds: string[]): Promise<void> {
@@ -454,6 +462,7 @@ export async function reorderPhotos(newsId: string, orderedIds: string[]): Promi
   });
 
   resetNewsCache();
+  resetSearchIndex();
 }
 
 export async function setCoverPhoto(newsId: string, photoId: string): Promise<void> {
@@ -471,6 +480,7 @@ export async function setCoverPhoto(newsId: string, photoId: string): Promise<vo
 
   await database.update(news).set({ coverPhotoId: photoId }).where(eq(news.id, newsId));
   resetNewsCache();
+  resetSearchIndex();
 }
 
 export async function getNewsSlug(id: string): Promise<string> {
