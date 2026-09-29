@@ -7,13 +7,25 @@ import { newsMetaLine } from "@/lib/news-meta";
 /**
  * `from` — откуда ведёт ссылка (лента раздела): попадает в `?from=` и задаёт
  * хлебные крошки на странице новости. Без пропа ссылка прежняя, без параметра.
+ * `fromList` — карточка стоит в ленте (`/news`, `/federation/news`): запись
+ * новости получает маркер, и «Ко всем новостям» возвращает в ту же точку ленты
+ * (src/lib/news-return.ts). На главной проп не передаётся.
  */
-export function NewsListCard({ item, from }: { item: NewsCardItem; from?: NewsOrigin }) {
+export function NewsListCard({
+  item,
+  from,
+  fromList,
+}: {
+  item: NewsCardItem;
+  from?: NewsOrigin;
+  fromList?: boolean;
+}) {
   return (
     <Link
       to="/news/$newsId"
       params={{ newsId: item.id }}
       search={from ? { from } : undefined}
+      state={fromList ? { fromNewsList: true } : undefined}
       className="group flex h-full flex-col overflow-hidden ui-card ring-card-border bg-card-surface text-foreground transition-all duration-300 hover:-translate-y-0.5 hover:bg-card-hover"
     >
       <div className="aspect-[4/3] w-full overflow-hidden">
