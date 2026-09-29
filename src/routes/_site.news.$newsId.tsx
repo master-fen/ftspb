@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, type MouseEvent } from "react";
 import {
   createFileRoute,
   Link,
@@ -22,6 +22,7 @@ import { shouldShowLead } from "@/lib/news-lead";
 import { galleryImages } from "@/lib/gallery-layout";
 import { formatPhotoHash, parsePhotoHash } from "@/lib/photo-hash";
 import { NEWS_ORIGINS } from "@/lib/news-origin";
+import { shouldReturnToNewsList } from "@/lib/news-return";
 import { buildNewsArticleJsonLd, serializeJsonLd } from "@/lib/news-jsonld";
 import { OG_IMAGE_URL, SITE_NAME, SITE_URL, toAbsoluteUrl } from "@/lib/site";
 
@@ -194,6 +195,17 @@ function NewsDetailPage() {
   const { item, related } = Route.useLoaderData();
   const { from } = Route.useSearch();
   const crumbs = from === "federation" ? CRUMBS_FEDERATION : CRUMBS_DEFAULT;
+  const router = useRouter();
+  const canGoBack = useCanGoBack();
+  const historyState = useRouterState({ select: (s) => s.location.state });
+
+  // Пришли из ленты — «Ко всем новостям» идёт назад по истории: роутер сам
+  // вернёт ту же страницу ленты, фильтр и прокрутку (src/lib/news-return.ts).
+  const onAllNewsClick = (e: MouseEvent<HTMLAnchorElement>) => {
+    if (!shouldReturnToNewsList(historyState, canGoBack, e)) return;
+    e.preventDefault();
+    router.history.back();
+  };
 
   // Не показываем анонс, если он дублирует начало текста новости (src/lib/news-lead.ts).
   const showLead = shouldShowLead(item.excerpt, item.body);
@@ -284,7 +296,8 @@ function NewsDetailPage() {
             </ul>
             <div className="mt-6 border-t border-border pt-4">
               <Link
-                to="/news"
+                to={from === "federation" ? "/federation/news" : "/news"}
+                onClick={onAllNewsClick}
                 className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-navy ui-link"
               >
                 <span aria-hidden>←</span> Ко всем новостям

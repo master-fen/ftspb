@@ -93,7 +93,7 @@ function NewsPage() {
       ) : (
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 lg:gap-y-6">
           {items.map((item) => (
-            <NewsListCard key={item.id} item={item} />
+            <NewsListCard key={item.id} item={item} fromList />
           ))}
         </div>
       )}
