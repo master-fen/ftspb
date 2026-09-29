@@ -8,6 +8,7 @@
 import { charterContent } from "@/lib/charter/content";
 import { buildFieldWithPositions, type FieldWithPositions } from "@/lib/search-field-index";
 import {
+  buildAboutSectionEntry,
   buildAntidopingSectionEntry,
   buildCharterSectionEntries,
   buildDescriptionSectionEntries,
@@ -46,6 +47,7 @@ export async function buildSectionsIndex(
 ): Promise<SectionIndexItem[]> {
   const staticEntries: StaticSectionEntry[] = [
     ...buildDescriptionSectionEntries(),
+    buildAboutSectionEntry(),
     buildStructureSectionEntry(),
     buildAntidopingSectionEntry(),
     ...buildCharterSectionEntries(charterContent),

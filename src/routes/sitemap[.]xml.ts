@@ -19,7 +19,7 @@ export const Route = createFileRoute("/sitemap.xml")({
         const [items, eventSlugs] = await Promise.all([listNews(), listPublishedEventSlugs()]);
         // Только страницы без noindex. Разделы-заглушки (ComingSoon /
         // SectionPagePlaceholder, постоянный noindex в head()) и /federation
-        // (редирект на /federation/about с noindex) в карту не включаются;
+        // (редирект на /federation/about) в карту не включаются;
         // возвращать запись вместе со снятием noindex страницы и флага hidden
         // в src/data/mock.ts. Правило синхронизации записано в CLAUDE.md.
         //
@@ -31,6 +31,7 @@ export const Route = createFileRoute("/sitemap.xml")({
           { path: "/", changefreq: "weekly", priority: "1.0" },
           { path: "/news", changefreq: "daily", priority: "0.9" },
           { path: "/documents", changefreq: "monthly", priority: "0.6" },
+          { path: "/federation/about", changefreq: "yearly", priority: "0.6" },
           { path: "/federation/charter", changefreq: "yearly", priority: "0.5" },
           { path: "/federation/charter/text", changefreq: "yearly", priority: "0.6" },
           { path: "/federation/documents", changefreq: "monthly", priority: "0.6" },

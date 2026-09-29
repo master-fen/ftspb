@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { charterContent } from "@/lib/charter/content";
 import {
+  buildAboutSectionEntry,
   buildAntidopingSectionEntry,
   buildCharterSectionEntries,
   buildDescriptionSectionEntries,
@@ -103,6 +104,20 @@ describe("реестр — «теннис» не находит записи т�
     const entries = buildDescriptionSectionEntries();
     const hits = entries.filter((entry) => matchesQuery("петербург", entry));
     expect(hits).toEqual([]);
+  });
+});
+
+describe("Общая информация — текст и реквизиты", () => {
+  test("«судейского и тренерского» находит страницу", () => {
+    expect(matchesQuery("судейского тренерского", buildAboutSectionEntry())).toBe(true);
+  });
+
+  test("ОГРН из реквизитов находится", () => {
+    expect(matchesQuery("1047831002614", buildAboutSectionEntry())).toBe(true);
+  });
+
+  test("запрос вне текста страницу не находит", () => {
+    expect(matchesQuery("антидопинговый", buildAboutSectionEntry())).toBe(false);
   });
 });
 

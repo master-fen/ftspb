@@ -28,6 +28,8 @@ import {
   type StructureNode,
 } from "@/lib/federation-structure";
 import { ANTIDOPING_RESPONSIBLE, ANTIDOPING_GROUPS } from "@/data/antidoping";
+import { ABOUT_PARAGRAPHS } from "@/lib/federation-about";
+import { ORG_REQUISITES } from "@/lib/site";
 import { clauseAnchorId } from "@/lib/charter/anchors";
 import { CHARTER_TEXT_PATH, CHARTER_SECTION_TITLES } from "@/lib/charter/meta";
 import type { CharterBlock, CharterContent } from "@/lib/charter/types";
@@ -142,6 +144,24 @@ export function buildStructureSectionEntry(): StaticSectionEntry {
     breadcrumb: ["Федерация"],
     href: "/federation/structure",
     text,
+  };
+}
+
+/** «Общая информация» — текст «О Федерации» и реквизиты (содержимое, не описание из head()). */
+export function buildAboutSectionEntry(): StaticSectionEntry {
+  const requisitesText = [
+    ORG_REQUISITES.fullName,
+    ORG_REQUISITES.shortName,
+    ORG_REQUISITES.ogrn,
+    ORG_REQUISITES.registrationDateText,
+    ORG_REQUISITES.address,
+  ].join(" ");
+  return {
+    id: "federation-about",
+    title: "Общая информация",
+    breadcrumb: ["Федерация"],
+    href: "/federation/about",
+    text: [...ABOUT_PARAGRAPHS, "Реквизиты ОГРН", requisitesText].join(" "),
   };
 }
 
