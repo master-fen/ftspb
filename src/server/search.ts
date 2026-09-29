@@ -13,7 +13,6 @@
 import { formatEventDateShort } from "@/lib/event-date";
 import { formatIsoDateRu } from "@/lib/format-iso-date";
 import { clampPage, pageCountFor } from "@/lib/news-paging";
-import type { SearchSort, SearchTab } from "@/lib/search-params";
 import { tokenizeWithStems } from "@/lib/search-field-index";
 import { extractFragment, type FragmentSpan } from "@/lib/search-fragment";
 import {
@@ -27,92 +26,34 @@ import {
   type MatchMode,
 } from "@/lib/search-match";
 import { parseSearchQuery, type QueryTerm } from "@/lib/search-query";
+import type {
+  SearchDocumentRow,
+  SearchEventRow,
+  SearchInput,
+  SearchNewsRow,
+  SearchResponse,
+  SearchSectionRow,
+} from "@/lib/search-response";
 import { loadSearchIndex, type SearchIndex } from "@/server/search-index";
 import type { DocumentIndexItem } from "@/server/search-index-documents";
 import type { EventIndexItem } from "@/server/search-index-events";
 import type { NewsIndexItem } from "@/server/search-index-news";
 import type { SectionIndexItem } from "@/server/search-index-sections";
 
+export type {
+  SearchDocumentParentRow,
+  SearchDocumentRow,
+  SearchEventRow,
+  SearchInput,
+  SearchNewsRow,
+  SearchResponse,
+  SearchSectionRow,
+} from "@/lib/search-response";
+
 const SEARCH_PAGE_SIZE = 20;
 const TEASER_LIMIT = 3;
 /** Заголовок находки не обрезается — предел заведомо больше любого реального заголовка. */
 const TITLE_FRAGMENT_LEN = 300;
-
-export type SearchInput = {
-  q: string;
-  tab: SearchTab;
-  year: number | "all";
-  sort: SearchSort;
-  page: number;
-};
-
-export type SearchNewsRow = {
-  id: string;
-  href: string;
-  dateFormatted: string;
-  section: "federation" | "referees" | null;
-  title: FragmentSpan[];
-  fragment: FragmentSpan[];
-};
-
-export type SearchDocumentParentRow = {
-  kind: "news" | "event";
-  title: string;
-  dateFormatted: string;
-  href: string;
-};
-
-export type SearchDocumentRow = {
-  id: string;
-  href: string;
-  fileName: string;
-  mimeType: string;
-  sizeBytes: number;
-  dateFormatted: string;
-  title: FragmentSpan[];
-  parent: SearchDocumentParentRow | null;
-};
-
-export type SearchEventRow = {
-  id: string;
-  href: string;
-  dateFormatted: string;
-  location: string | null;
-  title: FragmentSpan[];
-  agendaFragment: FragmentSpan[];
-};
-
-export type SearchSectionRow = {
-  id: string;
-  href: string;
-  breadcrumb: string[];
-  title: FragmentSpan[];
-  fragment: FragmentSpan[];
-};
-
-export type SearchResponse = {
-  query: string;
-  tooVague: boolean;
-  /** Числа по вкладкам — по запросу, без учёта года и сортировки. */
-  counts: { news: number; documents: number; events: number; sections: number };
-  /** Годы, за которые есть новости по этому запросу (после отбора «все/часть слов»), по убыванию. */
-  years: number[];
-  tab: SearchTab;
-  sort: SearchSort;
-  year: number | "all";
-  page: number;
-  pageCount: number;
-  /** «Найдено N» — с учётом года (для вкладок «Всё»/«Новости»). */
-  totalForTab: number;
-  partialMatch: boolean;
-  news: SearchNewsRow[] | null;
-  documentsTeaser: SearchDocumentRow[] | null;
-  eventsTeaser: SearchEventRow[] | null;
-  sectionsTeaser: SearchSectionRow[] | null;
-  documents: SearchDocumentRow[] | null;
-  events: SearchEventRow[] | null;
-  sections: SearchSectionRow[] | null;
-};
 
 function emptyResponse(query: string, input: SearchInput, tooVague: boolean): SearchResponse {
   return {

@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { Download, Eye, FileText } from "lucide-react";
 import { formatFileSize } from "@/lib/format-file-size";
@@ -5,8 +6,12 @@ import { formatFileSize } from "@/lib/format-file-size";
 type DocumentFileRowProps = {
   /** Бейдж формата: `PDF`, `HTML`, `DOCX`, … — см. src/lib/document-badge.ts. */
   badge: string;
-  /** Действие: «Открыть PDF», «Читать на сайте». */
-  action: string;
+  /**
+   * Действие: «Открыть PDF», «Читать на сайте», или название документа с
+   * подсветкой найденных слов (поиск, `SearchDocumentRow`) — узлы React, не
+   * только строка, обратно совместимо с прежними вызовами.
+   */
+  action: ReactNode;
   /** Подстрочник: «Устав · 17.03.2016». */
   meta: string;
   href: string;
