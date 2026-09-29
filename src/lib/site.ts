@@ -1,6 +1,17 @@
 /** Канонический адрес сайта. Используется в canonical, og:url и абсолютных URL картинок. */
 export const SITE_URL = "https://spbtennisfed.ru";
 
+/**
+ * Боевые адреса: только на них грузится счётчик Метрики (`src/lib/analytics.ts`).
+ * К запуску сайт переедет на `tennisfed.spb.ru` — оба домена в списке заранее.
+ */
+export const PRODUCTION_HOSTS: readonly string[] = [
+  "spbtennisfed.ru",
+  "www.spbtennisfed.ru",
+  "tennisfed.spb.ru",
+  "www.tennisfed.spb.ru",
+];
+
 export const SITE_NAME = "Федерация тенниса Санкт-Петербурга";
 
 /** Картинка для превью ссылок по умолчанию (1200x630). */

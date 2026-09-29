@@ -11,6 +11,7 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { MetrikaTracker } from "@/components/site/MetrikaTracker";
 import { Toaster } from "@/components/ui/sonner";
 import { OG_IMAGE_URL, SITE_NAME, SITE_URL } from "@/lib/site";
 
@@ -157,6 +158,7 @@ function RootComponent() {
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
       <Toaster />
+      <MetrikaTracker />
     </QueryClientProvider>
   );
 }

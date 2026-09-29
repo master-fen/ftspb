@@ -1,4 +1,5 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
+import { CookieNotice } from "@/components/site/CookieNotice";
 import { PageTransition } from "@/components/site/PageTransition";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
@@ -33,6 +34,7 @@ function SiteLayout() {
         </PageTransition>
       </div>
       <SiteFooter />
+      <CookieNotice />
     </div>
   );
 }
