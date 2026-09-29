@@ -7,6 +7,8 @@ import { formatIsoDateRu } from "@/lib/format-iso-date";
 import { SECTION_CATEGORY_LABELS } from "@/lib/section-category";
 
 const TITLE = "Документы Федерации — Федерация тенниса Санкт-Петербурга";
+// Строка используется дословно в реестре поиска (src/lib/search-registry.ts,
+// buildDescriptionSectionEntries) — при правке см. также этот файл.
 const DESCRIPTION =
   "Официальные документы Федерации тенниса Санкт-Петербурга: положения, регламенты, правила и формы.";
 

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Search, Menu, X, ChevronDown } from "lucide-react";
-import { Link, useRouterState } from "@tanstack/react-router";
-import { toast } from "sonner";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { navSections } from "@/data/mock";
 import type { NavSection } from "@/lib/types/nav";
 import { Button } from "@/components/ui/button";
@@ -32,6 +31,7 @@ export function SiteHeader() {
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const itemRefs = useRef<Record<string, HTMLElement | null>>({});
 
+  const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   const activeLabel = navSections.find((s) => isSectionActive(s, pathname))?.label ?? null;
@@ -110,7 +110,13 @@ export function SiteHeader() {
             role="search"
             onSubmit={(e) => {
               e.preventDefault();
-              toast("Пока не готово");
+              const q = searchInputRef.current?.value.trim() ?? "";
+              if (!q) {
+                // Пустой ввод — ничего не происходит, поле остаётся открытым и в фокусе.
+                searchInputRef.current?.focus();
+                return;
+              }
+              void navigate({ to: "/search", search: { q } });
             }}
             className={`absolute top-3 right-0 z-30 h-11 overflow-hidden rounded-full border-[3px] border-brand-blue bg-background transition-[width,box-shadow] duration-300 ease-out xl:top-4 ${
               searchOpen ? "w-64 shadow-sm" : "w-11"
@@ -130,16 +136,12 @@ export function SiteHeader() {
               }`}
             />
             <Button
-              type="button"
+              type={searchOpen ? "submit" : "button"}
               size="icon"
               aria-label={searchOpen ? "Найти" : "Открыть поиск"}
               aria-expanded={searchOpen}
               onClick={() => {
-                if (searchOpen) {
-                  toast("Пока не готово");
-                  return;
-                }
-                setSearchOpen(true);
+                if (!searchOpen) setSearchOpen(true);
               }}
               className="absolute top-0 right-0 h-full w-10 rounded-full bg-brand-blue p-0 text-primary-foreground shadow-none hover:bg-brand-blue hover:opacity-90"
             >
@@ -238,7 +240,7 @@ export function SiteHeader() {
           <Button
             type="button"
             aria-label="Поиск"
-            onClick={() => toast("Пока не готово")}
+            onClick={() => void navigate({ to: "/search" })}
             size="icon"
             className="h-11 w-11 shrink-0 rounded-full bg-transparent text-primary-foreground shadow-none transition-opacity hover:bg-transparent hover:opacity-90"
           >

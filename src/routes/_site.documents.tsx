@@ -15,6 +15,8 @@ import {
 } from "@/lib/section-category";
 
 const TITLE = "Документы — Федерация тенниса Санкт-Петербурга";
+// Строка используется дословно в реестре поиска (src/lib/search-registry.ts,
+// buildDescriptionSectionEntries) — при правке см. также этот файл.
 const DESCRIPTION =
   "Библиотека документов Федерации тенниса Санкт-Петербурга с фильтром по разделам.";
 

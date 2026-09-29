@@ -17,6 +17,7 @@ import {
   MAX_UPLOAD_BYTES,
 } from "@/lib/image-validation";
 import { requireSession } from "@/server/auth";
+import { resetSearchIndex } from "@/server/search-index";
 import { buildImageUrl, deleteObject, objectExists, uploadObject } from "@/server/storage";
 
 export type PersonRow = typeof federationPerson.$inferSelect;
@@ -118,6 +119,7 @@ export async function createPerson(input: CreatePersonInput): Promise<PersonRow>
   const database = requireDb();
   const values = normalizeCreatePersonInput(input);
   const [row] = await database.insert(federationPerson).values(values).returning();
+  resetSearchIndex();
   return row;
 }
 
@@ -146,6 +148,7 @@ export async function updatePerson(id: string, input: UpdatePersonInput): Promis
   if (updated.length === 0) {
     throw new Error(`Персона не найдена: ${id}`);
   }
+  resetSearchIndex();
 }
 
 async function pickUniquePersonKey(personId: string, ext: string): Promise<string> {
@@ -239,6 +242,7 @@ export async function uploadPersonPhoto(
     }
   }
 
+  resetSearchIndex(); // фото не входит в индекс, но правило — сброс на каждую мутацию, единообразно
   return { key, url: buildImageUrl(key) };
 }
 
@@ -266,6 +270,7 @@ export async function deletePersonPhoto(personId: string): Promise<void> {
   } catch (error) {
     console.warn(`[federation-person] не удалось удалить объект S3: ${person.photoS3Key}`, error);
   }
+  resetSearchIndex();
 }
 
 /** Фото в S3 при мягком удалении НЕ удаляется — строка остаётся, ключ вместе с ней. */
@@ -280,4 +285,5 @@ export async function softDeletePerson(id: string): Promise<void> {
   if (deleted.length === 0) {
     throw new Error(`Персона не найдена или уже удалена: ${id}`);
   }
+  resetSearchIndex();
 }

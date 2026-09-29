@@ -4,6 +4,7 @@ import { news, newsPhoto } from "@/db/schema";
 import { featuredNewsInput, featuredSignature } from "@/lib/featured-news-input";
 import { requireSession } from "@/server/auth";
 import { resetNewsCache } from "@/server/news-cache";
+import { resetSearchIndex } from "@/server/search-index";
 import { buildImageUrl } from "@/server/storage";
 
 async function requireEditor() {
@@ -89,4 +90,5 @@ export async function saveFeaturedEditor(input: unknown) {
     }
   });
   resetNewsCache();
+  resetSearchIndex();
 }

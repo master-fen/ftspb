@@ -31,8 +31,14 @@ export function normalizeSearchQuery(raw: string | undefined): string | undefine
   return trimmed === "" ? undefined : trimmed;
 }
 
-/** toLowerCase + ё→е — легаси писал и «е», и «ё» вперемешку. */
-function foldForSearch(text: string): string {
+/**
+ * toLowerCase + ё→е — легаси писал и «е», и «ё» вперемешку. Экспортируется:
+ * это единственная точка нормализации, через которую проходят и админский
+ * поиск (`matchesQuery` ниже), и стеммер публичного поиска (`stemWord`,
+ * `src/lib/search-stem.ts`) — стеммер обязан получать уже свёрнутый ё→е
+ * текст, иначе основы слов с «ё» расходятся с эталоном (`docs/decisions.md`).
+ */
+export function foldForSearch(text: string): string {
   return text.toLowerCase().replace(/ё/g, "е");
 }
 

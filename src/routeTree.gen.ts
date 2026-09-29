@@ -17,6 +17,7 @@ import { Route as AdminLoginRouteImport } from './routes/admin/login'
 import { Route as SiteTournamentsRouteImport } from './routes/_site.tournaments'
 import { Route as SiteTermsRouteImport } from './routes/_site.terms'
 import { Route as SiteTeamsRouteImport } from './routes/_site.teams'
+import { Route as SiteSearchRouteImport } from './routes/_site.search'
 import { Route as SiteRefereesRouteImport } from './routes/_site.referees'
 import { Route as SitePrivacyRouteImport } from './routes/_site.privacy'
 import { Route as SiteFederationRouteImport } from './routes/_site.federation'
@@ -91,6 +92,11 @@ const SiteTermsRoute = SiteTermsRouteImport.update({
 const SiteTeamsRoute = SiteTeamsRouteImport.update({
   id: '/teams',
   path: '/teams',
+  getParentRoute: () => SiteRoute,
+} as any)
+const SiteSearchRoute = SiteSearchRouteImport.update({
+  id: '/search',
+  path: '/search',
   getParentRoute: () => SiteRoute,
 } as any)
 const SiteRefereesRoute = SiteRefereesRouteImport.update({
@@ -288,6 +294,7 @@ export interface FileRoutesByFullPath {
   '/federation': typeof SiteFederationRouteWithChildren
   '/privacy': typeof SitePrivacyRoute
   '/referees': typeof SiteRefereesRoute
+  '/search': typeof SiteSearchRoute
   '/teams': typeof SiteTeamsRoute
   '/terms': typeof SiteTermsRoute
   '/tournaments': typeof SiteTournamentsRoute
@@ -330,6 +337,7 @@ export interface FileRoutesByTo {
   '/documents': typeof SiteDocumentsRoute
   '/privacy': typeof SitePrivacyRoute
   '/referees': typeof SiteRefereesRoute
+  '/search': typeof SiteSearchRoute
   '/teams': typeof SiteTeamsRoute
   '/terms': typeof SiteTermsRoute
   '/tournaments': typeof SiteTournamentsRoute
@@ -376,6 +384,7 @@ export interface FileRoutesById {
   '/_site/federation': typeof SiteFederationRouteWithChildren
   '/_site/privacy': typeof SitePrivacyRoute
   '/_site/referees': typeof SiteRefereesRoute
+  '/_site/search': typeof SiteSearchRoute
   '/_site/teams': typeof SiteTeamsRoute
   '/_site/terms': typeof SiteTermsRoute
   '/_site/tournaments': typeof SiteTournamentsRoute
@@ -423,6 +432,7 @@ export interface FileRouteTypes {
     | '/federation'
     | '/privacy'
     | '/referees'
+    | '/search'
     | '/teams'
     | '/terms'
     | '/tournaments'
@@ -465,6 +475,7 @@ export interface FileRouteTypes {
     | '/documents'
     | '/privacy'
     | '/referees'
+    | '/search'
     | '/teams'
     | '/terms'
     | '/tournaments'
@@ -510,6 +521,7 @@ export interface FileRouteTypes {
     | '/_site/federation'
     | '/_site/privacy'
     | '/_site/referees'
+    | '/_site/search'
     | '/_site/teams'
     | '/_site/terms'
     | '/_site/tournaments'
@@ -611,6 +623,13 @@ declare module '@tanstack/react-router' {
       path: '/teams'
       fullPath: '/teams'
       preLoaderRoute: typeof SiteTeamsRouteImport
+      parentRoute: typeof SiteRoute
+    }
+    '/_site/search': {
+      id: '/_site/search'
+      path: '/search'
+      fullPath: '/search'
+      preLoaderRoute: typeof SiteSearchRouteImport
       parentRoute: typeof SiteRoute
     }
     '/_site/referees': {
@@ -952,6 +971,7 @@ interface SiteRouteChildren {
   SiteFederationRoute: typeof SiteFederationRouteWithChildren
   SitePrivacyRoute: typeof SitePrivacyRoute
   SiteRefereesRoute: typeof SiteRefereesRoute
+  SiteSearchRoute: typeof SiteSearchRoute
   SiteTeamsRoute: typeof SiteTeamsRoute
   SiteTermsRoute: typeof SiteTermsRoute
   SiteTournamentsRoute: typeof SiteTournamentsRoute
@@ -969,6 +989,7 @@ const SiteRouteChildren: SiteRouteChildren = {
   SiteFederationRoute: SiteFederationRouteWithChildren,
   SitePrivacyRoute: SitePrivacyRoute,
   SiteRefereesRoute: SiteRefereesRoute,
+  SiteSearchRoute: SiteSearchRoute,
   SiteTeamsRoute: SiteTeamsRoute,
   SiteTermsRoute: SiteTermsRoute,
   SiteTournamentsRoute: SiteTournamentsRoute,

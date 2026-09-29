@@ -10,6 +10,7 @@ import {
   type EventState,
 } from "@/lib/event-input";
 import { requireSession } from "@/server/auth";
+import { resetSearchIndex } from "@/server/search-index";
 import { slugify } from "@/server/slug";
 
 /**
@@ -153,6 +154,7 @@ export async function createEvent(input: EventInput): Promise<{ id: string; slug
       .insert(event)
       .values(state)
       .returning({ id: event.id, slug: event.slug });
+    resetSearchIndex();
     return row;
   } catch (error) {
     if (isUniqueViolation(error)) {
@@ -190,12 +192,14 @@ export async function updateEvent(id: string, patch: EventPatch): Promise<void> 
     }
     throw error;
   }
+  resetSearchIndex();
 }
 
 export async function softDeleteEvent(id: string): Promise<void> {
   await requireSession();
   const database = requireDb();
   await database.update(event).set({ deletedAt: new Date() }).where(eq(event.id, id));
+  resetSearchIndex();
 }
 
 /**
@@ -216,6 +220,7 @@ export async function restoreEvent(id: string): Promise<void> {
     }
     throw error;
   }
+  resetSearchIndex();
 }
 
 export async function checkSlugAvailable(slug: string, excludeId?: string): Promise<boolean> {
