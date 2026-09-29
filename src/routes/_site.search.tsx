@@ -95,10 +95,15 @@ function TeaserSection({
 function SearchPage() {
   const result = Route.useLoaderData();
   const search = Route.useSearch();
+  const noQuery = search.q.trim() === "";
 
-  if (result.tooVague) {
+  // «Уточните запрос» — только когда запрос ЕСТЬ, но не значим (одни
+  // служебные слова, короче 2 знаков). Пустой запрос — другое состояние
+  // («Без запроса» ниже), хотя parseSearchQuery("") тоже даёт tooVague:true
+  // (ноль значимых терминов) — порядок проверок здесь обязателен.
+  if (result.tooVague && !noQuery) {
     return (
-      <main className="mx-auto max-w-7xl px-4 pt-6 pb-12 md:px-6 md:pt-8 md:pb-16 lg:box-content lg:px-10">
+      <main className="mx-auto max-w-7xl lg:box-content px-4 pt-6 pb-12 md:px-6 md:pt-8 md:pb-16 lg:px-10">
         <Breadcrumbs items={CRUMBS} />
         <header className="mb-6 md:mb-8">
           <h1 className="ui-h1">Поиск по сайту</h1>
@@ -111,7 +116,6 @@ function SearchPage() {
     );
   }
 
-  const noQuery = search.q.trim() === "";
   const nothingFound =
     !noQuery &&
     result.counts.news === 0 &&
@@ -120,7 +124,7 @@ function SearchPage() {
     result.counts.sections === 0;
 
   return (
-    <main className="mx-auto max-w-7xl px-4 pt-6 pb-12 md:px-6 md:pt-8 md:pb-16 lg:box-content lg:px-10">
+    <main className="mx-auto max-w-7xl lg:box-content px-4 pt-6 pb-12 md:px-6 md:pt-8 md:pb-16 lg:px-10">
       <Breadcrumbs items={CRUMBS} />
       <header className="mb-6 md:mb-8">
         <h1 className="ui-h1">Поиск по сайту</h1>
