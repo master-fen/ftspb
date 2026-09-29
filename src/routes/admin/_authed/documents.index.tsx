@@ -32,7 +32,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { parseSectionParam, parseStatusParam, parseTextParam } from "@/lib/admin-list-paging";
+import {
+  parseDocumentSectionParam,
+  parseStatusParam,
+  parseTextParam,
+} from "@/lib/admin-list-paging";
 import { parsePageParam } from "@/lib/news-paging";
 import { listAdminDocuments, softDeleteDocument } from "@/lib/documents-server-fn";
 import { formatFileSize } from "@/lib/format-file-size";
@@ -49,7 +53,7 @@ const SECTION_LABEL: Record<"federation" | "referees", string> = {
 /** См. news.index.tsx — тот же приём: тотальные parse*-функции, без zod-adapter. */
 const searchSchema = z.object({
   q: z.unknown().transform(parseTextParam),
-  section: z.unknown().transform(parseSectionParam),
+  section: z.unknown().transform(parseDocumentSectionParam),
   status: z.unknown().transform(parseStatusParam),
   page: z.unknown().transform(parsePageParam),
 });

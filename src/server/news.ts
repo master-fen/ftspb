@@ -9,7 +9,7 @@ import { sortNewsByDateDesc } from "@/lib/news-date";
 import { cardExcerpt, pageDescription } from "@/lib/news-excerpt";
 import { clampPage, NEWS_PAGE_SIZE, pageCountFor } from "@/lib/news-paging";
 import { pickRelatedNews } from "@/lib/news-related";
-import type { SectionCategory } from "@/lib/section-category";
+import { NEWS_SECTIONS, SECTION_LABELS, type NewsSectionCategory } from "@/lib/section-category";
 import type { NewsCardItem, NewsCategory, NewsItem, NewsSection } from "@/lib/types/news";
 import { getPublishedDocumentsForNews } from "@/server/documents";
 import { getNewsCache, setNewsCache, type NewsCache } from "@/server/news-cache";
@@ -35,14 +35,7 @@ export type NewsArticle = {
 };
 
 function sectionToCategory(section: NewsSection | null): NewsCategory {
-  switch (section) {
-    case "federation":
-      return "Федерация";
-    case "referees":
-      return "Коллегия судей";
-    case null:
-      return "Общее";
-  }
+  return section === null ? "Общее" : SECTION_LABELS[section];
 }
 
 /**
@@ -51,14 +44,7 @@ function sectionToCategory(section: NewsSection | null): NewsCategory {
  * сравнивают `section` — восстанавливаем его в момент отдачи, файлы данных не трогая.
  */
 function categoryToSection(category: NewsCategory): NewsSection | null {
-  switch (category) {
-    case "Федерация":
-      return "federation";
-    case "Коллегия судей":
-      return "referees";
-    case "Общее":
-      return null;
-  }
+  return NEWS_SECTIONS.find((section) => SECTION_LABELS[section] === category) ?? null;
 }
 
 function withSection(item: NewsItem): NewsItem {
@@ -221,7 +207,7 @@ export async function listNews(): Promise<NewsCardItem[]> {
   return items;
 }
 
-function matchesCategory(item: NewsCardItem, category: SectionCategory): boolean {
+function matchesCategory(item: NewsCardItem, category: NewsSectionCategory): boolean {
   if (category === "all") return true;
   // Сравниваем машинный раздел, а не русскую подпись category.
   // «Общее» — новости без раздела (section === null).
@@ -236,7 +222,7 @@ function matchesCategory(item: NewsCardItem, category: SectionCategory): boolean
  */
 export async function listNewsPage(input: {
   page: number;
-  category: SectionCategory;
+  category: NewsSectionCategory;
 }): Promise<NewsListPage> {
   const all = await listNews();
   const filtered = all.filter((item) => matchesCategory(item, input.category));

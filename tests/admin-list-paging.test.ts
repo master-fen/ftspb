@@ -4,7 +4,8 @@ import {
   MIN_ARCHIVE_YEAR,
   clampPageToLast,
   parseDeletedParam,
-  parseSectionParam,
+  parseDocumentSectionParam,
+  parseNewsSectionParam,
   parseSourceParam,
   parseStatusParam,
   parseTextParam,
@@ -66,17 +67,33 @@ describe("parseYearParam", () => {
   });
 });
 
-describe("parseSectionParam", () => {
+describe("parseNewsSectionParam", () => {
   test("известные значения проходят", () => {
-    expect(parseSectionParam("none")).toBe("none");
-    expect(parseSectionParam("federation")).toBe("federation");
-    expect(parseSectionParam("referees")).toBe("referees");
+    expect(parseNewsSectionParam("none")).toBe("none");
+    expect(parseNewsSectionParam("federation")).toBe("federation");
+    expect(parseNewsSectionParam("referees")).toBe("referees");
+    expect(parseNewsSectionParam("athletes")).toBe("athletes");
   });
 
   test("мусор и неизвестное значение → all", () => {
-    expect(parseSectionParam(undefined)).toBe("all");
-    expect(parseSectionParam("что-то")).toBe("all");
-    expect(parseSectionParam(42)).toBe("all");
+    expect(parseNewsSectionParam(undefined)).toBe("all");
+    expect(parseNewsSectionParam("что-то")).toBe("all");
+    expect(parseNewsSectionParam(42)).toBe("all");
+  });
+});
+
+describe("parseDocumentSectionParam", () => {
+  test("известные значения проходят", () => {
+    expect(parseDocumentSectionParam("none")).toBe("none");
+    expect(parseDocumentSectionParam("federation")).toBe("federation");
+    expect(parseDocumentSectionParam("referees")).toBe("referees");
+  });
+
+  test("мусор и athletes → all", () => {
+    expect(parseDocumentSectionParam(undefined)).toBe("all");
+    expect(parseDocumentSectionParam("что-то")).toBe("all");
+    expect(parseDocumentSectionParam(42)).toBe("all");
+    expect(parseDocumentSectionParam("athletes")).toBe("all");
   });
 });
 

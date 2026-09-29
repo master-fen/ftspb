@@ -23,6 +23,7 @@ import {
   parseSearchTabParam,
   parseSearchYearParam,
 } from "@/lib/search-params";
+import { SECTION_LABELS } from "@/lib/section-category";
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl || !isLocalHost(databaseUrl)) {
@@ -113,12 +114,7 @@ if (result.eventsTeaser?.length) {
 if (result.news?.length) {
   console.log(`\nНовости (страница ${result.page} из ${result.pageCount}):`);
   for (const row of result.news) {
-    const section =
-      row.section === "federation"
-        ? "Федерация"
-        : row.section === "referees"
-          ? "Коллегия судей"
-          : null;
+    const section = row.section === null ? null : SECTION_LABELS[row.section];
     console.log(
       `  ${row.dateFormatted}${section ? ` · ${section}` : ""} — ${marked(row.title)} — ${row.href}`,
     );

@@ -9,6 +9,7 @@ import { pageCountFor } from "@/lib/news-paging";
 import { normalizeVideoUrl } from "@/lib/news-video-url";
 import { parsePhotoSize } from "@/lib/photo-dimensions";
 import { matchesQuery, visibleText } from "@/lib/search-text";
+import type { NewsSection } from "@/lib/section-category";
 import { requireSession } from "@/server/auth";
 import { resetNewsCache } from "@/server/news-cache";
 import { resetSearchIndex } from "@/server/search-index";
@@ -18,7 +19,7 @@ import { buildImageUrl, deleteObject, objectExists, uploadObject } from "@/serve
 
 type NewsRow = typeof news.$inferSelect;
 type NewsPhotoRow = typeof newsPhoto.$inferSelect;
-type Section = "federation" | "referees";
+type Section = NewsSection;
 type Status = "draft" | "published";
 
 function requireDb(): NonNullable<typeof db> {

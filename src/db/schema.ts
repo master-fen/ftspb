@@ -16,6 +16,7 @@ import {
   uuid,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
+import type { DocumentSection } from "../lib/section-category";
 
 /**
  * Одна база `default_db`, изоляция боевых/черновых данных — через схему
@@ -26,7 +27,8 @@ import {
  * `search_path` подключения (см. src/db/client.ts, drizzle.config.ts).
  * Это позволяет применять одну и ту же SQL-миграцию к любой схеме.
  */
-export const sectionEnum = pgEnum("section_enum", ["federation", "referees"]);
+// `athletes` — только для новостей; документы его не принимают (DocumentSection, docs/decisions.md).
+export const sectionEnum = pgEnum("section_enum", ["federation", "referees", "athletes"]);
 export const statusEnum = pgEnum("status_enum", ["draft", "published"]);
 export const datePrecisionEnum = pgEnum("date_precision_enum", [
   "day",
@@ -96,7 +98,7 @@ export const document = pgTable(
     s3Key: text("s3_key").notNull(),
     mimeType: text("mime_type").notNull(),
     sizeBytes: bigint("size_bytes", { mode: "number" }).notNull(),
-    section: sectionEnum("section"),
+    section: sectionEnum("section").$type<DocumentSection>(),
     documentDate: date("document_date").notNull(),
     fileName: text("file_name").notNull(),
     status: statusEnum("status").notNull().default("draft"),

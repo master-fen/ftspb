@@ -1,23 +1,28 @@
-import { SECTION_CATEGORIES, type SectionCategory } from "@/lib/section-category";
-
-type CategoryFilterChipsProps = {
-  active: SectionCategory;
-  onSelect: (value: SectionCategory) => void;
-  labels: Record<SectionCategory, string>;
+type CategoryFilterChipsProps<T extends string> = {
+  /** Чипы по порядку: NEWS_SECTION_CATEGORIES или DOCUMENT_SECTION_CATEGORIES. */
+  categories: readonly T[];
+  active: T;
+  onSelect: (value: T) => void;
+  labels: Record<T, string>;
 };
 
 /**
  * Чипы фильтра по разделам — разметка со страницы /news (news.index.tsx),
- * общая для новостей и документов. Порядок чипов — SECTION_CATEGORIES.
+ * общая для новостей и документов; набор и порядок чипов задаёт страница.
  */
-export function CategoryFilterChips({ active, onSelect, labels }: CategoryFilterChipsProps) {
+export function CategoryFilterChips<T extends string>({
+  categories,
+  active,
+  onSelect,
+  labels,
+}: CategoryFilterChipsProps<T>) {
   return (
     <div
       role="group"
       aria-label="Фильтр по разделам"
       className="mb-8 flex flex-wrap gap-2 md:mb-10"
     >
-      {SECTION_CATEGORIES.map((value) => {
+      {categories.map((value) => {
         const isActive = active === value;
         return (
           <button

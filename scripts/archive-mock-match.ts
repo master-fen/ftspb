@@ -7,9 +7,10 @@
  * боевом сайте моки перебили бы выбранные человеком «главные новости».
  */
 import { allNews, featuredNews } from "../src/data/mock";
+import type { NewsSection } from "../src/lib/section-category";
 import { normalizeTitle } from "./archive-migration-rules";
 
-export type Section = "federation" | "referees" | null;
+export type Section = NewsSection | null;
 
 type MockNewsItem = (typeof allNews)[number];
 
@@ -30,6 +31,8 @@ function mapCategoryToSection(category: MockNewsItem["category"]): Section {
       return "federation";
     case "Коллегия судей":
       return "referees";
+    case "Наши спортсмены":
+      return "athletes";
     case "Общее":
       return null;
     default: {

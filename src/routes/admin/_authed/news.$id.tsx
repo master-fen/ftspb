@@ -34,6 +34,7 @@ import {
   updateNews,
 } from "@/lib/news-admin-server-fn";
 import { normalizeVideoUrl } from "@/lib/news-video-url";
+import { NEWS_SECTION_OPTIONS, NEWS_SECTIONS, type NewsSection } from "@/lib/section-category";
 import { DocumentGallery } from "./-components/DocumentGallery";
 import { EventSelect } from "./-components/EventSelect";
 import { eventIdToFormValue, formValueToEventId } from "./-components/event-select-value";
@@ -55,7 +56,7 @@ const formSchema = z.object({
   title: z.string().min(1, "Введите заголовок"),
   slug: z.string().min(1, "Введите slug"),
   publishedAt: z.string().min(1, "Укажите дату"),
-  section: z.enum(["none", "federation", "referees"]),
+  section: z.enum(["none", ...NEWS_SECTIONS]),
   excerpt: z.string(),
   body: z.string(),
   status: z.enum(["draft", "published"]),
@@ -126,7 +127,7 @@ function NewsEditForm({
     publishedAt: string;
     excerpt: string | null;
     body: string | null;
-    section: "federation" | "referees" | null;
+    section: NewsSection | null;
     status: "draft" | "published";
     coverPhotoId: string | null;
     featured: boolean;
@@ -512,8 +513,11 @@ function NewsEditForm({
                     </FormControl>
                     <SelectContent>
                       <SelectItem value="none">Без раздела</SelectItem>
-                      <SelectItem value="federation">Федерация</SelectItem>
-                      <SelectItem value="referees">Коллегия судей</SelectItem>
+                      {NEWS_SECTION_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -580,7 +584,8 @@ function NewsEditForm({
             uploadDefaults={{
               title: news.title,
               documentDate: news.publishedAt,
-              section: news.section,
+              // У документов нет раздела «Наши спортсмены» — умолчание «Без раздела».
+              section: news.section === "athletes" ? null : news.section,
             }}
             onBusyChange={setDocumentBusy}
             onDirtyChange={setDocumentDirty}

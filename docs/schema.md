@@ -64,8 +64,13 @@ Postgres внутри `default_db`:
 | cover_photo_id                     | uuid NULL FK → news_photo, ON DELETE SET NULL | обложка                                     |
 | created_at, updated_at, deleted_at | timestamptz                                   |                                             |
 
-Enum `section_enum`: `federation` | `referees`. Значения «Общее» нет — это
-NULL (решение Антона, 01.08.2026).
+Enum `section_enum`: `federation` | `referees` | `athletes`. Значения «Общее»
+нет — это NULL (решение Антона, 01.08.2026). `athletes` («Наши спортсмены»,
+миграция `0009`) допустимо только для новостей: тот же enum у
+`document.section`, но документам значение запрещено в коде
+(`DOCUMENT_SECTIONS` в `src/lib/section-category.ts`), а не в БД — почему,
+`docs/decisions.md`, «Раздел «Наши спортсмены»». Значение из enum не
+удаляется без пересоздания типа.
 
 Индексы: уникальный индекс на `slug` (из UNIQUE-ограничения),
 `(status, published_at DESC)`, `section`.
