@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { SearchHighlight } from "@/components/site/SearchHighlight";
+import { SEARCH_ROW, SEARCH_ROW_LINK } from "@/components/site/search-row-classes";
 import type { SearchEventRow as SearchEventRowData } from "@/lib/search-response";
 
 /**
@@ -10,13 +11,13 @@ import type { SearchEventRow as SearchEventRowData } from "@/lib/search-response
  */
 export function SearchEventRow({ row }: { row: SearchEventRowData }) {
   return (
-    <li className="border-b border-border py-4 last:border-b-0">
+    <li className={SEARCH_ROW}>
       <p className="ui-caption">
         {row.dateFormatted}
         {row.location ? ` · ${row.location}` : ""}
       </p>
       <h3 className="ui-card-title mt-1">
-        <Link to={row.href} className="ui-link">
+        <Link to={row.href} className={SEARCH_ROW_LINK}>
           <SearchHighlight spans={row.title} />
         </Link>
       </h3>
