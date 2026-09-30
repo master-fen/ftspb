@@ -154,9 +154,60 @@
 - **Разделы легаси, не переносимые вовсе.** `photogallery.html`,
   `photogallery_2018.html`, `antidope.html`, `lnk_clubs.html` — их
   содержимое не новости, и в перенос архива они не входят. Вернуться к ним
-  при наполнении сайта. Из них ведут ссылки на часть необъяснённых
+  при наполнении сайта. Исключение — кадры галерей, на которые ссылаются
+  новости: они переносятся в эти новости (`LINKED_GALLERIES`, 20 страниц,
+  30.09.2026 — `docs/archive-notes.md`); раздел «Фотогалерея» как раздел
+  по-прежнему отложен. Из них ведут ссылки на часть необъяснённых
   article-страниц (решение по тринадцати страницам принято 20.09.2026 —
   `docs/archive-notes.md`, «Тринадцать необъяснённых страниц»).
+- **Пять страниц-галерей, отложенных до решения Антона по каждой.** Условие
+  возврата — «решение Антона по каждой»; ссылок из тел новостей на них нет
+  (страж `DEFERRED_GALLERY_PAGES` в `scripts/parse-archive.ts`: появится
+  ссылка — прогон упадёт). Замер 30.09.2026:
+  `photogallery_02-10_07_2005.html` — 175 кадров, «Летний открытый
+  чемпионат Санкт-Петербурга среди взрослых (02–10.07.2005)», новости нет;
+  `photogallery_20-26_02_2006.html` — 23 кадра, «Зимнее первенство
+  теннисного клуба «Полюстрово» (20–26.02.2006)», новости нет;
+  `photogallery_20130608.html`, `_20130614.html`, `_20130618.html` — 42, 60 и
+  60 кадров, у всех трёх на легаси одинаковый заголовок «в возрастной группе
+  до 17 лет (10–16.06.2013)» — это ошибка легаси: по оглавлению
+  `photogallery.html` это пляжный чемпионат (до 17 и до 15). Кадры лежат в
+  `D:\Webarchive\download\pic\gallery\…`.
+- **Двойники по картинке в галереях 17 новостей.** Правило «дубль по sha256»
+  не видит копий одной картинки разного размера (`docs/decisions.md`).
+  Замер dHash 30.09.2026 по сжатым файлам: из 44 фото, уже стоявших у
+  адресатов, 15 — та же картинка, что дописанный кадр галереи (расстояние ≤3),
+  ещё 8 пограничных (4–8). Среди них шесть превью `sm/` 100×150 px у трёх
+  новостей 2013 года (в теле новости стояла миниатюра со ссылкой на галерею).
+  Существующие строки не трогались. Решение — за Антоном: убрать меньшую копию
+  (строка `news_photo` и, отдельным решением, объект), оставить как есть.
+
+  | дата       | строка в базе (ключ)                                                                             | размер  | тот же кадр в галерее (ключ)                                                | расстояние |
+  | ---------- | ------------------------------------------------------------------------------------------------ | ------- | --------------------------------------------------------------------------- | ---------- |
+  | 15.07.2006 | `news/letniy-otkrytyy-chempionat-sankt-peterburga-po-tennisu-zakon/cover.jpg` (cemp_spb1.jpg)    | 300×220 | `news/letniy-otkrytyy-chempionat-sankt-peterburga-po-tennisu-zakon/73.jpg`  | 5          |
+  | 04.07.2006 | `news/letnee-otkrytoe-pervenstvo-sankt-peterburga-po-tennisu-18-le/cover.jpg` (perv_18year2.jpg) | 300×211 | `news/letnee-otkrytoe-pervenstvo-sankt-peterburga-po-tennisu-18-le/40.jpg`  | 0          |
+  | 04.07.2006 | `news/letnee-otkrytoe-pervenstvo-sankt-peterburga-po-tennisu-18-le/01.jpg` (perv_18year1.jpg)    | 300×216 | `news/letnee-otkrytoe-pervenstvo-sankt-peterburga-po-tennisu-18-le/38.jpg`  | 7          |
+  | 04.06.2006 | `news/pervenstvo-sankt-peterburga-po-tennisu/cover.jpg` (pervenstvo_16year.jpg)                  | 300×212 | `news/pervenstvo-sankt-peterburga-po-tennisu/14.jpg`                        | 0          |
+  | 02.04.2006 | `news/vesna-vremya-neva-cup/cover.jpg` (neva_cup2.jpg)                                           | 300×191 | `news/vesna-vremya-neva-cup/22.jpg`                                         | 0          |
+  | 29.03.2006 | `news/master-klass-firmy-prince/cover.jpg` (prince_mini.jpg)                                     | 300×154 | `news/master-klass-firmy-prince/01.jpg`                                     | 8          |
+  | 26.02.2006 | `news/zimnee-pervenstvo-sankt-peterburga-2006-02-26/01.jpg` (wint_perv_14.jpg)                   | 300×225 | `news/zimnee-pervenstvo-sankt-peterburga-2006-02-26/23.jpg`                 | 7          |
+  | 26.02.2006 | `news/zimnee-pervenstvo-sankt-peterburga-2006-02-26/02.jpg` (wint_perv_14_2.jpg)                 | 300×209 | `news/zimnee-pervenstvo-sankt-peterburga-2006-02-26/26.jpg`                 | 6          |
+  | 26.02.2006 | `news/zimnee-pervenstvo-sankt-peterburga-2006-02-26/03.jpg` (wint_perv_16.jpg)                   | 300×224 | `news/zimnee-pervenstvo-sankt-peterburga-2006-02-26/36.jpg`                 | 3          |
+  | 19.02.2006 | `news/zimniy-otkrytyy-chempionat-sankt-peterburga-po-tennisu-sredi/01.jpg` (wint_chem2.jpg)      | 300×192 | `news/zimniy-otkrytyy-chempionat-sankt-peterburga-po-tennisu-sredi/04.jpg`  | 5          |
+  | 19.02.2006 | `news/zimniy-otkrytyy-chempionat-sankt-peterburga-po-tennisu-sredi/02.jpg` (wint_chem1.jpg)      | 300×192 | `news/zimniy-otkrytyy-chempionat-sankt-peterburga-po-tennisu-sredi/11.jpg`  | 7          |
+  | 10.07.2011 | `news/itogi-pervenstva-sankt-peterburga-sredi-vosemnadtsatiletnih/cover.jpg` (18year1.jpg)       | 400×267 | `news/itogi-pervenstva-sankt-peterburga-sredi-vosemnadtsatiletnih/88.jpg`   | 0          |
+  | 10.07.2011 | `news/itogi-pervenstva-sankt-peterburga-sredi-vosemnadtsatiletnih/02.jpg` (18year2.jpg)          | 400×267 | `news/itogi-pervenstva-sankt-peterburga-sredi-vosemnadtsatiletnih/25.jpg`   | 0          |
+  | 06.07.2013 | `news/letnee-pervenstvo-sankt-peterburga-v-vozrastnoy-gruppe-do-19/01.jpg` (pp18_2.jpg)          | 400×600 | `news/letnee-pervenstvo-sankt-peterburga-v-vozrastnoy-gruppe-do-19/150.jpg` | 0          |
+  | 06.07.2013 | `news/letnee-pervenstvo-sankt-peterburga-v-vozrastnoy-gruppe-do-19/04.jpg` (m03.jpg)             | 100×150 | `news/letnee-pervenstvo-sankt-peterburga-v-vozrastnoy-gruppe-do-19/09.jpg`  | 2          |
+  | 06.07.2013 | `news/letnee-pervenstvo-sankt-peterburga-v-vozrastnoy-gruppe-do-19/05.jpg` (m08.jpg)             | 100×150 | `news/letnee-pervenstvo-sankt-peterburga-v-vozrastnoy-gruppe-do-19/74.jpg`  | 1          |
+  | 06.07.2013 | `news/letnee-pervenstvo-sankt-peterburga-v-vozrastnoy-gruppe-do-19/06.jpg` (m01.jpg)             | 100×150 | `news/letnee-pervenstvo-sankt-peterburga-v-vozrastnoy-gruppe-do-19/127.jpg` | 2          |
+  | 01.07.2013 | `news/zavershilsya-veteranskiy-chempionat-sankt-peterburga/cover.jpg` (vet2.jpg)                 | 400×267 | `news/zavershilsya-veteranskiy-chempionat-sankt-peterburga/05.jpg`          | 7          |
+  | 01.07.2013 | `news/zavershilsya-veteranskiy-chempionat-sankt-peterburga/01.jpg` (vet3.jpg)                    | 400×600 | `news/zavershilsya-veteranskiy-chempionat-sankt-peterburga/17.jpg`          | 0          |
+  | 01.07.2013 | `news/zavershilsya-veteranskiy-chempionat-sankt-peterburga/02.jpg` (vet4.jpg)                    | 400×267 | `news/zavershilsya-veteranskiy-chempionat-sankt-peterburga/92.jpg`          | 1          |
+  | 01.07.2013 | `news/zavershilsya-veteranskiy-chempionat-sankt-peterburga/03.jpg` (f15.jpg)                     | 100×150 | `news/zavershilsya-veteranskiy-chempionat-sankt-peterburga/19.jpg`          | 3          |
+  | 01.07.2013 | `news/zavershilsya-veteranskiy-chempionat-sankt-peterburga/04.jpg` (m46.jpg)                     | 100×67  | `news/zavershilsya-veteranskiy-chempionat-sankt-peterburga/92.jpg`          | 2          |
+  | 29.06.2013 | `news/rezultaty-letnego-pervenstva-dyutts-im-s-maksimova/02.jpg` (m07.jpg)                       | 100×150 | `news/rezultaty-letnego-pervenstva-dyutts-im-s-maksimova/09.jpg`            | 1          |
+
 - **Текст четырёх страниц `plt_news.html` теряется.** Лента источником не
   сделана, её страницы остаются поглощёнными галереями; их текст короче
   порога д7 = 500 знаков, поэтому контроль «д7 = 0» их не видит. Имена
@@ -194,7 +245,12 @@
   лент (`newsarch_*.html`, `festvest.html`, `pobeda.html`, `150.html`) — на
   `/news`, при возможности с фильтром по году; страницы разделов легаси
   (`index.html`, `news.html`, `referee.html`, `lnk_clubs.html`,
-  `antidope.html`, `photogallery*.html`) — на ближайший раздел нового сайта;
+  `antidope.html`, `photogallery.html`, `photogallery_2018/2019/2020/arch.html` и пять
+  отложенных галерей) — на ближайший раздел нового сайта; **20 страниц
+  `photogallery_*.html`, кадры которых переехали в новости** (`LINKED_GALLERIES`),
+  — на `/news/СЛАГ` записи-адресата (у двух адресатов адрес страницы лежит в
+  `Источник`, у остальных 15 — таблицу собрать по списку в
+  `scripts/parse-archive.ts`);
   файлы документов (положения, протоколы) по старым путям — на новый адрес
   файла, если он перенесён. Таблицу собрать автоматически из выгрузки и
   манифеста архива; проверить выборкой. Срок — день переезда на адрес.
