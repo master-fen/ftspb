@@ -40,7 +40,7 @@ export function CookieNotice() {
       aria-label="Уведомление о файлах cookie"
       className="sticky bottom-0 z-40 border-t border-border bg-card-surface text-foreground"
     >
-      <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between md:px-6 lg:px-10">
+      <div className="mx-auto flex max-w-7xl lg:box-content flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between md:px-6 lg:px-10">
         <p className="text-sm">
           Сайт использует файлы cookie и Яндекс Метрику для подсчёта посещений. Подробнее — в{" "}
           <Link to="/privacy" hash="cookies" className="underline">
