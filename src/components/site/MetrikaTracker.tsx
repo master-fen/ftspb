@@ -14,12 +14,14 @@ const TAG_URL = `https://mc.yandex.ru/metrika/tag.js?id=${METRIKA_COUNTER_ID}`;
 
 /**
  * Загрузчик и инициализация — по официальному коду вставки из кабинета Метрики
- * (очередь `ym.a`, проверка повторной вставки). Параметры инициализации наши:
- * `defer: true` отключает автоматический хит, просмотры шлёт эффект ниже, по
- * одному на смену pathname/search (SPA-схема из справки Метрики). Без `ssr`,
- * Вебвизора, карты кликов и электронной коммерции; `trackLinks` включён.
+ * (очередь `ym.a`, проверка повторной вставки). Первый просмотр отправляет сам
+ * `init` (автохит): `defer: true` в проверенной версии `tag.js` автохит не
+ * отключает (проба 30.09.2026), поэтому параметра нет. `url` и `referrer`
+ * фиксируются в момент вызова: при медленной загрузке `tag.js` автохит иначе
+ * взял бы уже новый адрес. Без `ssr`, Вебвизора, карты кликов и электронной
+ * коммерции; `trackLinks` включён.
  */
-function loadMetrika(): void {
+function loadMetrika(url: string, referrer: string): void {
   const w = window;
   w.ym =
     w.ym ||
@@ -35,7 +37,8 @@ function loadMetrika(): void {
   script.src = TAG_URL;
   document.head.appendChild(script);
   w.ym(METRIKA_COUNTER_ID, "init", {
-    defer: true,
+    url,
+    referrer,
     accurateTrackBounce: true,
     trackLinks: true,
     clickmap: false,
@@ -61,6 +64,7 @@ export function MetrikaTracker() {
   // Ключ последнего отправленного просмотра; null — после админки или до первого.
   const lastKey = useRef<string | null>(null);
   const isFirst = useRef(true);
+  const initialized = useRef(false);
 
   useEffect(() => {
     if (key === null || pathname === null) return;
@@ -71,18 +75,21 @@ export function MetrikaTracker() {
       return;
     }
     if (lastKey.current === key) return;
-    loadMetrika();
-    const referer = isFirst.current
+    const url = window.location.origin + key;
+    const referrer = isFirst.current
       ? document.referrer
       : lastKey.current
         ? window.location.origin + lastKey.current
-        : undefined;
+        : "";
     isFirst.current = false;
     lastKey.current = key;
-    window.ym!(METRIKA_COUNTER_ID, "hit", window.location.origin + key, {
-      title: document.title,
-      referer,
-    });
+    if (!initialized.current) {
+      // Первый просмотр сессии отправляет init (автохит), ручной hit был бы вторым.
+      initialized.current = true;
+      loadMetrika(url, referrer);
+      return;
+    }
+    window.ym!(METRIKA_COUNTER_ID, "hit", url, { title: document.title, referer: referrer });
   }, [key, pathname]);
 
   return null;
