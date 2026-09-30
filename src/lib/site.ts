@@ -38,3 +38,9 @@ export const ORG_REQUISITES = {
   registrationDateText: "27 мая 2004 года",
   address: "193230, Санкт-Петербург, пер. Челиева, дом 13, корпус 3, литера Т, помещение 16", // Устав п. 1.10
 } as const;
+
+/** Контакты Федерации для страницы «Общая информация». */
+export const ORG_CONTACTS = {
+  phone: "+7 (812) 935-5903",
+  email: "tennisfedspb@yandex.ru",
+} as const;
