@@ -30,6 +30,8 @@ const NOT_BUN_ENTRIES = new Set(["parse-archive.ts"]);
 /** Импортируемые модули: у них своя запись кэша, порог входа к ним не применим. */
 const MODULES = new Set([
   "archive-document-values.ts",
+  "archive-gallery-links.ts",
+  "archive-gallery-ops.ts",
   "archive-image-rule.ts",
   "archive-image-sizes.ts",
   "archive-markers.ts",
@@ -42,6 +44,7 @@ const MODULES = new Set([
 
 /** Входные файлы, которые `docs/tools.md` велит запускать `bun`-ом напрямую. */
 const DIRECT_BUN_ENTRIES = [
+  "add-gallery-frames.ts",
   "backfill-document-fields.ts",
   "check-content-disposition.ts",
   "compress-archive.ts",
