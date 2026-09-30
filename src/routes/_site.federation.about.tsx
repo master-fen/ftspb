@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { FederationMobileNav } from "@/components/site/FederationMobileNav";
 import { ABOUT_PARAGRAPHS } from "@/lib/federation-about";
-import { ORG_REQUISITES } from "@/lib/site";
+import { ORG_CONTACTS, ORG_REQUISITES } from "@/lib/site";
 
 const TITLE = "Общая информация — Федерация тенниса Санкт-Петербурга";
 const DESCRIPTION =
@@ -65,6 +65,32 @@ export const Route = createFileRoute("/_site/federation/about")({
             <div>
               <dt className="font-semibold">Адрес</dt>
               <dd className="mt-0.5">{ORG_REQUISITES.address}</dd>
+            </div>
+          </dl>
+        </section>
+        <section
+          aria-labelledby="org-contacts-title"
+          className="font-ui text-base leading-[1.6] text-foreground"
+        >
+          <h2 id="org-contacts-title" className="ui-h2">
+            Контакты
+          </h2>
+          <dl className="mt-4 space-y-4">
+            <div>
+              <dt className="font-semibold">Телефон</dt>
+              <dd className="mt-0.5">
+                <a href={`tel:${ORG_CONTACTS.phone.replace(/[^\d+]/g, "")}`} className="ui-link">
+                  {ORG_CONTACTS.phone}
+                </a>
+              </dd>
+            </div>
+            <div>
+              <dt className="font-semibold">E-mail</dt>
+              <dd className="mt-0.5">
+                <a href={`mailto:${ORG_CONTACTS.email}`} className="ui-link">
+                  {ORG_CONTACTS.email}
+                </a>
+              </dd>
             </div>
           </dl>
         </section>

@@ -29,7 +29,7 @@ import {
 } from "@/lib/federation-structure";
 import { ANTIDOPING_RESPONSIBLE, ANTIDOPING_GROUPS } from "@/data/antidoping";
 import { ABOUT_PARAGRAPHS } from "@/lib/federation-about";
-import { ORG_REQUISITES } from "@/lib/site";
+import { ORG_CONTACTS, ORG_REQUISITES } from "@/lib/site";
 import { clauseAnchorId } from "@/lib/charter/anchors";
 import { CHARTER_TEXT_PATH, CHARTER_SECTION_TITLES } from "@/lib/charter/meta";
 import type { CharterBlock, CharterContent } from "@/lib/charter/types";
@@ -161,7 +161,14 @@ export function buildAboutSectionEntry(): StaticSectionEntry {
     title: "Общая информация",
     breadcrumb: ["Федерация"],
     href: "/federation/about",
-    text: [...ABOUT_PARAGRAPHS, "Реквизиты ОГРН", requisitesText].join(" "),
+    text: [
+      ...ABOUT_PARAGRAPHS,
+      "Реквизиты ОГРН",
+      requisitesText,
+      "Контакты Телефон E-mail",
+      ORG_CONTACTS.phone,
+      ORG_CONTACTS.email,
+    ].join(" "),
   };
 }
 
