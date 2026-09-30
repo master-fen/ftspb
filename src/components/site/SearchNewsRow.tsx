@@ -8,7 +8,8 @@ import { SEARCH_ROW, SEARCH_ROW_LINK } from "@/components/site/search-row-classe
  * Строка новости в результатах поиска: дата, раздел (кроме «Общее» —
  * `section === null`), заголовок-ссылка с подсветкой, фрагмент текста с
  * подсветкой. Без фото — не `NewsListCard`, роль другая (список поиска, не
- * карточка).
+ * карточка). Ссылка несёт маркер `fromNewsList`: «Ко всем новостям» на
+ * странице новости возвращает назад в результаты поиска (src/lib/news-return.ts).
  */
 export function SearchNewsRow({ row }: { row: SearchNewsRowData }) {
   const sectionLabel = row.section ? SECTION_CATEGORY_LABELS[row.section] : null;
@@ -20,7 +21,7 @@ export function SearchNewsRow({ row }: { row: SearchNewsRowData }) {
         {sectionLabel ? ` · ${sectionLabel}` : ""}
       </p>
       <h3 className="ui-card-title mt-1">
-        <Link to={row.href} className={SEARCH_ROW_LINK}>
+        <Link to={row.href} state={{ fromNewsList: true }} className={SEARCH_ROW_LINK}>
           <SearchHighlight spans={row.title} />
         </Link>
       </h3>
