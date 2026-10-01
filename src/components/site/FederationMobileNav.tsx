@@ -1,80 +1,69 @@
 import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { ChevronDown, X } from "lucide-react";
-import { Drawer, DrawerClose, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
+import { ChevronDown, Menu } from "lucide-react";
 import { currentFederationHref, federationNav, federationNavState } from "@/lib/federation-nav";
 
-const SHEET_ID = "federation-nav-sheet";
+const LIST_ID = "federation-nav-list";
 
 /*
  * Строки классов — литеральные и выбираются ветвлением, а не собираются из
  * кусков: сканер Tailwind читает исходник как текст.
  */
-const BAR_HIDDEN =
-  "fixed inset-x-0 top-0 z-40 hidden min-h-12 w-full items-center justify-between gap-3 bg-background px-4 py-2 text-left font-ui ring-1 ring-border lg:hidden";
-const BAR_SHOWN =
-  "fixed inset-x-0 top-0 z-40 flex min-h-12 w-full items-center justify-between gap-3 bg-background px-4 py-2 text-left font-ui ring-1 ring-border lg:hidden";
-const SHEET_ITEM =
+const LIST_ITEM =
   "relative flex min-h-12 items-center rounded-md px-4 font-ui text-lg text-foreground active:bg-muted";
-const SHEET_ITEM_CURRENT =
+const LIST_ITEM_CURRENT =
   "relative flex min-h-12 items-center rounded-md bg-nav-active px-4 font-ui text-lg font-medium text-foreground";
 
 /**
  * Навигация раздела «Федерация» ниже lg (на lg — боковая панель
- * FederationSidebar): селектор под заголовком страницы, шторка Drawer со всем
- * меню и компактный бар у верха окна, пока селектор ушёл за верхнюю границу.
- *
- * Бар — в портале в body: обёртка страницы PageTransition держит transform, и
- * position: fixed внутри неё отсчитывался бы от обёртки, а не от окна. Портал
- * монтируется после гидрации — в SSR бара нет.
+ * FederationSidebar): карточка-селектор под заголовком страницы, по нажатию
+ * раскрывающая под собой весь список раздела в потоке страницы. Закрывается
+ * выбором пункта, клавишей Esc и нажатием вне карточки.
  */
 export function FederationMobileNav({ activeHref }: { activeHref?: string } = {}) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const state = federationNavState(currentFederationHref(pathname, activeHref));
   const [open, setOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const [barVisible, setBarVisible] = useState(false);
-  const selectorRef = useRef<HTMLButtonElement | null>(null);
-  // Кнопка, открывшая шторку (селектор или бар), — на неё возвращается фокус
-  // после закрытия. Автовозврат Radix работает только через Dialog.Trigger.
-  const openerRef = useRef<HTMLButtonElement | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    const selector = selectorRef.current;
-    if (!selector) return;
-    // Бар виден, когда селектор целиком ушёл выше окна. На lg селектор скрыт:
-    // его прямоугольник нулевой (bottom = 0), и бар остаётся скрытым.
-    const observer = new IntersectionObserver(([entry]) => {
-      setBarVisible(!entry.isIntersecting && entry.boundingClientRect.bottom < 0);
-    });
-    observer.observe(selector);
-    return () => observer.disconnect();
-  }, []);
+    if (!open) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setOpen(false);
+      triggerRef.current?.focus();
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
 
   if (!state) return null;
-  const { group, item } = state;
+  const { item } = state;
 
   return (
-    <>
+    <div
+      ref={rootRef}
+      className="mt-4 overflow-hidden rounded-xl bg-background font-ui ring-1 ring-border lg:hidden"
+    >
       <button
-        ref={selectorRef}
+        ref={triggerRef}
         type="button"
-        aria-haspopup="dialog"
         aria-expanded={open}
-        aria-controls={SHEET_ID}
-        onClick={(e) => {
-          openerRef.current = e.currentTarget;
-          setOpen(true);
-        }}
-        className="mt-4 flex min-h-16 w-full items-center justify-between gap-3 rounded-xl bg-background px-4 py-2.5 text-left font-ui ring-1 ring-border active:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-blue lg:hidden"
+        aria-controls={LIST_ID}
+        onClick={() => setOpen((v) => !v)}
+        className="flex min-h-16 w-full items-center gap-3 px-4 py-2.5 text-left active:bg-muted focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-blue"
       >
-        <span className="flex min-w-0 flex-col gap-0.5">
-          <span className="text-xs text-muted-foreground">{group.label}</span>
+        <Menu aria-hidden="true" className="h-6 w-6 shrink-0 text-foreground" />
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="text-xs text-muted-foreground">Навигация по разделу</span>
           <span className="text-lg font-medium text-foreground">{item.label}</span>
         </span>
         <span
@@ -85,90 +74,37 @@ export function FederationMobileNav({ activeHref }: { activeHref?: string } = {}
         </span>
       </button>
 
-      {mounted
-        ? createPortal(
-            <button
-              type="button"
-              aria-haspopup="dialog"
-              aria-expanded={open}
-              aria-controls={SHEET_ID}
-              onClick={(e) => {
-                openerRef.current = e.currentTarget;
-                setOpen(true);
-              }}
-              className={barVisible ? BAR_SHOWN : BAR_HIDDEN}
-            >
-              <span className="min-w-0">
-                <span className="text-xs text-muted-foreground">{`${group.label} · `}</span>
-                <span className="text-sm font-medium text-foreground">{item.label}</span>
-              </span>
-              <ChevronDown className="h-4 w-4 shrink-0 text-brand-blue" />
-            </button>,
-            document.body,
-          )
-        : null}
-
-      <Drawer open={open} onOpenChange={setOpen}>
-        <DrawerContent
-          id={SHEET_ID}
-          aria-modal="true"
-          aria-describedby={undefined}
-          onCloseAutoFocus={(e) => {
-            e.preventDefault();
-            openerRef.current?.focus();
-          }}
-          // Прокручивается список, а не панель: иначе псевдоэлемент vaul ::after (высота 200%,
-          // vaul/dist/index.mjs:62) входит в прокручиваемую область. *:shrink-0 отдаёт весь
-          // дефицит высоты списку, shrink! выводит из-под *:shrink-0 саму обёртку списка.
-          className="max-h-dvh px-2 pb-5 *:shrink-0"
-        >
-          <div className="flex items-center justify-between py-1.5 pr-2 pl-4">
-            <DrawerTitle className="font-ui text-base font-semibold">
-              Раздел «Федерация»
-            </DrawerTitle>
-            <DrawerClose asChild>
-              <button
-                type="button"
-                aria-label="Закрыть"
-                className="flex h-11 w-11 items-center justify-center rounded-full text-foreground"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </DrawerClose>
+      <div id={LIST_ID} hidden={!open} className="border-t border-border px-2 pb-3">
+        {federationNav.map((navGroup, index) => (
+          <div key={navGroup.label}>
+            {index > 0 ? <div className="mx-4 mt-2.5 mb-0.5 border-t border-border" /> : null}
+            <p className="px-4 pt-3 pb-1 ui-caption">{navGroup.label}</p>
+            <ul>
+              {navGroup.items.map((navItem) => {
+                const isCurrent = navItem.href === item.href;
+                return (
+                  <li key={navItem.href}>
+                    <Link
+                      to={navItem.href}
+                      aria-current={isCurrent ? "page" : undefined}
+                      onClick={() => setOpen(false)}
+                      className={isCurrent ? LIST_ITEM_CURRENT : LIST_ITEM}
+                    >
+                      {isCurrent ? (
+                        <span
+                          aria-hidden="true"
+                          className="absolute top-0 left-0 h-full w-1 rounded-l-md bg-brand-blue"
+                        />
+                      ) : null}
+                      {navItem.label}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
-          <div className="overflow-y-auto shrink!">
-            {federationNav.map((navGroup, index) => (
-              <div key={navGroup.label}>
-                {index > 0 ? <div className="mx-4 mt-2.5 mb-0.5 border-t border-border" /> : null}
-                <p className="px-4 pt-2 pb-1 ui-caption">{navGroup.label}</p>
-                <ul>
-                  {navGroup.items.map((navItem) => {
-                    const isCurrent = navItem.href === item.href;
-                    return (
-                      <li key={navItem.href}>
-                        <Link
-                          to={navItem.href}
-                          aria-current={isCurrent ? "page" : undefined}
-                          onClick={() => setOpen(false)}
-                          className={isCurrent ? SHEET_ITEM_CURRENT : SHEET_ITEM}
-                        >
-                          {isCurrent ? (
-                            <span
-                              aria-hidden="true"
-                              className="absolute top-0 left-0 h-full w-1 rounded-l-md bg-brand-blue"
-                            />
-                          ) : null}
-                          {navItem.label}
-                        </Link>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </DrawerContent>
-      </Drawer>
-    </>
+        ))}
+      </div>
+    </div>
   );
 }
