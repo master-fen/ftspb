@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ExternalLink, FileText, Image, Paperclip, Save, Video } from "lucide-react";
+import { ExternalLink, Eye, FileText, Image, Paperclip, Save, Video } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, type FieldErrors } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -33,6 +33,7 @@ import {
   suggestSlug,
   updateNews,
 } from "@/lib/news-admin-server-fn";
+import { newsPreviewPath, previewWindowName } from "@/lib/news-preview";
 import { normalizeVideoUrl } from "@/lib/news-video-url";
 import { NEWS_SECTION_OPTIONS, NEWS_SECTIONS, type NewsSection } from "@/lib/section-category";
 import { DocumentGallery } from "./-components/DocumentGallery";
@@ -192,8 +193,11 @@ function NewsEditForm({
     return () => clearTimeout(timer);
   }, [watchedSlug, persisted.slug, id]);
 
+  // `withStatus: false` — сохранение перед предпросмотром: все поля формы,
+  // кроме «Статуса». В базе новость остаётся черновиком, а выбранный в форме
+  // статус — несохранённым (форма это показывает).
   const mutation = useMutation({
-    mutationFn: (values: FormValues) =>
+    mutationFn: ({ values, withStatus }: { values: FormValues; withStatus: boolean }) =>
       updateNews({
         data: {
           id,
@@ -204,31 +208,89 @@ function NewsEditForm({
             section: values.section === "none" ? null : values.section,
             excerpt: values.excerpt.trim() ? values.excerpt : null,
             body: values.body.trim() ? values.body : null,
-            status: values.status,
+            ...(withStatus ? { status: values.status } : {}),
             videoUrl: videoUrlToPayload(values.videoUrl),
             hideCoverOnPage: values.hideCoverOnPage,
             eventId: formValueToEventId(values.eventId),
           },
         },
       }),
-    onSuccess: (_result, values) => {
+    onSuccess: (_result, { values, withStatus }) => {
       toast.success("Изменения сохранены");
-      setPersisted({ slug: values.slug, status: values.status });
+      const status = withStatus ? values.status : persisted.status;
+      setPersisted({ slug: values.slug, status });
       // Поле сразу показывает сохранённый (нормализованный) адрес, как после перезагрузки.
-      form.reset({ ...values, videoUrl: videoUrlToPayload(values.videoUrl) ?? "" });
+      form.reset({ ...values, status, videoUrl: videoUrlToPayload(values.videoUrl) ?? "" });
+      if (status !== values.status) {
+        form.setValue("status", values.status, { shouldDirty: true });
+      }
       void queryClient.invalidateQueries({ queryKey: ["admin-news"] });
       void queryClient.invalidateQueries({ queryKey: ["admin-featured"] });
     },
     onError: () => toast.error("Не удалось сохранить изменения"),
   });
 
+  const onInvalid = (errors: FieldErrors<FormValues>) => {
+    if (errors.slug) setAddressOpen(true);
+    toast.error("Проверьте поля с ошибками");
+  };
+
   const onSubmit = form.handleSubmit(
-    (values) => mutation.mutate(values),
-    (errors) => {
-      if (errors.slug) setAddressOpen(true);
-      toast.error("Проверьте поля с ошибками");
-    },
+    (values) => mutation.mutate({ values, withStatus: true }),
+    onInvalid,
   );
+
+  /**
+   * Предпросмотр черновика в отдельной вкладке — одной на новость (именованное
+   * окно), повторное нажатие обновляет её. Окно открывается синхронно в
+   * обработчике клика, иначе его заблокирует браузер (Safari на телефоне);
+   * при несохранённых правках — пустым, а на адрес переходит после сохранения.
+   * Сохранение — без «Статуса»: предпросмотр никогда не меняет статус в базе.
+   */
+  const onPreview = () => {
+    if (photoBusy || documentBusy) {
+      toast.error("Дождитесь окончания загрузки");
+      return;
+    }
+    const path = newsPreviewPath(id);
+    const name = previewWindowName(id);
+    const tab = window.open(isDirty ? "" : path, name);
+    if (!tab) {
+      toast.error("Браузер не дал открыть вкладку — разрешите всплывающие окна для сайта");
+      return;
+    }
+    if (!isDirty) {
+      tab.focus();
+      return;
+    }
+    // Пустая новая вкладка закрывается при ошибке; уже открытый предпросмотр
+    // (та же вкладка по имени) остаётся как был.
+    let fresh = false;
+    try {
+      fresh = tab.location.href === "about:blank";
+    } catch {
+      fresh = false;
+    }
+    const abandon = () => {
+      if (fresh) tab.close();
+    };
+    void form.handleSubmit(
+      async (values) => {
+        try {
+          await mutation.mutateAsync({ values, withStatus: false });
+        } catch {
+          abandon();
+          return;
+        }
+        tab.location.href = path;
+        tab.focus();
+      },
+      (errors) => {
+        abandon();
+        onInvalid(errors);
+      },
+    )();
+  };
 
   const handleGenerateSlug = async () => {
     setIsSuggestingSlug(true);
@@ -272,7 +334,18 @@ function NewsEditForm({
                 На сайте
               </Link>
             </Button>
-          ) : null}
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onPreview}
+              disabled={mutation.isPending}
+            >
+              <Eye className="h-4 w-4" />
+              Предпросмотр
+            </Button>
+          )}
           <Button type="submit" form="news-editor" disabled={mutation.isPending || !isDirty}>
             <Save className="h-4 w-4" />
             {mutation.isPending ? "Сохраняем…" : "Сохранить"}

@@ -1,3 +1,4 @@
+import { NEWS_PREVIEW_PREFIX } from "@/lib/news-preview";
 import { PRODUCTION_HOSTS } from "@/lib/site";
 
 /** Номер счётчика Яндекс Метрики. Не секрет: виден в коде любой страницы. */
@@ -8,9 +9,15 @@ export function isProductionHost(hostname: string): boolean {
   return PRODUCTION_HOSTS.includes(hostname);
 }
 
-/** Админка (`/admin` и всё под ним) не считается. `/administration` — не админка. */
+/**
+ * Админка (`/admin` и всё под ним) не считается. `/administration` — не админка.
+ * Предпросмотр новости (`/news/preview/ID`) — тоже: это страница редактора, и
+ * заголовок вкладки несёт заголовок черновика. `/news/preview` без хвоста —
+ * публичная страница новости со слагом «preview», она считается.
+ */
 export function isExcludedPath(pathname: string): boolean {
-  return pathname === "/admin" || pathname.startsWith("/admin/");
+  if (pathname === "/admin" || pathname.startsWith("/admin/")) return true;
+  return pathname.startsWith(NEWS_PREVIEW_PREFIX) && pathname.length > NEWS_PREVIEW_PREFIX.length;
 }
 
 export function shouldTrack(hostname: string, pathname: string): boolean {

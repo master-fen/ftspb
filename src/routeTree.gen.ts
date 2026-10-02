@@ -52,6 +52,7 @@ import { Route as AdminAuthedEventsNewRouteImport } from './routes/admin/_authed
 import { Route as AdminAuthedEventsIdRouteImport } from './routes/admin/_authed/events.$id'
 import { Route as AdminAuthedDocumentsNewRouteImport } from './routes/admin/_authed/documents.new'
 import { Route as AdminAuthedDocumentsIdRouteImport } from './routes/admin/_authed/documents.$id'
+import { Route as SiteNewsPreviewPreviewIdRouteImport } from './routes/_site.news.preview.$previewId'
 import { Route as SiteFederationEventsSlugRouteImport } from './routes/_site.federation_.events.$slug'
 import { Route as SiteFederationCharterTextRouteImport } from './routes/_site.federation_.charter.text'
 
@@ -271,6 +272,12 @@ const AdminAuthedDocumentsIdRoute = AdminAuthedDocumentsIdRouteImport.update({
   path: '/documents/$id',
   getParentRoute: () => AdminAuthedRouteRoute,
 } as any)
+const SiteNewsPreviewPreviewIdRoute =
+  SiteNewsPreviewPreviewIdRouteImport.update({
+    id: '/news/preview/$previewId',
+    path: '/news/preview/$previewId',
+    getParentRoute: () => SiteRoute,
+  } as any)
 const SiteFederationEventsSlugRoute =
   SiteFederationEventsSlugRouteImport.update({
     id: '/federation_/events/$slug',
@@ -316,6 +323,7 @@ export interface FileRoutesByFullPath {
   '/admin/': typeof AdminAuthedIndexRoute
   '/federation/charter/text': typeof SiteFederationCharterTextRoute
   '/federation/events/$slug': typeof SiteFederationEventsSlugRoute
+  '/news/preview/$previewId': typeof SiteNewsPreviewPreviewIdRoute
   '/admin/documents/$id': typeof AdminAuthedDocumentsIdRoute
   '/admin/documents/new': typeof AdminAuthedDocumentsNewRoute
   '/admin/events/$id': typeof AdminAuthedEventsIdRoute
@@ -359,6 +367,7 @@ export interface FileRoutesByTo {
   '/news': typeof SiteNewsIndexRoute
   '/federation/charter/text': typeof SiteFederationCharterTextRoute
   '/federation/events/$slug': typeof SiteFederationEventsSlugRoute
+  '/news/preview/$previewId': typeof SiteNewsPreviewPreviewIdRoute
   '/admin/documents/$id': typeof AdminAuthedDocumentsIdRoute
   '/admin/documents/new': typeof AdminAuthedDocumentsNewRoute
   '/admin/events/$id': typeof AdminAuthedEventsIdRoute
@@ -407,6 +416,7 @@ export interface FileRoutesById {
   '/admin/_authed/': typeof AdminAuthedIndexRoute
   '/_site/federation_/charter/text': typeof SiteFederationCharterTextRoute
   '/_site/federation_/events/$slug': typeof SiteFederationEventsSlugRoute
+  '/_site/news/preview/$previewId': typeof SiteNewsPreviewPreviewIdRoute
   '/admin/_authed/documents/$id': typeof AdminAuthedDocumentsIdRoute
   '/admin/_authed/documents/new': typeof AdminAuthedDocumentsNewRoute
   '/admin/_authed/events/$id': typeof AdminAuthedEventsIdRoute
@@ -454,6 +464,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/federation/charter/text'
     | '/federation/events/$slug'
+    | '/news/preview/$previewId'
     | '/admin/documents/$id'
     | '/admin/documents/new'
     | '/admin/events/$id'
@@ -497,6 +508,7 @@ export interface FileRouteTypes {
     | '/news'
     | '/federation/charter/text'
     | '/federation/events/$slug'
+    | '/news/preview/$previewId'
     | '/admin/documents/$id'
     | '/admin/documents/new'
     | '/admin/events/$id'
@@ -544,6 +556,7 @@ export interface FileRouteTypes {
     | '/admin/_authed/'
     | '/_site/federation_/charter/text'
     | '/_site/federation_/events/$slug'
+    | '/_site/news/preview/$previewId'
     | '/admin/_authed/documents/$id'
     | '/admin/_authed/documents/new'
     | '/admin/_authed/events/$id'
@@ -870,6 +883,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAuthedDocumentsIdRouteImport
       parentRoute: typeof AdminAuthedRouteRoute
     }
+    '/_site/news/preview/$previewId': {
+      id: '/_site/news/preview/$previewId'
+      path: '/news/preview/$previewId'
+      fullPath: '/news/preview/$previewId'
+      preLoaderRoute: typeof SiteNewsPreviewPreviewIdRouteImport
+      parentRoute: typeof SiteRoute
+    }
     '/_site/federation_/events/$slug': {
       id: '/_site/federation_/events/$slug'
       path: '/federation/events/$slug'
@@ -980,6 +1000,7 @@ interface SiteRouteChildren {
   SiteNewsIndexRoute: typeof SiteNewsIndexRoute
   SiteFederationCharterTextRoute: typeof SiteFederationCharterTextRoute
   SiteFederationEventsSlugRoute: typeof SiteFederationEventsSlugRoute
+  SiteNewsPreviewPreviewIdRoute: typeof SiteNewsPreviewPreviewIdRoute
 }
 
 const SiteRouteChildren: SiteRouteChildren = {
@@ -998,6 +1019,7 @@ const SiteRouteChildren: SiteRouteChildren = {
   SiteNewsIndexRoute: SiteNewsIndexRoute,
   SiteFederationCharterTextRoute: SiteFederationCharterTextRoute,
   SiteFederationEventsSlugRoute: SiteFederationEventsSlugRoute,
+  SiteNewsPreviewPreviewIdRoute: SiteNewsPreviewPreviewIdRoute,
 }
 
 const SiteRouteWithChildren = SiteRoute._addFileChildren(SiteRouteChildren)
