@@ -8,9 +8,11 @@ import { getFileExtension } from "@/lib/image-validation";
 import { sortNewsByDateDesc } from "@/lib/news-date";
 import { cardExcerpt, pageDescription } from "@/lib/news-excerpt";
 import { clampPage, NEWS_PAGE_SIZE, pageCountFor } from "@/lib/news-paging";
+import { isNewsId, type NewsPreviewState } from "@/lib/news-preview";
 import { pickRelatedNews } from "@/lib/news-related";
 import { NEWS_SECTIONS, SECTION_LABELS, type NewsSectionCategory } from "@/lib/section-category";
 import type { NewsCardItem, NewsCategory, NewsItem, NewsSection } from "@/lib/types/news";
+import { getCurrentSession } from "@/server/auth";
 import { getPublishedDocumentsForNews } from "@/server/documents";
 import { getNewsCache, setNewsCache, type NewsCache } from "@/server/news-cache";
 import { buildImageUrl } from "@/server/storage";
@@ -33,6 +35,15 @@ export type NewsArticle = {
   /** `pageDescription` по правилу анонса (порог 200), при пустом источнике — заголовок. */
   description: string;
 };
+
+/**
+ * Ответ предпросмотра. `unauthorized` не несёт ничего, кроме вида ответа:
+ * он попадает в данные лоадера и в SSR-разметку заглушки.
+ */
+export type NewsPreview =
+  | { kind: "not-found" }
+  | { kind: "unauthorized" }
+  | { kind: "ok"; newsId: string; state: NewsPreviewState; article: NewsArticle };
 
 function sectionToCategory(section: NewsSection | null): NewsCategory {
   return section === null ? "Общее" : SECTION_LABELS[section];
@@ -234,6 +245,41 @@ export async function listNewsPage(input: {
 }
 
 /**
+ * Колонки новости для её страницы — одни на публичную страницу и на
+ * предпросмотр. Публичная функция, сессии нет — список явный, как в
+ * `loadCache`: новая колонка не уедет в данные лоадера сама.
+ */
+const NEWS_ITEM_COLUMNS = {
+  id: news.id,
+  slug: news.slug,
+  title: news.title,
+  excerpt: news.excerpt,
+  body: news.body,
+  section: news.section,
+  publishedAt: news.publishedAt,
+  featured: news.featured,
+  coverPhotoId: news.coverPhotoId,
+  videoUrl: news.videoUrl,
+  hideCoverOnPage: news.hideCoverOnPage,
+  updatedAt: news.updatedAt,
+};
+
+type NewsItemRow = {
+  id: string;
+  slug: string;
+  title: string;
+  excerpt: string | null;
+  body: string | null;
+  section: NewsSection | null;
+  publishedAt: string;
+  featured: boolean;
+  coverPhotoId: string | null;
+  videoUrl: string | null;
+  hideCoverOnPage: boolean;
+  updatedAt: Date;
+};
+
+/**
  * Новость для своей страницы — отдельный запрос по слагу: тело, видео,
  * галерея и документы. Кэш списка не поднимается, своего кэша у деталки нет.
  */
@@ -244,20 +290,7 @@ export async function getNewsBySlug(slug: string): Promise<NewsItem | null> {
   }
 
   const rows = await db
-    .select({
-      id: news.id,
-      slug: news.slug,
-      title: news.title,
-      excerpt: news.excerpt,
-      body: news.body,
-      section: news.section,
-      publishedAt: news.publishedAt,
-      featured: news.featured,
-      coverPhotoId: news.coverPhotoId,
-      videoUrl: news.videoUrl,
-      hideCoverOnPage: news.hideCoverOnPage,
-      updatedAt: news.updatedAt,
-    })
+    .select(NEWS_ITEM_COLUMNS)
     .from(news)
     .where(and(eq(news.slug, slug), eq(news.status, "published"), isNull(news.deletedAt)))
     .limit(1);
@@ -265,7 +298,18 @@ export async function getNewsBySlug(slug: string): Promise<NewsItem | null> {
   if (!row) {
     return null;
   }
+  return toNewsItem(row);
+}
 
+/**
+ * Сборка `NewsItem` из строки новости — одна на публичную страницу и на
+ * предпросмотр. Вложения — по публичному правилу (опубликованные, не
+ * удалённые документы): предпросмотр показывает то, что увидит посетитель.
+ */
+async function toNewsItem(row: NewsItemRow): Promise<NewsItem> {
+  if (db === null) {
+    throw new Error("toNewsItem() вызван без БД");
+  }
   const [photos, docs] = await Promise.all([
     db
       .select({ id: newsPhoto.id, s3Key: newsPhoto.s3Key })
@@ -330,8 +374,51 @@ export async function getNewsArticle(slug: string): Promise<NewsArticle | null> 
   if (!item) {
     return null;
   }
+  return toArticle(item);
+}
+
+/** «Читайте также» и описание к новости — одни на публичную страницу и на предпросмотр. */
+async function toArticle(item: NewsItem): Promise<NewsArticle> {
   const related = pickRelatedNews(await listNews(), item).map(withoutCoverSmall);
   return { item, related, description: pageDescription(item.excerpt, item.body) || item.title };
+}
+
+/**
+ * Предпросмотр новости редактором (`/news/preview/ID`): та же сборка, что у
+ * публичной страницы, но без фильтра статуса и удаления.
+ *
+ * Порядок проверок — граница доступа, guard админки навигационный (CLAUDE.md):
+ * - без БД (`DATABASE_URL` пуст) — «не найдена»: мок-фикстур черновиков нет,
+ *   а `getCurrentSession` без БД бросает;
+ * - ID не в форме uuid — «не найдена» до любых запросов (колонка uuid,
+ *   мусор уронил бы запрос в 500); форма видна из адреса и ничего не раскрывает;
+ * - нет сессии — `unauthorized`, и ни одного запроса к `news`: анонимный
+ *   посетитель не узнаёт даже, есть ли новость с таким id;
+ * - новости нет — «не найдена».
+ *
+ * Новость без фильтра статуса читается только здесь, после проверки сессии;
+ * `toNewsItem` и колонки не экспортируются.
+ */
+export async function getNewsPreview(id: string): Promise<NewsPreview> {
+  if (db === null || !isNewsId(id)) {
+    return { kind: "not-found" };
+  }
+  const session = await getCurrentSession();
+  if (!session) {
+    return { kind: "unauthorized" };
+  }
+  const rows = await db
+    .select({ ...NEWS_ITEM_COLUMNS, status: news.status, deletedAt: news.deletedAt })
+    .from(news)
+    .where(eq(news.id, id))
+    .limit(1);
+  const row = rows[0];
+  if (!row) {
+    return { kind: "not-found" };
+  }
+  const { status, deletedAt, ...itemRow } = row;
+  const state: NewsPreviewState = deletedAt ? "deleted" : status;
+  return { kind: "ok", newsId: row.id, state, article: await toArticle(await toNewsItem(itemRow)) };
 }
 
 export async function getFeaturedAndLatest(): Promise<{
