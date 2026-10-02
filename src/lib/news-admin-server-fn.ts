@@ -11,6 +11,7 @@ import {
   getAdminNews as getAdminNewsImpl,
   getNewsShareLink as getNewsShareLinkImpl,
   listAdminNews as listAdminNewsImpl,
+  listAdminNewsForEvent as listAdminNewsForEventImpl,
   listAdminNewsYears as listAdminNewsYearsImpl,
   listNewsPhotos as listNewsPhotosImpl,
   reorderPhotos as reorderPhotosImpl,
@@ -60,6 +61,12 @@ export const listAdminNews = createServerFn({ method: "GET" })
 export const listAdminNewsYears = createServerFn({ method: "GET" }).handler(() =>
   listAdminNewsYearsImpl(),
 );
+
+/** Раздел «Новости события» в редакторе события. Здесь, а не в events-server-fn.ts:
+ *  тот модуль импортируют публичные маршруты событий. */
+export const listAdminNewsForEvent = createServerFn({ method: "GET" })
+  .validator(z.string().uuid())
+  .handler(({ data }) => listAdminNewsForEventImpl(data));
 
 export const getAdminNews = createServerFn({ method: "GET" })
   .validator((id: string) => id)
