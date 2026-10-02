@@ -6,6 +6,7 @@ import { getAdminEvent } from "@/lib/events-server-fn";
 import { AdminBackLink } from "./-components/AdminBackLink";
 import { DocumentGallery } from "./-components/DocumentGallery";
 import { EventForm } from "./-components/EventForm";
+import { EventNewsList } from "./-components/EventNewsList";
 import { eventDocumentParent } from "./-components/document-parent";
 
 export const Route = createFileRoute("/admin/_authed/events/$id")({
@@ -51,6 +52,7 @@ function AdminEventEdit() {
                 }}
               />
             </section>
+            <EventNewsList eventId={query.data.id} />
           </>
         )}
       </div>
