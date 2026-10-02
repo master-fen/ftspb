@@ -1,6 +1,6 @@
 import { createFileRoute, Outlet, useMatch } from "@tanstack/react-router";
 import { CookieNotice } from "@/components/site/CookieNotice";
-import { NewsPreviewBar } from "@/components/site/NewsPreviewBar";
+import { NewsPreviewBar, NewsShareBar } from "@/components/site/NewsPreviewBar";
 import { PageTransition } from "@/components/site/PageTransition";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
@@ -23,8 +23,9 @@ import { SiteHeader } from "@/components/site/SiteHeader";
  *
  * Полоса-пометка предпросмотра новости (`/news/preview/ID`) — тоже здесь,
  * между шапкой и содержимым: её `sticky` должна жить до конца рамы, включая
- * подвал (src/components/site/NewsPreviewBar.tsx). На остальных страницах
- * совпадения с маршрутом предпросмотра нет, и рама ничего не рисует.
+ * подвал (src/components/site/NewsPreviewBar.tsx). У страницы согласования по
+ * ключу — своя полоса, без кнопки. На остальных страницах совпадения с
+ * маршрутом предпросмотра нет, и рама ничего не рисует.
  */
 export const Route = createFileRoute("/_site")({
   component: SiteLayout,
@@ -42,6 +43,8 @@ function SiteLayout() {
       <SiteHeader />
       {preview?.kind === "ok" ? (
         <NewsPreviewBar newsId={preview.newsId} state={preview.state} />
+      ) : preview?.kind === "shared" ? (
+        <NewsShareBar expiresOn={preview.expiresOn} />
       ) : null}
       <div className="flex-1">
         <PageTransition>

@@ -60,6 +60,19 @@ describe("isExcludedPath — предпросмотр новости", () => {
       expect(isExcludedPath(path)).toBe(false);
     }
   });
+
+  // Счётчик решает по pathname разрешённой локации, без search
+  // (src/components/site/MetrikaTracker.tsx): ключ ссылки согласования на исключение не влияет.
+  test("ссылка согласования с ?key= — исключена; слаг «preview» с ?key= — считается", () => {
+    const pathOf = (href: string) => new URL(href, "https://spbtennisfed.ru").pathname;
+    expect(
+      shouldTrack(
+        "spbtennisfed.ru",
+        pathOf("/news/preview/0b3c5a52-6a4e-4f0e-9d7b-2f1d3c4e5a6b?key=X"),
+      ),
+    ).toBe(false);
+    expect(shouldTrack("spbtennisfed.ru", pathOf("/news/preview?key=X"))).toBe(true);
+  });
 });
 
 describe("shouldTrack — хост и путь вместе", () => {
