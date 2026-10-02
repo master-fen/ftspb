@@ -39,7 +39,7 @@ const ALL_SECTIONS: NavSection[] = [
   },
   { label: "Коллегия судей", href: "/referees", hidden: true },
   { label: "Сборные команды", href: "/teams", hidden: true },
-  { label: "Турниры", href: "/tournaments", hidden: true },
+  { label: "Календарь турниров", href: "/tournaments" },
   { label: "Корты", href: "/courts", hidden: true },
   { label: "Документы", href: "/documents" },
   { label: "Контакты", href: "/contacts", hidden: true },
