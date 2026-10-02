@@ -6,13 +6,16 @@ import { newsSectionSchema } from "@/lib/section-category";
 import {
   checkSlugAvailable as checkSlugAvailableImpl,
   createNews as createNewsImpl,
+  createNewsShareLink as createNewsShareLinkImpl,
   deletePhotoAndS3Object as deletePhotoAndS3ObjectImpl,
   getAdminNews as getAdminNewsImpl,
+  getNewsShareLink as getNewsShareLinkImpl,
   listAdminNews as listAdminNewsImpl,
   listAdminNewsYears as listAdminNewsYearsImpl,
   listNewsPhotos as listNewsPhotosImpl,
   reorderPhotos as reorderPhotosImpl,
   restoreNews as restoreNewsImpl,
+  revokeNewsShareLink as revokeNewsShareLinkImpl,
   setCoverPhoto as setCoverPhotoImpl,
   softDeleteNews as softDeleteNewsImpl,
   suggestSlug as suggestSlugImpl,
@@ -112,6 +115,19 @@ export const softDeleteNews = createServerFn({ method: "POST" })
 export const restoreNews = createServerFn({ method: "POST" })
   .validator((id: string) => id)
   .handler(({ data }) => restoreNewsImpl(data));
+
+/** Ссылка на черновик для согласования — состояние, создание (и замена), отзыв. */
+export const getNewsShareLink = createServerFn({ method: "GET" })
+  .validator((id: string) => id)
+  .handler(({ data }) => getNewsShareLinkImpl(data));
+
+export const createNewsShareLink = createServerFn({ method: "POST" })
+  .validator((id: string) => id)
+  .handler(({ data }) => createNewsShareLinkImpl(data));
+
+export const revokeNewsShareLink = createServerFn({ method: "POST" })
+  .validator((id: string) => id)
+  .handler(({ data }) => revokeNewsShareLinkImpl(data));
 
 export const checkSlugAvailable = createServerFn({ method: "GET" })
   .validator(z.object({ slug: z.string().min(1), excludeId: z.string().optional() }))

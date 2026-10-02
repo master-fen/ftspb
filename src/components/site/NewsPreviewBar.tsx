@@ -1,5 +1,11 @@
+import type { ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { PREVIEW_STATES, previewWindowName, type NewsPreviewState } from "@/lib/news-preview";
+import {
+  PREVIEW_STATES,
+  previewWindowName,
+  shareNotice,
+  type NewsPreviewState,
+} from "@/lib/news-preview";
 
 /**
  * Полоса-пометка предпросмотра новости. Рисует её рама `_site.tsx`, а не
@@ -13,8 +19,19 @@ import { PREVIEW_STATES, previewWindowName, type NewsPreviewState } from "@/lib/
  * новости — `lg:sticky lg:top-8`, полоса выше закрыла бы верх карточки.
  *
  * Цвета — токены бренда, роль «Пометка предпросмотра» (docs/style-rules.md,
- * «Поверхности»).
+ * «Поверхности»). Два вида: у редактора — с кнопкой закрытия, у согласующего
+ * (ссылка с ключом) — только текст.
  */
+function PreviewBarFrame({ children }: { children: ReactNode }) {
+  return (
+    <div className="sticky top-0 z-10 bg-brand-orange text-brand-navy">
+      <div className="mx-auto flex max-w-7xl lg:box-content flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-1 md:px-6 lg:px-10">
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export function NewsPreviewBar({ newsId, state }: { newsId: string; state: NewsPreviewState }) {
   const navigate = useNavigate();
 
@@ -30,17 +47,24 @@ export function NewsPreviewBar({ newsId, state }: { newsId: string; state: NewsP
   };
 
   return (
-    <div className="sticky top-0 z-10 bg-brand-orange text-brand-navy">
-      <div className="mx-auto flex max-w-7xl lg:box-content flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-1 md:px-6 lg:px-10">
-        <p className="text-sm font-semibold">{PREVIEW_STATES[state].notice}</p>
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-full bg-brand-navy px-3 py-0.5 text-sm font-semibold text-brand-navy-foreground transition-colors hover:bg-brand-blue"
-        >
-          Закрыть предпросмотр
-        </button>
-      </div>
-    </div>
+    <PreviewBarFrame>
+      <p className="text-sm font-semibold">{PREVIEW_STATES[state].notice}</p>
+      <button
+        type="button"
+        onClick={onClose}
+        className="rounded-full bg-brand-navy px-3 py-0.5 text-sm font-semibold text-brand-navy-foreground transition-colors hover:bg-brand-blue"
+      >
+        Закрыть предпросмотр
+      </button>
+    </PreviewBarFrame>
+  );
+}
+
+/** Полоса страницы согласования: без кнопки — согласующему некуда «закрывать» и нечего редактировать. */
+export function NewsShareBar({ expiresOn }: { expiresOn: string }) {
+  return (
+    <PreviewBarFrame>
+      <p className="text-sm font-semibold">{shareNotice(expiresOn)}</p>
+    </PreviewBarFrame>
   );
 }

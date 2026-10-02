@@ -2,7 +2,9 @@
  * Предпросмотр новости для редактора — `/news/preview/ID`, ID — `news.id`
  * (uuid), не слаг: адрес не ломается при смене слага, вкладку можно просто
  * обновлять. Чистый модуль: его читают маршрут предпросмотра, полоса-пометка,
- * редактор новости и счётчик Метрики (`src/lib/analytics.ts`).
+ * редактор новости и счётчик Метрики (`src/lib/analytics.ts`). Он уже лежит в
+ * главном чанке, поэтому общие для полосы и редактора помощники живут здесь —
+ * новый модуль, общий для двух чанков, стал бы отдельным чанком.
  */
 
 /** Начало адреса предпросмотра; `/news/preview` без хвоста — обычный слаг «preview». */
@@ -41,4 +43,34 @@ export const PREVIEW_STATES: Record<NewsPreviewState, { word: string; notice: st
 /** Заголовок вкладки: «Черновик: ЗАГОЛОВОК — Федерация тенниса Санкт-Петербурга». */
 export function previewTitle(state: NewsPreviewState, title: string): string {
   return `${PREVIEW_STATES[state].word}: ${title} — Федерация тенниса Санкт-Петербурга`;
+}
+
+/**
+ * Ссылка на черновик для согласования — тот же маршрут с ключом:
+ * `/news/preview/ID?key=ТОКЕН`. Ключ проверяет сервер в связке с ID
+ * (src/server/news-share-link.ts).
+ */
+export function newsShareLinkPath(id: string, token: string): string {
+  return `${newsPreviewPath(id)}?key=${encodeURIComponent(token)}`;
+}
+
+/** Полный адрес ссылки; origin выбирает редактор (прод — `SITE_URL`, локально — свой). */
+export function newsShareUrl(origin: string, id: string, token: string): string {
+  return `${origin}${newsShareLinkPath(id, token)}`;
+}
+
+/**
+ * Ключ из search маршрута. Роутер разбирает значения как JSON (`?key=123` —
+ * число), поэтому: параметра нет — `undefined` (вид «только редактору»);
+ * строка — как есть; любое другое значение — пустая строка, то есть ключ есть,
+ * но заведомо неверный.
+ */
+export function shareKeyParam(value: unknown): string | undefined {
+  if (value === undefined) return undefined;
+  return typeof value === "string" ? value : "";
+}
+
+/** Текст полосы на странице согласования; дата — `ДД.ММ.ГГГГ` по Москве, считает сервер. */
+export function shareNotice(expiresOn: string): string {
+  return `Черновик для согласования. На сайте ещё не опубликован. Ссылка действует до ${expiresOn}.`;
 }

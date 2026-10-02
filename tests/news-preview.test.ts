@@ -2,9 +2,13 @@ import { describe, expect, test } from "bun:test";
 import {
   isNewsId,
   newsPreviewPath,
+  newsShareLinkPath,
+  newsShareUrl,
   PREVIEW_STATES,
   previewTitle,
   previewWindowName,
+  shareKeyParam,
+  shareNotice,
 } from "@/lib/news-preview";
 
 const ID = "0b3c5a52-6a4e-4f0e-9d7b-2f1d3c4e5a6b";
@@ -51,6 +55,32 @@ describe("тексты по состоянию", () => {
     );
     expect(previewTitle("deleted", "Турнир")).toBe(
       "Удалена: Турнир — Федерация тенниса Санкт-Петербурга",
+    );
+  });
+});
+
+describe("ссылка согласования", () => {
+  const TOKEN = "Jk3s0vYb2Q9xXlq7pZr1mWc4tUe8aHn6dGf5yBo-_Ai";
+
+  test("newsShareLinkPath и newsShareUrl — тот же маршрут с ?key=", () => {
+    expect(newsShareLinkPath(ID, TOKEN)).toBe(`/news/preview/${ID}?key=${TOKEN}`);
+    expect(newsShareUrl("https://spbtennisfed.ru", ID, TOKEN)).toBe(
+      `https://spbtennisfed.ru/news/preview/${ID}?key=${TOKEN}`,
+    );
+  });
+
+  test("shareKeyParam: нет — undefined, строка — как есть, иное — пустая строка", () => {
+    expect(shareKeyParam(undefined)).toBeUndefined();
+    expect(shareKeyParam(TOKEN)).toBe(TOKEN);
+    expect(shareKeyParam("")).toBe("");
+    expect(shareKeyParam(123)).toBe("");
+    expect(shareKeyParam(null)).toBe("");
+    expect(shareKeyParam({ a: 1 })).toBe("");
+  });
+
+  test("shareNotice — текст полосы дословно", () => {
+    expect(shareNotice("16.10.2026")).toBe(
+      "Черновик для согласования. На сайте ещё не опубликован. Ссылка действует до 16.10.2026.",
     );
   });
 });

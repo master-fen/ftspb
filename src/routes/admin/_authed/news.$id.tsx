@@ -41,6 +41,7 @@ import { EventSelect } from "./-components/EventSelect";
 import { eventIdToFormValue, formValueToEventId } from "./-components/event-select-value";
 import { newsDocumentParent } from "./-components/document-parent";
 import { NewsPhotoGallery } from "./-components/NewsPhotoGallery";
+import { NewsShareLink } from "./-components/NewsShareLink";
 import { AdminBackLink } from "./-components/AdminBackLink";
 import { useRestoredListSearch } from "./-components/admin-list-search-memory";
 import { UnsavedChangesDialog } from "./-components/UnsavedChangesDialog";
@@ -136,6 +137,7 @@ function NewsEditForm({
     videoUrl: string | null;
     hideCoverOnPage: boolean;
     eventId: string | null;
+    deletedAt: Date | null;
   };
 }) {
   const queryClient = useQueryClient();
@@ -271,25 +273,47 @@ function NewsEditForm({
     } catch {
       fresh = false;
     }
-    const abandon = () => {
-      if (fresh) tab.close();
-    };
-    void form.handleSubmit(
-      async (values) => {
-        try {
-          await mutation.mutateAsync({ values, withStatus: false });
-        } catch {
-          abandon();
-          return;
-        }
-        tab.location.href = path;
-        tab.focus();
-      },
-      (errors) => {
-        abandon();
-        onInvalid(errors);
-      },
-    )();
+    void saveWithoutStatus().then((saved) => {
+      if (!saved) {
+        if (fresh) tab.close();
+        return;
+      }
+      tab.location.href = path;
+      tab.focus();
+    });
+  };
+
+  /**
+   * Сохранение без «Статуса» — перед предпросмотром и перед первой ссылкой
+   * для согласования: все поля формы, кроме статуса, тем же путём, что
+   * «Сохранить» (те же сообщения и ошибки). false — поля с ошибками или
+   * сохранение не удалось; сообщение уже показано.
+   */
+  const saveWithoutStatus = (): Promise<boolean> =>
+    new Promise((resolve) => {
+      void form.handleSubmit(
+        async (values) => {
+          try {
+            await mutation.mutateAsync({ values, withStatus: false });
+            resolve(true);
+          } catch {
+            resolve(false);
+          }
+        },
+        (errors) => {
+          onInvalid(errors);
+          resolve(false);
+        },
+      )();
+    });
+
+  /** Перед первой ссылкой согласования: несохранённые правки — сначала в базу. */
+  const saveBeforeShare = async (): Promise<boolean> => {
+    if (photoBusy || documentBusy) {
+      toast.error("Дождитесь окончания загрузки");
+      return false;
+    }
+    return isDirty ? saveWithoutStatus() : true;
   };
 
   const handleGenerateSlug = async () => {
@@ -618,6 +642,10 @@ function NewsEditForm({
                 </FormItem>
               )}
             />
+
+            {persisted.status === "draft" && news.deletedAt === null ? (
+              <NewsShareLink newsId={id} saving={mutation.isPending} saveFirst={saveBeforeShare} />
+            ) : null}
 
             <div className="border-t pt-4">
               <p className="text-sm font-medium">Главные новости</p>

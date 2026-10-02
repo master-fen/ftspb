@@ -15,6 +15,7 @@ import type { NewsCardItem, NewsCategory, NewsItem, NewsSection } from "@/lib/ty
 import { getCurrentSession } from "@/server/auth";
 import { getPublishedDocumentsForNews } from "@/server/documents";
 import { getNewsCache, setNewsCache, type NewsCache } from "@/server/news-cache";
+import { decideShareAccess } from "@/server/news-share-link";
 import { buildImageUrl } from "@/server/storage";
 
 const CACHE_TTL_MS = 60_000;
@@ -37,13 +38,18 @@ export type NewsArticle = {
 };
 
 /**
- * Ответ предпросмотра. `unauthorized` не несёт ничего, кроме вида ответа:
- * он попадает в данные лоадера и в SSR-разметку заглушки.
+ * Ответ предпросмотра. `unauthorized` и `link-invalid` не несут ничего, кроме
+ * вида ответа: они попадают в данные лоадера и в SSR-разметку заглушки.
+ * `redirect` — опубликованная новость по годной ссылке согласования, лоадер
+ * перенаправляет на публичный адрес. `shared` — черновик по годной ссылке.
  */
 export type NewsPreview =
   | { kind: "not-found" }
   | { kind: "unauthorized" }
-  | { kind: "ok"; newsId: string; state: NewsPreviewState; article: NewsArticle };
+  | { kind: "link-invalid" }
+  | { kind: "redirect"; slug: string }
+  | { kind: "ok"; newsId: string; state: NewsPreviewState; article: NewsArticle }
+  | { kind: "shared"; newsId: string; expiresOn: string; article: NewsArticle };
 
 function sectionToCategory(section: NewsSection | null): NewsCategory {
   return section === null ? "Общее" : SECTION_LABELS[section];
@@ -392,33 +398,71 @@ async function toArticle(item: NewsItem): Promise<NewsArticle> {
  *   а `getCurrentSession` без БД бросает;
  * - ID не в форме uuid — «не найдена» до любых запросов (колонка uuid,
  *   мусор уронил бы запрос в 500); форма видна из адреса и ничего не раскрывает;
- * - нет сессии — `unauthorized`, и ни одного запроса к `news`: анонимный
- *   посетитель не узнаёт даже, есть ли новость с таким id;
- * - новости нет — «не найдена».
+ * - есть сессия — вид редактора, ключ из адреса не читается; новости нет —
+ *   «не найдена»;
+ * - нет сессии и нет ключа — `unauthorized`, и ни одного запроса к `news`:
+ *   анонимный посетитель не узнаёт даже, есть ли новость с таким id;
+ * - нет сессии, есть ключ — ссылка согласования: строка читается только по
+ *   id из адреса, решение — `decideShareAccess` (src/server/news-share-link.ts).
+ *   Любая неудача — одна и та же `link-invalid`, без данных новости.
  *
- * Новость без фильтра статуса читается только здесь, после проверки сессии;
- * `toNewsItem` и колонки не экспортируются.
+ * Новость без фильтра статуса читается только здесь, после проверки сессии
+ * или ключа; `toNewsItem` и колонки не экспортируются.
  */
-export async function getNewsPreview(id: string): Promise<NewsPreview> {
+export async function getNewsPreview(input: { id: string; key?: string }): Promise<NewsPreview> {
+  const { id, key } = input;
   if (db === null || !isNewsId(id)) {
     return { kind: "not-found" };
   }
   const session = await getCurrentSession();
-  if (!session) {
+  if (session) {
+    const rows = await db
+      .select({ ...NEWS_ITEM_COLUMNS, status: news.status, deletedAt: news.deletedAt })
+      .from(news)
+      .where(eq(news.id, id))
+      .limit(1);
+    const row = rows[0];
+    if (!row) {
+      return { kind: "not-found" };
+    }
+    const { status, deletedAt, ...itemRow } = row;
+    const state: NewsPreviewState = deletedAt ? "deleted" : status;
+    return {
+      kind: "ok",
+      newsId: row.id,
+      state,
+      article: await toArticle(await toNewsItem(itemRow)),
+    };
+  }
+  if (key === undefined) {
     return { kind: "unauthorized" };
   }
   const rows = await db
-    .select({ ...NEWS_ITEM_COLUMNS, status: news.status, deletedAt: news.deletedAt })
+    .select({
+      ...NEWS_ITEM_COLUMNS,
+      status: news.status,
+      deletedAt: news.deletedAt,
+      previewToken: news.previewToken,
+      previewTokenExpiresAt: news.previewTokenExpiresAt,
+    })
     .from(news)
     .where(eq(news.id, id))
     .limit(1);
   const row = rows[0];
-  if (!row) {
-    return { kind: "not-found" };
+  const access = decideShareAccess(row ?? null, key, new Date());
+  if (!row || access.kind === "invalid") {
+    return { kind: "link-invalid" };
   }
-  const { status, deletedAt, ...itemRow } = row;
-  const state: NewsPreviewState = deletedAt ? "deleted" : status;
-  return { kind: "ok", newsId: row.id, state, article: await toArticle(await toNewsItem(itemRow)) };
+  if (access.kind === "redirect") {
+    return { kind: "redirect", slug: row.slug };
+  }
+  const { status, deletedAt, previewToken, previewTokenExpiresAt, ...itemRow } = row;
+  return {
+    kind: "shared",
+    newsId: row.id,
+    expiresOn: access.expiresOn,
+    article: await toArticle(await toNewsItem(itemRow)),
+  };
 }
 
 export async function getFeaturedAndLatest(): Promise<{

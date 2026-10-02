@@ -71,6 +71,13 @@
       "when": 1790688272097,
       "tag": "0009_wonderful_frightful_four",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790964153118,
+      "tag": "0010_flimsy_moonstone",
+      "breakpoints": true
     }
   ]
 }
