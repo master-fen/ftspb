@@ -197,6 +197,32 @@ export async function listAdminNewsYears(): Promise<number[]> {
   return rows.map((row) => row.year);
 }
 
+/** Строка раздела «Новости события» в редакторе события. */
+export type AdminEventNewsItem = Pick<NewsRow, "id" | "slug" | "title" | "publishedAt" | "status">;
+
+/**
+ * Новости, ссылающиеся на событие (news.event_id), для редактора события:
+ * и опубликованные, и черновики — редактору нужна полная картина; удалённые —
+ * нет. Порядок — как у публичной listPublishedNewsForEvent (src/server/events.ts),
+ * она отдаёт только опубликованные и без сессии, поэтому функция отдельная.
+ * Колонки перечислены явно: тексты и служебные поля разделу не нужны.
+ */
+export async function listAdminNewsForEvent(eventId: string): Promise<AdminEventNewsItem[]> {
+  await requireSession();
+  const database = requireDb();
+  return database
+    .select({
+      id: news.id,
+      slug: news.slug,
+      title: news.title,
+      publishedAt: news.publishedAt,
+      status: news.status,
+    })
+    .from(news)
+    .where(and(eq(news.eventId, eventId), isNull(news.deletedAt)))
+    .orderBy(desc(news.publishedAt), asc(news.slug));
+}
+
 export async function getAdminNews(id: string): Promise<{ news: NewsRow; photos: NewsPhotoRow[] }> {
   await requireSession();
   const database = requireDb();
