@@ -62,6 +62,8 @@ Postgres внутри `default_db`:
 | featured_order                     | integer NULL                                  |                                             |
 | source                             | text NULL                                     | подпись источника из архива                 |
 | cover_photo_id                     | uuid NULL FK → news_photo, ON DELETE SET NULL | обложка                                     |
+| preview_token                      | text NULL                                     | ключ ссылки согласования                    |
+| preview_token_expires_at           | timestamptz NULL                              | срок ссылки согласования                    |
 | created_at, updated_at, deleted_at | timestamptz                                   |                                             |
 
 Enum `section_enum`: `federation` | `referees` | `athletes`. Значения «Общее»
@@ -73,7 +75,16 @@ Enum `section_enum`: `federation` | `referees` | `athletes`. Значения «
 удаляется без пересоздания типа.
 
 Индексы: уникальный индекс на `slug` (из UNIQUE-ограничения),
-`(status, published_at DESC)`, `section`.
+`(status, published_at DESC)`, `section`, частичный уникальный
+`news_preview_token_idx` на `preview_token` `WHERE preview_token is not null`.
+
+`preview_token` / `preview_token_expires_at` (миграция `0010`) — ссылка на
+черновик для согласования `/news/preview/ID?key=ТОКЕН`, одна на новость.
+Токен — 32 случайных байта в base64url, хранится как есть. Срок — момент
+«создание + 14 суток», ссылка годна по московскую дату этого момента
+включительно. Пишут колонки только серверные функции редактора
+(`src/server/news-admin.ts`), публичные выборки их не читают. Решения —
+`docs/decisions.md`, «Ссылка для согласования».
 
 #### Известные расхождения slug (архив, PR B этапа 3)
 
