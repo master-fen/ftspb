@@ -35,12 +35,12 @@ const FROZEN: [string, string, number][] = [
   ["src/components/site/CharterToc.tsx", "text-foreground/65", 1],
   ["src/components/site/DocumentFileRow.tsx", "text-foreground/50", 1],
   ["src/components/site/FederationSidebar.tsx", "text-foreground/60", 1],
+  ["src/components/site/NewsArticlePage.tsx", "text-brand-navy/60", 1],
+  ["src/components/site/NewsArticlePage.tsx", "text-brand-navy/70", 1],
+  ["src/components/site/NewsArticlePage.tsx", "text-foreground/80", 1],
   ["src/routes/_site.federation.events.tsx", "text-foreground/50", 1],
   ["src/routes/_site.federation.structure.tsx", "text-foreground/80", 1],
   ["src/routes/_site.federation_.charter.text.tsx", "text-foreground/80", 1],
-  ["src/routes/_site.news.$newsId.tsx", "text-brand-navy/60", 1],
-  ["src/routes/_site.news.$newsId.tsx", "text-brand-navy/70", 1],
-  ["src/routes/_site.news.$newsId.tsx", "text-foreground/80", 1],
 ];
 
 function fractions(text: string): string[] {
