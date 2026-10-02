@@ -4,23 +4,35 @@ type CategoryFilterChipsProps<T extends string> = {
   active: T;
   onSelect: (value: T) => void;
   labels: Record<T, string>;
+  /** Подпись группы для скринридера. */
+  ariaLabel?: string;
+  /**
+   * Отступ под рядом: `section` — один ряд над списком; `stack` — ряд в стопке
+   * рядов (календарь турниров), отступы задаёт обёртка стопки.
+   */
+  spacing?: "section" | "stack";
 };
 
 /**
- * Чипы фильтра по разделам — разметка со страницы /news (news.index.tsx),
- * общая для новостей и документов; набор и порядок чипов задаёт страница.
+ * Чипы фильтра — разметка со страницы /news (news.index.tsx), общая для
+ * новостей, документов и календаря турниров; набор и порядок чипов задаёт
+ * страница.
  */
 export function CategoryFilterChips<T extends string>({
   categories,
   active,
   onSelect,
   labels,
+  ariaLabel = "Фильтр по разделам",
+  spacing = "section",
 }: CategoryFilterChipsProps<T>) {
   return (
     <div
       role="group"
-      aria-label="Фильтр по разделам"
-      className="mb-8 flex flex-wrap gap-2 md:mb-10"
+      aria-label={ariaLabel}
+      className={
+        spacing === "section" ? "mb-8 flex flex-wrap gap-2 md:mb-10" : "flex flex-wrap gap-2"
+      }
     >
       {categories.map((value) => {
         const isActive = active === value;

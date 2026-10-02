@@ -39,6 +39,7 @@ function matchesQuery(query: string, entry: { title: string; text: string }): bo
 describe("buildDescriptionSectionEntries — та же строка, что в head() маршрута", () => {
   const routeFileById: Record<string, string> = {
     "page-news": "_site.news.index.tsx",
+    "page-tournaments": "_site.tournaments.tsx",
     "page-documents": "_site.documents.tsx",
     "page-federation-news": "_site.federation.news.tsx",
     "page-federation-events": "_site.federation.events.tsx",
@@ -94,16 +95,24 @@ describe("stripSiteName", () => {
 });
 
 describe("реестр — «теннис» не находит записи только по названию сайта", () => {
-  test("запрос «теннис» не даёт находок среди записей с описанием", () => {
-    const entries = buildDescriptionSectionEntries();
-    const hits = entries.filter((entry) => matchesQuery("теннис", entry));
-    expect(hits).toEqual([]);
+  // Календарь турниров находится по собственным словам описания («теннисных
+  // турниров в Санкт-Петербурге»), а не по названию сайта — его в описании нет.
+  test("в описании календаря турниров названия сайта нет — stripSiteName его не меняет", () => {
+    const entry = buildDescriptionSectionEntries().find((e) => e.id === "page-tournaments");
+    expect(entry).toBeDefined();
+    expect(routeSourceContains("_site.tournaments.tsx", entry!.text)).toBe(true);
   });
 
-  test("запрос «петербург» тоже не даёт находок", () => {
+  test("запрос «теннис» находит среди записей с описанием только календарь турниров", () => {
     const entries = buildDescriptionSectionEntries();
-    const hits = entries.filter((entry) => matchesQuery("петербург", entry));
-    expect(hits).toEqual([]);
+    const hits = entries.filter((entry) => matchesQuery("теннис", entry)).map((e) => e.id);
+    expect(hits).toEqual(["page-tournaments"]);
+  });
+
+  test("запрос «петербург» — тоже только календарь турниров", () => {
+    const entries = buildDescriptionSectionEntries();
+    const hits = entries.filter((entry) => matchesQuery("петербург", entry)).map((e) => e.id);
+    expect(hits).toEqual(["page-tournaments"]);
   });
 });
 

@@ -73,6 +73,17 @@ export function buildDescriptionSectionEntries(): StaticSectionEntry[] {
       ),
     },
     {
+      id: "page-tournaments",
+      title: "Календарь турниров",
+      breadcrumb: [],
+      href: "/tournaments",
+      // src/routes/_site.tournaments.tsx — DESCRIPTION. Отдельные турниры
+      // поиск не индексирует.
+      text: stripSiteName(
+        "Календарь теннисных турниров в Санкт-Петербурге и всероссийских соревнований: сроки, место проведения, возраст участников.",
+      ),
+    },
+    {
       id: "page-documents",
       title: "Документы",
       breadcrumb: [],
