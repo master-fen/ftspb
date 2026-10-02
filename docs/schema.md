@@ -200,6 +200,8 @@ check-констрейнтом `event_starts_time_precision_check`
 
 `event_id` uuid NULL → `event.id` `ON DELETE SET NULL`: удаление события не
 уносит новость, а только развязывает её. Индекс `news_event_id_idx`.
+Задаётся полем «Событие» в редакторе новости; в редакторе события связь видна
+разделом «Новости события» (только чтение, `listAdminNewsForEvent`).
 
 ### admin_user
 
