@@ -6,12 +6,19 @@ import { news, newsPhoto } from "@/db/schema";
 import { HttpError } from "@/lib/http-error";
 import { EXTENSION_BY_TYPE, type SupportedImageType } from "@/lib/image-validation";
 import { pageCountFor } from "@/lib/news-paging";
+import { isNewsId } from "@/lib/news-preview";
 import { normalizeVideoUrl } from "@/lib/news-video-url";
 import { parsePhotoSize } from "@/lib/photo-dimensions";
 import { matchesQuery, visibleText } from "@/lib/search-text";
 import type { NewsSection } from "@/lib/section-category";
 import { requireSession } from "@/server/auth";
 import { resetNewsCache } from "@/server/news-cache";
+import {
+  newShareToken,
+  shareExpiresAt,
+  shareLinkState,
+  type ShareLinkState,
+} from "@/server/news-share-link";
 import { resetSearchIndex } from "@/server/search-index";
 import { sanitizeBody } from "@/server/sanitize";
 import { slugify } from "@/server/slug";
@@ -344,6 +351,69 @@ export async function restoreNews(id: string): Promise<void> {
   await database.update(news).set({ deletedAt: null }).where(eq(news.id, id));
   resetNewsCache();
   resetSearchIndex();
+}
+
+/** Мусор вместо uuid уронил бы запрос ошибкой Postgres — отказ до запроса. */
+function requireNewsId(id: string): void {
+  if (!isNewsId(id)) {
+    throw new Error(`Неверный id новости: ${id}`);
+  }
+}
+
+/**
+ * Ссылка на черновик для согласования (src/server/news-share-link.ts):
+ * состояние для блока «Согласование» в редакторе. Истёкшая ссылка токен
+ * не отдаёт — для редактора это то же, что «нет ссылки».
+ */
+export async function getNewsShareLink(id: string): Promise<ShareLinkState> {
+  await requireSession();
+  const database = requireDb();
+  requireNewsId(id);
+  const [row] = await database
+    .select({ token: news.previewToken, expiresAt: news.previewTokenExpiresAt })
+    .from(news)
+    .where(eq(news.id, id))
+    .limit(1);
+  if (!row) {
+    throw new Error(`Новость не найдена: ${id}`);
+  }
+  return shareLinkState(row.token, row.expiresAt, new Date());
+}
+
+/**
+ * Новая ссылка на 14 суток; прежняя, если была, сразу перестаёт работать.
+ * Только у черновика, не удалённого — условие в самом UPDATE, а не проверкой
+ * до него. Статус и `updated_at` не трогаются: ссылка — не правка новости
+ * (`updated_at` идёт в lastmod карты сайта и `article:modified_time`), и
+ * кэши не сбрасываются — токена в них нет.
+ */
+export async function createNewsShareLink(id: string): Promise<ShareLinkState> {
+  await requireSession();
+  const database = requireDb();
+  requireNewsId(id);
+  const now = new Date();
+  const token = newShareToken();
+  const expiresAt = shareExpiresAt(now);
+  const rows = await database
+    .update(news)
+    .set({ previewToken: token, previewTokenExpiresAt: expiresAt })
+    .where(and(eq(news.id, id), eq(news.status, "draft"), isNull(news.deletedAt)))
+    .returning({ id: news.id });
+  if (rows.length === 0) {
+    throw new Error("Ссылку можно создать только для черновика");
+  }
+  return shareLinkState(token, expiresAt, now);
+}
+
+/** Отзыв ссылки: токен и срок стираются, старая ссылка даёт заглушку. */
+export async function revokeNewsShareLink(id: string): Promise<void> {
+  await requireSession();
+  const database = requireDb();
+  requireNewsId(id);
+  await database
+    .update(news)
+    .set({ previewToken: null, previewTokenExpiresAt: null })
+    .where(eq(news.id, id));
 }
 
 /** Учитывает и мягко удалённые новости — их slug тоже занят. */
