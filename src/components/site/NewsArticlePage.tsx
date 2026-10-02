@@ -21,7 +21,7 @@ import { shouldReturnToNewsList } from "@/lib/news-return";
  */
 
 /** Маршрут, на котором стоит страница: лайтбокс пишет `#photo=N` в его адрес. */
-type NewsArticleRoutePath = "/news/$newsId";
+type NewsArticleRoutePath = "/news/$newsId" | "/news/preview/$previewId";
 
 /** Крошки отражают путь, которым пришли (`?from=`), а не раздел новости. */
 const CRUMBS_DEFAULT: Crumb[] = [
@@ -267,6 +267,27 @@ export function NewsNotFound() {
       <p className="mt-4 text-muted-foreground">Возможно, материал был перемещён или удалён.</p>
       <Link to="/news" className={NOTICE_BUTTON}>
         Ко всем новостям
+      </Link>
+    </main>
+  );
+}
+
+/**
+ * Предпросмотр без сессии редактора: ни заголовка, ни слага, ни текста — их
+ * нет и в данных лоадера (src/server/news.ts, `getNewsPreview`). После входа
+ * — в редактор этой новости: адрес проходит проверку редиректа входа
+ * (`/admin/…`), а предпросмотр открывается оттуда кнопкой.
+ */
+export function NewsPreviewLocked({ newsId }: { newsId: string }) {
+  return (
+    <main className={NOTICE_MAIN}>
+      <h1 className="ui-h1">Предпросмотр доступен только редактору сайта</h1>
+      <Link
+        to="/admin/login"
+        search={{ redirect: `/admin/news/${newsId}` }}
+        className={NOTICE_BUTTON}
+      >
+        Войти в админку
       </Link>
     </main>
   );
