@@ -66,6 +66,15 @@ export const news = pgTable(
      * анонс). `set null`: удаление события не должно уносить новость.
      */
     eventId: uuid("event_id").references((): AnyPgColumn => event.id, { onDelete: "set null" }),
+    /**
+     * Ссылка на черновик для согласования (`/news/preview/ID?key=ТОКЕН`), одна
+     * на новость. Токен хранится как есть: редактор копирует ссылку повторно.
+     * Срок — момент «создание + 14 суток»; ссылка годна по московскую дату
+     * этого момента включительно (src/server/news-share-link.ts). Публичные
+     * выборки обе колонки не читают — списки колонок у них явные.
+     */
+    previewToken: text("preview_token"),
+    previewTokenExpiresAt: timestamp("preview_token_expires_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
@@ -74,6 +83,9 @@ export const news = pgTable(
     index("news_status_published_at_idx").on(table.status, table.publishedAt.desc()),
     index("news_section_idx").on(table.section),
     index("news_event_id_idx").on(table.eventId),
+    uniqueIndex("news_preview_token_idx")
+      .on(table.previewToken)
+      .where(sql`preview_token is not null`),
   ],
 );
 
