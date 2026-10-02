@@ -45,6 +45,23 @@ describe("isExcludedPath — админка", () => {
   });
 });
 
+describe("isExcludedPath — предпросмотр новости", () => {
+  test("/news/preview/ID — исключён", () => {
+    for (const path of [
+      "/news/preview/0b3c5a52-6a4e-4f0e-9d7b-2f1d3c4e5a6b",
+      "/news/preview/abc",
+    ]) {
+      expect(isExcludedPath(path)).toBe(true);
+    }
+  });
+
+  test("/news/preview без хвоста и похожие пути — не исключены", () => {
+    for (const path of ["/news/preview", "/news/preview/", "/news/previews/x", "/news/123"]) {
+      expect(isExcludedPath(path)).toBe(false);
+    }
+  });
+});
+
 describe("shouldTrack — хост и путь вместе", () => {
   test("боевой хост, публичный путь — считаем", () => {
     expect(shouldTrack("spbtennisfed.ru", "/news")).toBe(true);
