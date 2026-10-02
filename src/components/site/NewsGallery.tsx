@@ -220,7 +220,7 @@ export function NewsGallery({
                   <NewsImage
                     src={src}
                     alt={`${title} — фото ${index + 1}`}
-                    className="h-full w-full object-cover"
+                    className="h-full w-full object-cover object-top"
                   />
                   {hasPlaque ? (
                     <span aria-hidden="true" className={narrowPlaque ? PLAQUE_NARROW : PLAQUE}>
@@ -338,7 +338,7 @@ export function NewsGallery({
                           alt=""
                           loading="lazy"
                           decoding="async"
-                          className="h-full w-full object-cover"
+                          className="h-full w-full object-cover object-top"
                         />
                       </button>
                     ))}

@@ -26,9 +26,9 @@ import { NewsImage } from "./NewsImage";
 type Variant = "list" | "hero" | "thumb";
 
 const COVER_CLASS: Record<Variant, string> = {
-  list: "h-full w-full object-cover object-[50%_25%] transition-transform duration-500 group-hover:scale-[1.03]",
-  hero: "h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-[1.03]",
-  thumb: "h-full w-full object-cover object-[50%_25%]",
+  list: "h-full w-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.03]",
+  hero: "h-full w-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.03]",
+  thumb: "h-full w-full object-cover object-top",
 };
 
 const SMALL_CLASS: Record<Variant, string> = {

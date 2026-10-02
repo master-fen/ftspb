@@ -76,7 +76,11 @@ export function FeaturedNewsManager() {
                     <>
                       <div className="mb-3 flex gap-3">
                         {item.cover ? (
-                          <img src={item.cover} alt="" className="h-16 w-20 rounded object-cover" />
+                          <img
+                            src={item.cover}
+                            alt=""
+                            className="h-16 w-20 rounded object-cover object-top"
+                          />
                         ) : (
                           <div className="flex h-16 w-20 shrink-0 items-center justify-center rounded bg-muted text-xs">
                             Без фото

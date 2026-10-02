@@ -303,7 +303,7 @@ export function NewsPhotoGallery({ newsId, coverPhotoId, onBusyChange }: NewsPho
           <img
             src={cover.url}
             alt={cover.alt ?? "Текущая обложка"}
-            className="aspect-video w-full rounded-lg object-cover"
+            className="aspect-video w-full rounded-lg object-cover object-top"
           />
         ) : (
           <div className="flex aspect-video items-center justify-center rounded-lg bg-muted text-sm text-muted-foreground">
@@ -466,7 +466,11 @@ export function NewsPhotoGallery({ newsId, coverPhotoId, onBusyChange }: NewsPho
           {photos.map((photo, index) => (
             <div key={photo.id} className="flex flex-col gap-2 rounded-lg border p-3">
               <div className="relative aspect-[4/3] overflow-hidden rounded-md bg-muted">
-                <img src={photo.url} alt={photo.alt ?? ""} className="h-full w-full object-cover" />
+                <img
+                  src={photo.url}
+                  alt={photo.alt ?? ""}
+                  className="h-full w-full object-cover object-top"
+                />
                 {photo.id === coverPhotoId && (
                   <Badge className="absolute left-2 top-2">Обложка</Badge>
                 )}
