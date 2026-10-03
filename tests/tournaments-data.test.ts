@@ -42,12 +42,12 @@ function countByMonth(source: TournamentSourceKey): Record<string, number> {
 }
 
 describe("число записей по источнику и месяцу даты начала", () => {
-  test("spb-2026: 2026-09 — 3, 10 — 5, 11 — 8, 12 — 4", () => {
+  test("spb-2026: 2026-09 — 3, 10 — 5, 11 — 9, 12 — 6", () => {
     expect(countByMonth("spb-2026")).toEqual({
       "2026-09": 3,
       "2026-10": 5,
-      "2026-11": 8,
-      "2026-12": 4,
+      "2026-11": 9,
+      "2026-12": 6,
     });
   });
 
@@ -87,11 +87,11 @@ describe("число записей по источнику и месяцу да
 });
 
 describe("записи", () => {
-  test("уникальных записей 232, в двух источниках сразу — одна", () => {
+  test("уникальных записей 235, в двух источниках сразу — одна", () => {
     // Ключ без источников: одно соревнование из двух календарей — одна запись.
     const keys = new Set(TOURNAMENTS.map(({ sources: _sources, ...rest }) => JSON.stringify(rest)));
-    expect(TOURNAMENTS.length).toBe(232);
-    expect(keys.size).toBe(232);
+    expect(TOURNAMENTS.length).toBe(235);
+    expect(keys.size).toBe(235);
     expect(TOURNAMENTS.filter((t) => t.sources.length > 1).length).toBe(1);
   });
 
