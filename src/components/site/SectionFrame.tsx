@@ -35,8 +35,9 @@ const ASIDE_TALL =
  * столбиком, содержимое первым). Шапку, подвал и полную высоту страницы даёт
  * рама `_site` (src/routes/_site.tsx). Раскладка раздела «Федерация»
  * (src/routes/_site.federation.tsx), страница полного текста Устава
- * (src/routes/_site.federation_.charter.text.tsx) и страница события
- * (src/routes/_site.federation_.events.$slug.tsx) рисуются этим компонентом.
+ * (src/routes/_site.federation_.charter.text.tsx), страница события
+ * (src/routes/_site.federation_.events.$slug.tsx) и календарь турниров
+ * (src/routes/_site.tournaments.tsx) рисуются этим компонентом.
  */
 export function SectionFrame({
   crumbs,

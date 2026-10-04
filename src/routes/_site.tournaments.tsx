@@ -1,10 +1,16 @@
 import { createFileRoute, redirect, stripSearchParams, useNavigate } from "@tanstack/react-router";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
-import { Breadcrumbs, type Crumb } from "@/components/site/Breadcrumbs";
+import { type Crumb } from "@/components/site/Breadcrumbs";
 import { CategoryFilterChips } from "@/components/site/CategoryFilterChips";
+import { SectionFrame } from "@/components/site/SectionFrame";
 import { StatusBadge } from "@/components/site/StatusBadge";
-import { TOURNAMENT_SOURCES, TOURNAMENTS, type Tournament } from "@/data/tournaments";
+import {
+  TOURNAMENT_SOURCES,
+  TOURNAMENTS,
+  type Tournament,
+  type TournamentSource,
+} from "@/data/tournaments";
 import { eventYear, pickDefaultEventYear } from "@/lib/event-date";
 import {
   filterTournaments,
@@ -12,7 +18,9 @@ import {
   formatTournamentDates,
   formatTournamentPlace,
   formatTournamentSource,
+  formatTournamentSourcesShort,
   splitIntoBlocks,
+  tournamentSourcesInList,
   tournamentStatus,
   type MonthGroup,
 } from "@/lib/tournament-calendar";
@@ -23,6 +31,8 @@ import {
   DEFAULT_PLACE_FILTER,
   PLACE_FILTER_LABELS,
   PLACE_FILTERS,
+  type AgeFilter,
+  type PlaceFilter,
 } from "@/lib/tournament-filters";
 import { todayInMoscow } from "@/lib/today-msk";
 
@@ -91,94 +101,166 @@ export const Route = createFileRoute("/_site/tournaments")({
   component: TournamentsPage,
 });
 
+/**
+ * Раскладка — SectionFrame с `stickyAside="tall"`: на lg справа липкая
+ * карточка «Фильтр» (чипы и полные строки версий), на узком — чипы и короткая
+ * строка версий над списком, полные строки — после списка (aside идёт после
+ * содержимого). Чипы поэтому отрисованы дважды, видимость решает CSS, а не JS:
+ * matchMedia дал бы в SSR одну разметку, после гидрации другую. Правила —
+ * docs/calendar.md, «Раскладка».
+ */
 function TournamentsPage() {
   const { today, years, defaultYear, year } = Route.useLoaderData();
   const { place, age } = Route.useSearch();
   const navigate = useNavigate({ from: "/tournaments" });
-  const yearKeys = years.map(String);
-  const yearLabels: Record<string, string> = Object.fromEntries(yearKeys.map((y) => [y, y]));
 
-  const blocks =
-    year === null
-      ? null
-      : splitIntoBlocks(filterTournaments(TOURNAMENTS, { year, place, age }), today);
+  const list = year === null ? [] : filterTournaments(TOURNAMENTS, { year, place, age });
+  const blocks = year === null ? null : splitIntoBlocks(list, today);
   const empty = blocks === null || (blocks.upcoming.length === 0 && blocks.finished.length === 0);
+  const sources = tournamentSourcesInList(list, TOURNAMENT_SOURCES);
+
+  const chips = (
+    <TournamentFilterChips
+      place={place}
+      age={age}
+      year={year}
+      years={years}
+      onPlace={(value) =>
+        navigate({ search: (prev) => ({ ...prev, place: value }), resetScroll: false })
+      }
+      onYear={(value) =>
+        navigate({
+          search: (prev) => ({ ...prev, year: value === defaultYear ? undefined : value }),
+          resetScroll: false,
+        })
+      }
+      onAge={(value) =>
+        navigate({ search: (prev) => ({ ...prev, age: value }), resetScroll: false })
+      }
+    />
+  );
+
+  const aside = (
+    <>
+      <section
+        aria-labelledby="tournament-filter-title"
+        className="hidden ui-card ring-card-border bg-card-surface p-6 lg:block"
+      >
+        <h2 id="tournament-filter-title" className="ui-card-title text-foreground">
+          Фильтр
+        </h2>
+        <div className="mt-4 space-y-3">{chips}</div>
+        {sources.length > 0 ? <TournamentSourceLines sources={sources} className="mt-4" /> : null}
+      </section>
+      {sources.length > 0 ? (
+        <TournamentSourceLines sources={sources} className="lg:hidden" />
+      ) : null}
+    </>
+  );
 
   return (
-    <main className="mx-auto max-w-7xl lg:box-content px-4 pt-6 pb-12 md:px-6 md:pt-8 md:pb-16 lg:px-10">
-      <Breadcrumbs items={CRUMBS} />
+    <SectionFrame crumbs={CRUMBS} aside={aside} stickyAside="tall">
+      <header className="mb-6 md:mb-8">
+        <h1 className="ui-h1">Календарь турниров</h1>
+        <p className="mt-4 font-ui text-base text-foreground">
+          Турниры в Санкт-Петербурге и всероссийские соревнования: сроки, место проведения, возраст
+          участников.
+        </p>
+      </header>
 
-      <div className="lg:grid lg:grid-cols-12 lg:gap-5">
-        <div className="lg:col-span-8">
-          <header className="mb-6 md:mb-8">
-            <h1 className="ui-h1">Календарь турниров</h1>
-            <p className="mt-4 font-ui text-base text-foreground">
-              Турниры в Санкт-Петербурге и всероссийские соревнования: сроки, место проведения,
-              возраст участников.
-            </p>
-            <div className="mt-3 space-y-1 font-ui">
-              {TOURNAMENT_SOURCES.map((source) => (
-                <p key={source.key} className="ui-caption">
-                  {formatTournamentSource(source)}
-                </p>
-              ))}
-            </div>
-          </header>
-
-          <div className="mb-8 space-y-3 md:mb-10">
-            <CategoryFilterChips
-              categories={PLACE_FILTERS}
-              active={place}
-              onSelect={(value) =>
-                navigate({ search: (prev) => ({ ...prev, place: value }), resetScroll: false })
-              }
-              labels={PLACE_FILTER_LABELS}
-              ariaLabel="Место"
-              spacing="stack"
-            />
-            {year === null ? null : (
-              <CategoryFilterChips
-                categories={yearKeys}
-                active={String(year)}
-                onSelect={(value) =>
-                  navigate({
-                    search: (prev) => ({
-                      ...prev,
-                      year: Number(value) === defaultYear ? undefined : Number(value),
-                    }),
-                    resetScroll: false,
-                  })
-                }
-                labels={yearLabels}
-                ariaLabel="Год"
-                spacing="stack"
-              />
-            )}
-            <CategoryFilterChips
-              categories={AGE_FILTERS}
-              active={age}
-              onSelect={(value) =>
-                navigate({ search: (prev) => ({ ...prev, age: value }), resetScroll: false })
-              }
-              labels={AGE_FILTER_LABELS}
-              ariaLabel="Возраст"
-              spacing="stack"
-            />
-          </div>
-
-          {empty ? (
-            <p className="rounded-xl bg-muted p-8 text-center text-muted-foreground">
-              Турниров по выбранным условиям нет.
-            </p>
-          ) : (
-            <div className="space-y-10">
-              <TournamentBlock title="Предстоящие" groups={blocks.upcoming} today={today} />
-              <TournamentBlock title="Завершённые" groups={blocks.finished} today={today} />
-            </div>
-          )}
-        </div>
+      <div className="mb-8 space-y-3 md:mb-10 lg:hidden">
+        {chips}
+        {/* Одна строка постоянной высоты: смена фильтра не сдвигает список.
+            При пустом списке — неразрывный пробел, тот же строчный бокс. */}
+        <p className="truncate font-ui ui-caption">
+          {formatTournamentSourcesShort(sources) || "\u00a0"}
+        </p>
       </div>
-    </main>
+
+      {empty ? (
+        <p className="rounded-xl bg-muted p-8 text-center text-muted-foreground">
+          Турниров по выбранным условиям нет.
+        </p>
+      ) : (
+        <div className="space-y-10">
+          <TournamentBlock title="Предстоящие" groups={blocks.upcoming} today={today} />
+          <TournamentBlock title="Завершённые" groups={blocks.finished} today={today} />
+        </div>
+      )}
+    </SectionFrame>
+  );
+}
+
+/** Три ряда чипов: место, год, возраст. Ряд годов — если в данных есть годы. */
+function TournamentFilterChips({
+  place,
+  age,
+  year,
+  years,
+  onPlace,
+  onYear,
+  onAge,
+}: {
+  place: PlaceFilter;
+  age: AgeFilter;
+  year: number | null;
+  years: number[];
+  onPlace: (value: PlaceFilter) => void;
+  onYear: (value: number) => void;
+  onAge: (value: AgeFilter) => void;
+}) {
+  const yearKeys = years.map(String);
+  const yearLabels: Record<string, string> = Object.fromEntries(yearKeys.map((y) => [y, y]));
+  return (
+    <>
+      <CategoryFilterChips
+        categories={PLACE_FILTERS}
+        active={place}
+        onSelect={onPlace}
+        labels={PLACE_FILTER_LABELS}
+        ariaLabel="Место"
+        spacing="stack"
+      />
+      {year === null ? null : (
+        <CategoryFilterChips
+          categories={yearKeys}
+          active={String(year)}
+          onSelect={(value) => onYear(Number(value))}
+          labels={yearLabels}
+          ariaLabel="Год"
+          spacing="stack"
+        />
+      )}
+      <CategoryFilterChips
+        categories={AGE_FILTERS}
+        active={age}
+        onSelect={onAge}
+        labels={AGE_FILTER_LABELS}
+        ariaLabel="Возраст"
+        spacing="stack"
+      />
+    </>
+  );
+}
+
+/** Полные строки версий — источники текущего списка, в порядке TOURNAMENT_SOURCES. */
+function TournamentSourceLines({
+  sources,
+  className,
+}: {
+  sources: TournamentSource[];
+  className: string;
+}) {
+  return (
+    <div className={className}>
+      <div className="space-y-1 font-ui">
+        {sources.map((source) => (
+          <p key={source.key} className="ui-caption">
+            {formatTournamentSource(source)}
+          </p>
+        ))}
+      </div>
+    </div>
   );
 }
 
