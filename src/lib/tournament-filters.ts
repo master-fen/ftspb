@@ -11,10 +11,10 @@ import type { Tournament, TournamentAge } from "@/data/tournaments";
 
 export const SPB_CITY = "Санкт-Петербург";
 
-/** Значения `?place=`; `all` — по умолчанию, из адреса вырезается. */
+/** Значения `?place=`; `spb` — по умолчанию, из адреса вырезается. */
 export const PLACE_FILTERS = ["all", "spb", "russia"] as const;
 export type PlaceFilter = (typeof PLACE_FILTERS)[number];
-export const DEFAULT_PLACE_FILTER: PlaceFilter = "all";
+export const DEFAULT_PLACE_FILTER: PlaceFilter = "spb";
 
 export const PLACE_FILTER_LABELS: Record<PlaceFilter, string> = {
   all: "Все",
