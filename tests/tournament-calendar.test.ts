@@ -1,18 +1,21 @@
 import { describe, expect, test } from "bun:test";
-import { TOURNAMENT_SOURCES, type Tournament } from "@/data/tournaments";
+import { TOURNAMENT_SOURCES, TOURNAMENTS, type Tournament } from "@/data/tournaments";
 import {
   filterTournaments,
   formatTournamentAge,
   formatTournamentDates,
   formatTournamentPlace,
   formatTournamentSource,
+  formatTournamentSourcesShort,
   splitIntoBlocks,
+  tournamentSourcesInList,
   tournamentStatus,
   tournamentYears,
 } from "@/lib/tournament-calendar";
 import {
   matchesAge,
   matchesPlace,
+  PLACE_FILTERS,
   type AgeFilter,
   type PlaceFilter,
 } from "@/lib/tournament-filters";
@@ -225,5 +228,51 @@ describe("строки источников", () => {
 
   test("порядок строк — spb-2026, ftr-2026, ftr-2027", () => {
     expect(TOURNAMENT_SOURCES.map((s) => s.key)).toEqual(["spb-2026", "ftr-2026", "ftr-2027"]);
+  });
+});
+
+/** Ключи источников текущего списка на реальных данных, возраст «Все возрасты». */
+function sourceKeys(year: number, place: PlaceFilter): string[] {
+  const list = filterTournaments(TOURNAMENTS, { year, place, age: "all" });
+  return tournamentSourcesInList(list, TOURNAMENT_SOURCES).map((s) => s.key);
+}
+
+describe("источники текущего списка", () => {
+  test("«Все», 2026 — spb-2026 и ftr-2026", () => {
+    expect(sourceKeys(2026, "all")).toEqual(["spb-2026", "ftr-2026"]);
+  });
+
+  test("«Россия», 2026 — spb-2026 и ftr-2026 (ВС 02–08.11 стоит в обоих календарях)", () => {
+    expect(sourceKeys(2026, "russia")).toEqual(["spb-2026", "ftr-2026"]);
+  });
+
+  test("«Санкт-Петербург», 2026 — spb-2026 и ftr-2026 (ВС и «МС (командные)» из ФТР)", () => {
+    expect(sourceKeys(2026, "spb")).toEqual(["spb-2026", "ftr-2026"]);
+  });
+
+  test("любой фильтр места, 2027 — только ftr-2027", () => {
+    expect(PLACE_FILTERS.map((place) => [place, sourceKeys(2027, place)])).toEqual(
+      PLACE_FILTERS.map((place) => [place, ["ftr-2027"]]),
+    );
+  });
+});
+
+describe("краткая строка версий", () => {
+  const byKey = (key: string) => TOURNAMENT_SOURCES.filter((s) => s.key === key);
+
+  test("один источник — «Версия: …»", () => {
+    expect(formatTournamentSourcesShort(byKey("ftr-2026"))).toBe("Версия: ФТР 28.05.2026");
+  });
+
+  test("два источника — «Версии: …» через « · »", () => {
+    expect(formatTournamentSourcesShort([...byKey("spb-2026"), ...byKey("ftr-2026")])).toBe(
+      "Версии: СПб 01.10.2026 · ФТР 28.05.2026",
+    );
+  });
+
+  test("проект — «проект ФТР от …»", () => {
+    expect(formatTournamentSourcesShort(byKey("ftr-2027"))).toBe(
+      "Версия: проект ФТР от 22.09.2026",
+    );
   });
 });
