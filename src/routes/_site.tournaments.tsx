@@ -102,12 +102,13 @@ export const Route = createFileRoute("/_site/tournaments")({
 });
 
 /**
- * Раскладка — SectionFrame с `stickyAside="tall"`: на lg справа липкая
- * карточка «Фильтр» (чипы и полные строки версий), на узком — чипы и короткая
- * строка версий над списком, полные строки — после списка (aside идёт после
- * содержимого). Чипы поэтому отрисованы дважды, видимость решает CSS, а не JS:
- * matchMedia дал бы в SSR одну разметку, после гидрации другую. Правила —
- * docs/calendar.md, «Раскладка».
+ * Раскладка — SectionFrame с липкостью по умолчанию, как в разделе
+ * «Федерация»: на lg справа липкая карточка «Фильтр» (чипы и полные строки
+ * версий), на узком — чипы и короткая строка версий над списком, полные
+ * строки — после списка (aside идёт после содержимого). Чипы поэтому
+ * отрисованы дважды, видимость решает CSS, а не JS: matchMedia дал бы в SSR
+ * одну разметку, после гидрации другую. Правила — docs/calendar.md,
+ * «Раскладка».
  */
 function TournamentsPage() {
   const { today, years, defaultYear, year } = Route.useLoaderData();
@@ -159,7 +160,7 @@ function TournamentsPage() {
   );
 
   return (
-    <SectionFrame crumbs={CRUMBS} aside={aside} stickyAside="tall">
+    <SectionFrame crumbs={CRUMBS} aside={aside}>
       <header className="mb-6 md:mb-8">
         <h1 className="ui-h1">Календарь турниров</h1>
         <p className="mt-4 font-ui text-base text-foreground">
