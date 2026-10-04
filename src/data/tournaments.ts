@@ -22,6 +22,11 @@ export type TournamentSource = {
   status: "действующий" | "проект";
   /** Дата версии в готовом виде, ДД.ММ.ГГГГ: выводится как есть, без разбора через Date. */
   versionDate: string;
+  /**
+   * Краткая подпись для короткой строки версий («СПб», «ФТР»); дата и статус
+   * дописываются при выводе (formatTournamentSourcesShort).
+   */
+  shortTitle: string;
 };
 
 /** Порядок источников — порядок их строк на странице. */
@@ -33,6 +38,7 @@ export const TOURNAMENT_SOURCES: TournamentSource[] = [
     months: { from: 9, to: 12 },
     status: "действующий",
     versionDate: "01.10.2026",
+    shortTitle: "СПб",
   },
   {
     key: "ftr-2026",
@@ -41,6 +47,7 @@ export const TOURNAMENT_SOURCES: TournamentSource[] = [
     months: null,
     status: "действующий",
     versionDate: "28.05.2026",
+    shortTitle: "ФТР",
   },
   {
     key: "ftr-2027",
@@ -49,6 +56,7 @@ export const TOURNAMENT_SOURCES: TournamentSource[] = [
     months: null,
     status: "проект",
     versionDate: "22.09.2026",
+    shortTitle: "ФТР",
   },
 ];
 

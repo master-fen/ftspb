@@ -183,7 +183,8 @@ export function formatTournamentPlace(tournament: Tournament): string {
 }
 
 /**
- * Строка источника под вводной строкой страницы: «название[, период].
+ * Полная строка источника (в карточке «Фильтр» на lg, после списка на узком
+ * экране): «название[, период].
  * Версия от ДД.ММ.ГГГГ.» или «… Проект от ДД.ММ.ГГГГ, сроки могут измениться.»
  * Период пишется, только если календарь охватывает не весь год.
  */
@@ -200,4 +201,33 @@ export function formatTournamentSource(source: TournamentSource): string {
       ? `Проект от ${source.versionDate}, сроки могут измениться.`
       : `Версия от ${source.versionDate}.`;
   return `${source.title}${period}. ${version}`;
+}
+
+/**
+ * Источники, у которых есть хотя бы одна запись в списке; порядок — порядок
+ * `sources`. Запись из двух календарей засчитывается обоим. Пустой список —
+ * пустой результат.
+ */
+export function tournamentSourcesInList(
+  tournaments: readonly Tournament[],
+  sources: readonly TournamentSource[],
+): TournamentSource[] {
+  return sources.filter((source) => tournaments.some((t) => t.sources.includes(source.key)));
+}
+
+/** «СПб 01.10.2026» у действующего, «проект ФТР от 22.09.2026» у проекта. */
+function formatTournamentSourceShort(source: TournamentSource): string {
+  return source.status === "проект"
+    ? `проект ${source.shortTitle} от ${source.versionDate}`
+    : `${source.shortTitle} ${source.versionDate}`;
+}
+
+/**
+ * Короткая строка версий над списком на узком экране: «Версия: …» при одном
+ * источнике, «Версии: … · …» при нескольких; пустая строка — без источников.
+ */
+export function formatTournamentSourcesShort(sources: readonly TournamentSource[]): string {
+  if (sources.length === 0) return "";
+  const prefix = sources.length === 1 ? "Версия" : "Версии";
+  return `${prefix}: ${sources.map(formatTournamentSourceShort).join(" · ")}`;
 }
