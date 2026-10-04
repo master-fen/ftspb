@@ -1,5 +1,5 @@
 /** Дата в готовом виде, выводится как есть — без разбора через Date. */
-export const ANTIDOPING_UPDATED_AT = "28.09.2026";
+export const ANTIDOPING_UPDATED_AT = "04.10.2026";
 
 export const ANTIDOPING_RESPONSIBLE = {
   name: "Чертова Диана Сергеевна",
@@ -64,10 +64,16 @@ export const ANTIDOPING_GROUPS: AntidopingGroup[] = [
         note: "На сайте ФТР, файл 2026 года, 32 МБ",
       },
       {
+        title: "Запрещённый список 2027 (ВАДА), русский текст",
+        href: "https://rusada.ru/upload/iblock/41b/dnm7ah7u8eiychr4wu03krm7hmjks4py/ZS-2027.pdf",
+        kind: "pdf",
+        note: "На сайте РУСАДА; вступает в силу 1 января 2027 г.",
+      },
+      {
         title: "Запрещённый список 2026 (ВАДА), русский текст",
         href: "https://tennis-russia.ru/upload/iblock/478/2abs1u9lsmsip7nf8fv3amfiwopip7wt.pdf",
         kind: "pdf",
-        note: "На сайте ФТР",
+        note: "На сайте ФТР; действует до 31 декабря 2026 г.",
       },
       {
         title: "Запрещённый список — актуальная версия на сайте ВАДА",
