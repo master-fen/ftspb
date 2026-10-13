@@ -118,7 +118,7 @@ export function SiteHeader() {
               }
               void navigate({ to: "/search", search: { q } });
             }}
-            className={`absolute top-3 right-0 z-30 h-11 overflow-hidden rounded-full border-[3px] border-brand-blue bg-background transition-[width,box-shadow] duration-300 ease-out xl:top-4 ${
+            className={`absolute top-3 right-0 z-30 h-11 overflow-hidden rounded-full bg-background p-0.75 inset-ring-3 inset-ring-brand-blue transition-[width,box-shadow] duration-300 ease-out xl:top-4 ${
               searchOpen ? "w-64 shadow-sm" : "w-11"
             }`}
           >
@@ -143,7 +143,7 @@ export function SiteHeader() {
               onClick={() => {
                 if (!searchOpen) setSearchOpen(true);
               }}
-              className="absolute top-0 right-0 h-full w-10 rounded-full bg-brand-blue p-0 text-primary-foreground shadow-none hover:bg-brand-blue hover:opacity-90"
+              className="absolute top-0 right-0 h-full w-11 rounded-full bg-brand-blue p-0 text-primary-foreground shadow-none hover:bg-brand-blue hover:opacity-90"
             >
               <Search className="h-4 w-4" />
             </Button>
