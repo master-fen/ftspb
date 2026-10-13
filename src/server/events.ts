@@ -254,7 +254,7 @@ export async function suggestSlug(title: string, startsOn: string): Promise<stri
  * перечислены явно (как в listPublishedPersons): новая колонка — status,
  * служебные даты — не должна автоматически утечь в SSR-ответ и loaderData.
  *
- * `db === null` — превью Lovable без DATABASE_URL (штатный режим, не авария):
+ * `db === null` — режим без DATABASE_URL (штатный, на моках, не авария):
  * фикстур для событий нет, отдаём пусто. Ошибку живой БД не глотаем.
  */
 

@@ -18,7 +18,7 @@ export type NewsItem = {
   /**
    * Раздел новости; `null` — «Общее». Фильтровать по нему, а не по `category`
    * (та — русская подпись для отображения). Опционально только из-за мок-фикстур
-   * `src/data/news-archive.ts` (Lovable-зона, поля там нет): всё, что отдаёт
+   * `src/data/news-archive.ts` (поля там нет): всё, что отдаёт
    * `src/server/news.ts`, заполняет его всегда.
    */
   section?: NewsSection | null;
@@ -36,14 +36,14 @@ export type NewsItem = {
   /**
    * Embed-адрес видео Kinescope (`https://kinescope.io/embed/<id>`) или `null`.
    * Отдаёт только деталка (`getNewsBySlug`); в списках (`listNews` и др.) ключа
-   * нет. Необязательно из-за мок-фикстур `src/data/news-archive.ts` (Lovable-зона).
+   * нет. Необязательно из-за мок-фикстур `src/data/news-archive.ts`.
    */
   videoUrl?: string | null;
   /**
    * `news.hide_cover_on_page`: страница новости не показывает `cover` вовсе;
    * карточки списков, главная, «Читайте также» и `og:image` читают `cover` как
    * раньше. `undefined` = `false` — необязательно из-за мок-фикстур
-   * `src/data/news-archive.ts` (Lovable-зона); `src/server/news.ts` заполняет всегда.
+   * `src/data/news-archive.ts`; `src/server/news.ts` заполняет всегда.
    */
   hideCoverOnPage?: boolean;
   /**

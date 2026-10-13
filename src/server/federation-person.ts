@@ -71,7 +71,7 @@ export async function listPersons(params: ListPersonsParams = {}): Promise<Perso
  * deleted_at, created_at/updated_at — автоматически утекала бы в SSR-ответ и
  * loaderData. Наружу — только то, что рисует страница.
  *
- * `db === null` — превью Lovable без DATABASE_URL (штатный режим, не авария):
+ * `db === null` — режим без DATABASE_URL (штатный, на моках, не авария):
  * мок-фикстур для людей нет, отдаём пустой список. Ошибку живой БД не глотаем.
  */
 export async function listPublishedPersons(): Promise<PublicPerson[]> {

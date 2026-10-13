@@ -7,18 +7,12 @@ Lovable не используется с 08.09.2026. Claude Code правит в
 Разделения зон между агентами больше нет; правила того периода — дословно в
 `docs/history/lovable-coworking.md` (не действуют, хранятся как история).
 
-Технические остатки Lovable, которые продолжают действовать (проверено по
-клону 19.09.2026):
-
-- `@lovable.dev/vite-tanstack-config` в `package.json` — конфиг сборки. Версию
-  не менять и не пиннить: пакет обновляется самим Lovable.
-- `vite.config.ts` — плагинов не добавлять, все они внутри конфига сборки
-  (список — в комментарии самого файла). Смена nitro preset — по согласованию.
-- `AGENTS.md` — обёрнут маркерами `<!-- LOVABLE:BEGIN --> … <!-- LOVABLE:END -->`,
-  редактируется только снаружи маркеров.
-- `.lovable/` — служебный каталог, руками не трогать.
-- `src/lib/lovable-error-reporting.ts`, `src/lib/error-capture.ts`,
-  `src/lib/error-page.ts`, `src/routes/README.md` — руками не трогать.
+Технических остатков Lovable в коде нет с 13.10.2026: конфиг сборки —
+собственный `vite.config.ts` вместо пакета `@lovable.dev/vite-tanstack-config`,
+служебные файлы (`.lovable/`, блок в `AGENTS.md`, отчёт об ошибках в окно
+редактора, памятка `src/routes/README.md`) удалены, все пакеты `bun.lock` — с
+публичного npm (`docs/decisions.md`, «Сборка клиента»).
+`src/lib/error-page.ts` — страница 500 из `src/start.ts`, обычный файл проекта.
 
 ## Где что лежит
 
@@ -62,10 +56,11 @@ Lovable не используется с 08.09.2026. Claude Code правит в
 - Tailwind 4
 - Bun — единственный менеджер пакетов; единственный lock — `bun.lock`
 - Nitro preset: `node-server` (деплой на обычный Node.js)
-- Конфиг сборки — `@lovable.dev/vite-tanstack-config`
+- Конфиг сборки — `vite.config.ts`, плагины перечислены явно
 
 Точные версии здесь не дублируются, а читаются из `package.json`: список
-расходился с фактом — у конфига сборки стояло «2.7.7» при фактических 2.13.1.
+расходился с фактом — у прежнего пакета конфига сборки стояло «2.7.7» при
+фактических 2.13.1.
 Сознательно закреплена одна версия — bun в CI, `1.3.14`
 (`.github/workflows/ci.yml`, все пять job-ов).
 
@@ -125,7 +120,8 @@ bun test
 TanStack Start собирает route-модули и в клиентский, и в серверный бандл —
 прямой импорт чего-либо из `src/server` в файле из `src/routes` падает на
 сборке (плагин `tanstack-start-core:import-protection` запрещает любой импорт
-из директории `server` в клиентском окружении). Обход — `createServerFn` из
+из директории `server` в клиентском окружении; правило задано в
+`vite.config.ts`, параметр `importProtection` у `tanstackStart`). Обход — `createServerFn` из
 `@tanstack/react-start` в файле вне `src/server` (например,
 `src/lib/news-server-fn.ts`): тело `.handler()` компилируется только в
 серверный чанк, на клиенте остаётся RPC-заглушка. Route-файлы импортируют
@@ -284,18 +280,12 @@ checks, которые здесь не включаем (см. «Тополог�
 
 - `src/routeTree.gen.ts` — автогенерация TanStack Router; регенерируется
   `bun run build:dev`.
-- `.lovable/`.
-- `AGENTS.md` — только вне маркеров
-  `<!-- LOVABLE:BEGIN --> … <!-- LOVABLE:END -->`.
-- `src/routes/README.md`.
-- `src/lib/lovable-error-reporting.ts`, `src/lib/error-capture.ts`,
-  `src/lib/error-page.ts`.
 - `bun.lock` — только через `bun install` / `bun add`. Все пакеты — с
   публичного npm: чужой реестр в адресах ловит
   `tests/lockfile-registry.test.ts` (`docs/decisions.md`, «Сборка клиента»).
-- `vite.config.ts` — не добавлять плагины (всё внутри
-  `@lovable.dev/vite-tanstack-config`); смена nitro preset — только по
-  согласованию.
+- `vite.config.ts` — новый плагин, смена параметров плагинов (в том числе
+  nitro preset) — только по согласованию. Доказательство правки —
+  сравнение `.output` до и после (`docs/decisions.md`, «Сборка клиента»).
 - `docs/charter/ustav.lines.json` — выгрузка защищена SHA256
   (`docs/charter/README.md`), стоит в `.prettierignore`.
 
