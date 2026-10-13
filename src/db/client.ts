@@ -5,7 +5,7 @@ import { sslFor } from "./ssl";
 import * as schema from "./schema";
 
 /**
- * `DATABASE_URL` отсутствует в превью Lovable — это штатный режим,
+ * `DATABASE_URL` не задан — это штатный режим (сайт на моках, CLAUDE.md),
  * а не ошибка конфигурации. В этом случае клиент не создаётся.
  */
 const connectionString = process.env.DATABASE_URL;
