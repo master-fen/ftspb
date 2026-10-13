@@ -77,14 +77,16 @@ border-brand-blue/10` (`FederationSidebar.tsx:41`, `_site.federation_.charter.te
 - **Страница 404 без рамы.** Несуществующий адрес рисует корневой `NotFoundComponent`
   (`src/routes/__root.tsx`): ни шапки, ни подвала, текст на английском («Page not found»,
   «Go home»).
-- **Ссылка «Федерация» в подвале помечена текущей на всех страницах раздела.** На страницах под
-  `/federation/…` она получает `aria-current="page"` (и класс `active`), хотя текущей страницей не
-  является (`href="/federation"`, `src/components/site/SiteFooter.tsx:21`): без
+- **Ссылка «Федерация» в подвале помечена текущей на всех страницах раздела — закрыто
+  13.10.2026 (подвал по макету).** Было: на страницах под `/federation/…` она получала
+  `aria-current="page"` (и класс `active`), хотя текущей страницей не является: без
   `activeOptions.exact` ссылка активна, если текущий путь начинается с её пути
   (`@tanstack/react-router`, `link.js:218–220`), а `/federation` — префикс всех страниц раздела.
+  Стало: у ссылок меню подвала `activeOptions={{ exact: true }}` — текущей помечается только
+  ссылка на открытую страницу, как требует `docs/style-rules.md` («Ссылки и наведение»).
 - **Класс `active` у активных ссылок не определён.** `Link` без `activeProps` добавляет активной
-  ссылке класс `active` (`link.js:374`) — на `/federation/structure` его получают две ссылки:
-  пункт «Структура» бокового меню и «Федерация» в подвале. Правила для него нет: в `src/styles.css` (единственный CSS в `src`) `.active` не
+  ссылке класс `active` (`link.js:374`) — на `/federation/structure` его получает пункт
+  «Структура» бокового меню (до подвала по макету — и «Федерация» в подвале). Правила для него нет: в `src/styles.css` (единственный CSS в `src`) `.active` не
   встречается, селекторов `[&.active]` и `data-[status=active]` в классах тоже нет.
 - **Мета-теги `/federation/structure`.** Свои (`head()` страницы,
   `src/routes/_site.federation.structure.tsx:11–19`): `title`, `description`, `robots: noindex`,
