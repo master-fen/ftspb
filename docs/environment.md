@@ -14,9 +14,10 @@
 4.2.4, vaul 1.1.2, `@radix-ui/react-dialog` 1.1.15 (он под vaul), react 19.2.5,
 bun локально 1.3.14 — та же версия, что закреплена в CI.
 
-Ключа `browserslist` в `package.json` нет: цели сборки задаёт конфиг
-`@lovable.dev/vite-tanstack-config`, их перечень записан в `docs/style-rules.md`
-(раздел про `color-mix`).
+Ключа `browserslist` в `package.json` нет, `vite.config.ts` цели сборки тоже
+не задаёт: действует умолчание Vite — `build.target` `baseline-widely-available`
+(по коду, `vite build --help`; прежний пакет конфига Lovable его не менял).
+Перечень браузеров записан в `docs/style-rules.md` (раздел про `color-mix`).
 
 ## Сборка и Tailwind
 
@@ -97,7 +98,9 @@ matches» и даст 1, а `diff` скажет «binary files differ».
   19.09.2026).
 - Чужие процессы `node.exe` не трогать: останавливать только свои и только по
   конкретному PID (`taskkill /F /PID`), не по имени образа.
-- Dev-сервер поднимается на 8080.
+- Dev-сервер поднимается на 8080 и слушает `::` (`vite.config.ts`). В
+  облачном контейнере Claude Code IPv6 нет — там `bun run dev --host 127.0.0.1`
+  (по факту 13.10.2026: на `::` — `EAFNOSUPPORT`).
 
 ## Windows, Git Bash, prettier
 
