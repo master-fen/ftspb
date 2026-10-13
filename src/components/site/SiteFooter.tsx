@@ -11,7 +11,10 @@ import { Logo } from "./Logo";
  *
  * Меню — «Главная» и опубликованные разделы `navSections`; скрытые разделы
  * появятся здесь сами, когда с них снимут `hidden`. Колонки меню заполняются
- * по столбцам, число строк — половина пунктов с округлением вверх.
+ * по столбцам, число строк — половина пунктов с округлением вверх. С `lg`
+ * пункт не переносится: на 1024 колонка ≈141 px, а «Календарь турниров» в две
+ * строки раздвигал строку сетки и сдвигал соседнюю колонку; лишние пиксели
+ * уходят в свободную колонку 8.
  */
 const FOOTER_LINKS = [{ label: "Главная", href: "/" }, ...navSections];
 
@@ -45,7 +48,7 @@ export function SiteFooter() {
                   <Link
                     to={s.href}
                     activeOptions={{ exact: true }}
-                    className="font-ui font-bold text-inverse-foreground ui-link"
+                    className="font-ui font-bold text-inverse-foreground ui-link lg:whitespace-nowrap"
                   >
                     {s.label}
                   </Link>
