@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { buildFieldWithPositions, createInternPool } from "@/lib/search-field-index";
+import { emptySearchResponse } from "@/lib/search-response";
 import { runSearch, runSearchOverIndex, type SearchInput } from "@/server/search";
 import type { SearchIndex } from "@/server/search-index";
 import type { NewsIndexItem } from "@/server/search-index-news";
@@ -119,6 +120,19 @@ describe("runSearch — пустой и «уточните запрос» не �
         { загрузок: 0, tooVague: true, query: q },
       );
       expect(result).toEqual(runSearchOverIndex(baseInput({ q }), EMPTY_INDEX));
+    });
+  }
+
+  for (const q of ["", "   "]) {
+    test(`q=${JSON.stringify(q)}: ответ loader маршрута /search без сервера совпадает с runSearch`, async () => {
+      const counter = countingLoad();
+      const server = await runSearch(
+        baseInput({ q, tab: "news", sort: "date", year: 2020 }),
+        counter.load,
+      );
+      expect(
+        emptySearchResponse(q, baseInput({ q, tab: "news", sort: "date", year: 2020 }), true),
+      ).toEqual(server);
     });
   }
 

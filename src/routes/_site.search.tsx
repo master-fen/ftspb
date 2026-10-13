@@ -18,6 +18,7 @@ import {
   parseSearchYearParam,
   type SearchTab,
 } from "@/lib/search-params";
+import { emptySearchResponse } from "@/lib/search-response";
 import { runSearch } from "@/lib/search-server-fn";
 
 const SEARCH_DEFAULTS = {
@@ -52,7 +53,10 @@ export const Route = createFileRoute("/_site/search")({
     middlewares: [stripSearchParams(SEARCH_DEFAULTS)],
   },
   loaderDeps: ({ search }) => search,
-  loader: ({ deps }) => runSearch({ data: deps }),
+  // Пустой запрос (мобильная лупа ведёт на /search без q) — ответ без запроса к
+  // серверу: тот же, что дал бы runSearch (tests/search-run.test.ts).
+  loader: ({ deps }) =>
+    deps.q.trim() === "" ? emptySearchResponse(deps.q, deps, true) : runSearch({ data: deps }),
   head: ({ loaderData }) => {
     const title = loaderData?.query
       ? `Поиск: «${loaderData.query}» — Федерация тенниса Санкт-Петербурга`
