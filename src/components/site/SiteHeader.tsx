@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Search, Menu, X, ChevronDown } from "lucide-react";
+import { Search, Menu, X, ChevronDown, LoaderCircle } from "lucide-react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { navSections } from "@/data/mock";
+import { useSearchPending } from "@/lib/use-search-pending";
 import type { NavSection } from "@/lib/types/nav";
 import { Button } from "@/components/ui/button";
 import { Logo } from "./Logo";
@@ -33,6 +34,8 @@ export function SiteHeader() {
 
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  // Переход на /search идёт — спиннер вместо лупы (src/lib/use-search-pending.ts).
+  const searchPending = useSearchPending();
 
   const activeLabel = navSections.find((s) => isSectionActive(s, pathname))?.label ?? null;
   const target = hovered ?? openMenu ?? activeLabel;
@@ -108,6 +111,7 @@ export function SiteHeader() {
           <form
             ref={searchRef}
             role="search"
+            aria-busy={searchPending || undefined}
             onSubmit={(e) => {
               e.preventDefault();
               const q = searchInputRef.current?.value.trim() ?? "";
@@ -145,7 +149,11 @@ export function SiteHeader() {
               }}
               className="absolute top-0 right-0 h-full w-11 rounded-full bg-brand-blue p-0 text-primary-foreground shadow-none hover:bg-brand-blue hover:opacity-90"
             >
-              <Search className="h-4 w-4" />
+              {searchPending ? (
+                <LoaderCircle className="h-4 w-4 motion-safe:animate-spin" />
+              ) : (
+                <Search className="h-4 w-4" />
+              )}
             </Button>
           </form>
 
@@ -237,16 +245,22 @@ export function SiteHeader() {
         </div>
 
         <div className="ml-auto flex items-center gap-1 self-center lg:hidden">
+          {/* Ссылка, а не кнопка: работает до гидрации и подгружает страницу по
+              касанию (intent-предзагрузка), а пустой /search отвечает без сервера. */}
           <Button
-            type="button"
-            aria-label="Поиск"
-            onClick={() => void navigate({ to: "/search" })}
+            asChild
             size="icon"
             className="h-11 w-11 shrink-0 rounded-full bg-transparent text-primary-foreground shadow-none transition-opacity hover:bg-transparent hover:opacity-90"
           >
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-blue">
-              <Search className="h-4 w-4" />
-            </span>
+            <Link to="/search" aria-label="Поиск" aria-busy={searchPending || undefined}>
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-blue">
+                {searchPending ? (
+                  <LoaderCircle className="h-4 w-4 motion-safe:animate-spin" />
+                ) : (
+                  <Search className="h-4 w-4" />
+                )}
+              </span>
+            </Link>
           </Button>
           <Button
             type="button"

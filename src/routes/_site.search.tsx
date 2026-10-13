@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { createFileRoute, Link, stripSearchParams } from "@tanstack/react-router";
+import { createFileRoute, Link, stripSearchParams, useNavigate } from "@tanstack/react-router";
+import { LoaderCircle } from "lucide-react";
 import { z } from "zod";
 import { Breadcrumbs, type Crumb } from "@/components/site/Breadcrumbs";
 import { NewsPagination } from "@/components/site/NewsPagination";
@@ -20,6 +21,7 @@ import {
 } from "@/lib/search-params";
 import { emptySearchResponse } from "@/lib/search-response";
 import { runSearch } from "@/lib/search-server-fn";
+import { useSearchPending } from "@/lib/use-search-pending";
 
 const SEARCH_DEFAULTS = {
   q: "",
@@ -47,6 +49,10 @@ const searchSchema = z.object({
 
 const CRUMBS: Crumb[] = [{ label: "Главная", href: "/" }, { label: "Поиск" }];
 
+/** Контейнер страницы — у выдачи, «уточните запрос» и заглушки загрузки один. */
+const PAGE_MAIN =
+  "mx-auto max-w-7xl lg:box-content px-4 pt-6 pb-12 md:px-6 md:pt-8 md:pb-16 lg:px-10";
+
 export const Route = createFileRoute("/_site/search")({
   validateSearch: searchSchema,
   search: {
@@ -66,6 +72,14 @@ export const Route = createFileRoute("/_site/search")({
     };
   },
   component: SearchPage,
+  // Заглушка загрузки (docs/decisions.md, «Публичный поиск»): без неё роутер
+  // держит прежнюю страницу, пока loader не ответит, — на холодном индексе
+  // секунды «ничего не происходит». 200 мс — тёплый ответ (десятки мс) успевает
+  // без мелькания, 0–200 мс закрывает спиннер кнопки поиска; 300 мс — не
+  // меньше, чем длится въезд страницы (PageTransition, 260 мс).
+  pendingComponent: SearchPagePending,
+  pendingMs: 200,
+  pendingMinMs: 300,
 });
 
 function TeaserSection({
@@ -107,7 +121,7 @@ function SearchPage() {
   // (ноль значимых терминов) — порядок проверок здесь обязателен.
   if (result.tooVague && !noQuery) {
     return (
-      <main className="mx-auto max-w-7xl lg:box-content px-4 pt-6 pb-12 md:px-6 md:pt-8 md:pb-16 lg:px-10">
+      <main className={PAGE_MAIN}>
         <Breadcrumbs items={CRUMBS} />
         <header className="mb-4">
           <h1 className="ui-h1">Поиск по сайту</h1>
@@ -128,7 +142,7 @@ function SearchPage() {
     result.counts.sections === 0;
 
   return (
-    <main className="mx-auto max-w-7xl lg:box-content px-4 pt-6 pb-12 md:px-6 md:pt-8 md:pb-16 lg:px-10">
+    <main className={PAGE_MAIN}>
       <Breadcrumbs items={CRUMBS} />
       <header className="mb-4">
         <h1 className="ui-h1">Поиск по сайту</h1>
@@ -262,15 +276,29 @@ function SearchPage() {
 }
 
 /**
- * Форма без параметров, кроме `q`, — обычный GET: работает без JS, а с JS
- * ведёт себя так же (браузер сам делает переход). Новый запрос сбрасывает
- * вкладку/год/сортировку/страницу — остальные параметры формой не несутся.
- * Фокус — только когда поле пустое (переход с мобильной лупы на пустой
- * /search): на странице с находками фокус увёл бы клавиатуру поверх выдачи.
+ * Форма без параметров, кроме `q`. С JS — переход роутера (заглушка загрузки и
+ * спиннер «Найти», как у шапки); без JS — обычный GET на тот же адрес. Новый
+ * запрос сбрасывает вкладку/год/сортировку/страницу — остальные параметры
+ * формой не несутся. Фокус — только когда поле пустое (переход с мобильной
+ * лупы на пустой /search): на странице с находками фокус увёл бы клавиатуру
+ * поверх выдачи.
  */
 function SearchForm({ query }: { query: string }) {
+  const navigate = useNavigate();
+  const pending = useSearchPending();
   return (
-    <form role="search" method="GET" action="/search" className="flex max-w-xl gap-2">
+    <form
+      role="search"
+      method="GET"
+      action="/search"
+      aria-busy={pending || undefined}
+      onSubmit={(e) => {
+        e.preventDefault();
+        const q = String(new FormData(e.currentTarget).get("q") ?? "").trim();
+        void navigate({ to: "/search", search: { q } });
+      }}
+      className="flex max-w-xl gap-2"
+    >
       <label htmlFor="search-page-q" className="sr-only">
         Поиск по сайту
       </label>
@@ -285,10 +313,59 @@ function SearchForm({ query }: { query: string }) {
       />
       <button
         type="submit"
-        className="h-11 shrink-0 rounded-full bg-brand-blue px-5 font-ui text-sm font-semibold text-primary-foreground"
+        className="relative h-11 shrink-0 rounded-full bg-brand-blue px-5 font-ui text-sm font-semibold text-primary-foreground"
       >
-        Найти
+        {/* Ширина кнопки не меняется: подпись невидима, спиннер поверх. */}
+        <span className={pending ? "invisible" : undefined}>Найти</span>
+        {pending ? (
+          <LoaderCircle
+            aria-hidden="true"
+            className="absolute inset-0 m-auto h-4 w-4 motion-safe:animate-spin"
+          />
+        ) : null}
       </button>
     </form>
+  );
+}
+
+/**
+ * Заглушка загрузки `/search` (`pendingComponent`): настоящие крошки и
+ * заголовок, вместо поля и выдачи — серые полосы токена `skeleton`. Шесть строк
+ * — около экрана: короткая выдача не даёт заметного обратного скачка подвала.
+ * Сортировка и год не рисуются — вкладка и наличие новостей ещё неизвестны.
+ * `data-search-pending` — метка для пробы (docs/probes.md).
+ */
+function SearchPagePending() {
+  return (
+    <main className={PAGE_MAIN} aria-busy="true" data-search-pending="">
+      <Breadcrumbs items={CRUMBS} />
+      <header className="mb-4">
+        <h1 className="ui-h1">Поиск по сайту</h1>
+      </header>
+      <p role="status" className="sr-only">
+        Идёт поиск…
+      </p>
+      <div aria-hidden="true">
+        <div className="h-11 max-w-xl rounded-full bg-skeleton motion-safe:animate-pulse" />
+        <div className="mt-6 mb-6 flex flex-wrap gap-2">
+          <div className="h-9 w-20 rounded-full bg-skeleton motion-safe:animate-pulse" />
+          <div className="h-9 w-28 rounded-full bg-skeleton motion-safe:animate-pulse" />
+          <div className="h-9 w-32 rounded-full bg-skeleton motion-safe:animate-pulse" />
+          <div className="h-9 w-24 rounded-full bg-skeleton motion-safe:animate-pulse" />
+          <div className="h-9 w-28 rounded-full bg-skeleton motion-safe:animate-pulse" />
+        </div>
+        <div className="mb-3 h-4 w-28 rounded-md bg-skeleton motion-safe:animate-pulse" />
+        <ul>
+          {[0, 1, 2, 3, 4, 5].map((row) => (
+            <li key={row} className="border-b border-border py-4 last:border-b-0">
+              <div className="h-4 w-32 rounded-md bg-skeleton motion-safe:animate-pulse" />
+              <div className="mt-2 h-5 max-w-lg rounded-md bg-skeleton motion-safe:animate-pulse" />
+              <div className="mt-2 h-4 rounded-md bg-skeleton motion-safe:animate-pulse" />
+              <div className="mt-1 h-4 max-w-md rounded-md bg-skeleton motion-safe:animate-pulse" />
+            </li>
+          ))}
+        </ul>
+      </div>
+    </main>
   );
 }
