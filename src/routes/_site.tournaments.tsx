@@ -103,7 +103,7 @@ export const Route = createFileRoute("/_site/tournaments")({
 
 /**
  * Раскладка — SectionFrame с липкостью по умолчанию, как в разделе
- * «Федерация»: на lg справа липкая карточка «Фильтр» (чипы и полные строки
+ * «Федерация»: на lg справа липкая панель «Фильтр» (чипы и полные строки
  * версий), на узком — чипы и короткая строка версий над списком, полные
  * строки — после списка (aside идёт после содержимого). Чипы поэтому
  * отрисованы дважды, видимость решает CSS, а не JS: matchMedia дал бы в SSR
@@ -145,7 +145,7 @@ function TournamentsPage() {
     <>
       <section
         aria-labelledby="tournament-filter-title"
-        className="hidden ui-card ring-card-border bg-card-surface p-6 lg:block"
+        className="hidden rounded-[30px] border border-panel-border bg-panel px-6 py-8 lg:block"
       >
         <h2 id="tournament-filter-title" className="ui-card-title text-foreground">
           Фильтр
