@@ -344,7 +344,11 @@ export function runSearchOverIndex(input: SearchInput, index: SearchIndex): Sear
   };
 }
 
-export async function runSearch(input: SearchInput): Promise<SearchResponse> {
-  const index = await loadSearchIndex();
+/** `load` подменяется в тесте — счётчик загрузок индекса (tests/search-run.test.ts). */
+export async function runSearch(
+  input: SearchInput,
+  load: () => Promise<SearchIndex> = loadSearchIndex,
+): Promise<SearchResponse> {
+  const index = await load();
   return runSearchOverIndex(input, index);
 }
