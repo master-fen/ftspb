@@ -1,9 +1,11 @@
-import { createFileRoute, Outlet, useMatch } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useMatch, useRouterState } from "@tanstack/react-router";
 import { CookieNotice } from "@/components/site/CookieNotice";
 import { NewsPreviewBar, NewsShareBar } from "@/components/site/NewsPreviewBar";
 import { PageTransition } from "@/components/site/PageTransition";
+import { SearchPagePending } from "@/components/site/SearchPagePending";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
+import { useDelayedFlag } from "@/lib/use-delayed-flag";
 
 /**
  * Рама публичных страниц: шапка и подвал выше дочерних маршрутов, при переходе
@@ -26,6 +28,14 @@ import { SiteHeader } from "@/components/site/SiteHeader";
  * подвал (src/components/site/NewsPreviewBar.tsx). У страницы согласования по
  * ключу — своя полоса, без кнопки. На остальных страницах совпадения с
  * маршрутом предпросмотра нет, и рама ничего не рисует.
+ *
+ * Заглушка загрузки поиска — тоже здесь, а не `pendingComponent` маршрута
+ * `/search`: та срабатывала бы и на переходах внутри поиска (вкладка, порядок,
+ * год, листание) и прятала бы всю выдачу — прокрутка и фокус терялись бы
+ * (docs/decisions.md, «Публичный поиск»). Рама показывает заглушку только при
+ * входе на `/search` с другой страницы: роутер держит прежнюю страницу, пока
+ * loader не ответит, и вместо неё через 200 мс видна заглушка, не меньше
+ * 300 мс. Внутри поиска ожидание показывает сама страница.
  */
 export const Route = createFileRoute("/_site")({
   component: SiteLayout,
@@ -38,6 +48,14 @@ function SiteLayout() {
     select: (match) => match.loaderData,
   });
 
+  const enteringSearch = useRouterState({
+    select: (s) =>
+      s.isLoading &&
+      s.location.pathname === "/search" &&
+      s.resolvedLocation?.pathname !== "/search",
+  });
+  const searchSkeleton = useDelayedFlag(enteringSearch, 200, 300);
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <SiteHeader />
@@ -47,9 +65,7 @@ function SiteLayout() {
         <NewsShareBar expiresOn={preview.expiresOn} />
       ) : null}
       <div className="flex-1">
-        <PageTransition>
-          <Outlet />
-        </PageTransition>
+        <PageTransition>{searchSkeleton ? <SearchPagePending /> : <Outlet />}</PageTransition>
       </div>
       <SiteFooter />
       <CookieNotice />

@@ -246,13 +246,19 @@ export function SiteHeader() {
 
         <div className="ml-auto flex items-center gap-1 self-center lg:hidden">
           {/* Ссылка, а не кнопка: работает до гидрации и подгружает страницу по
-              касанию (intent-предзагрузка), а пустой /search отвечает без сервера. */}
+              касанию (intent-предзагрузка), а пустой /search отвечает без сервера.
+              Текущей она считается только на пустом /search — куда и ведёт. */}
           <Button
             asChild
             size="icon"
             className="h-11 w-11 shrink-0 rounded-full bg-transparent text-primary-foreground shadow-none transition-opacity hover:bg-transparent hover:opacity-90"
           >
-            <Link to="/search" aria-label="Поиск" aria-busy={searchPending || undefined}>
+            <Link
+              to="/search"
+              activeOptions={{ exact: true, includeSearch: true }}
+              aria-label="Поиск"
+              aria-busy={searchPending || undefined}
+            >
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-blue">
                 {searchPending ? (
                   <LoaderCircle className="h-4 w-4 motion-safe:animate-spin" />
