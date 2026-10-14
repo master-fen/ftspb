@@ -26,13 +26,14 @@ import {
   type MatchMode,
 } from "@/lib/search-match";
 import { parseSearchQuery, type QueryTerm } from "@/lib/search-query";
-import type {
-  SearchDocumentRow,
-  SearchEventRow,
-  SearchInput,
-  SearchNewsRow,
-  SearchResponse,
-  SearchSectionRow,
+import {
+  emptySearchResponse,
+  type SearchDocumentRow,
+  type SearchEventRow,
+  type SearchInput,
+  type SearchNewsRow,
+  type SearchResponse,
+  type SearchSectionRow,
 } from "@/lib/search-response";
 import { loadSearchIndex, type SearchIndex } from "@/server/search-index";
 import type { DocumentIndexItem } from "@/server/search-index-documents";
@@ -54,29 +55,6 @@ const SEARCH_PAGE_SIZE = 20;
 const TEASER_LIMIT = 3;
 /** Заголовок находки не обрезается — предел заведомо больше любого реального заголовка. */
 const TITLE_FRAGMENT_LEN = 300;
-
-function emptyResponse(query: string, input: SearchInput, tooVague: boolean): SearchResponse {
-  return {
-    query,
-    tooVague,
-    counts: { news: 0, documents: 0, events: 0, sections: 0 },
-    years: [],
-    tab: input.tab,
-    sort: input.sort,
-    year: input.year,
-    page: 1,
-    pageCount: 0,
-    totalForTab: 0,
-    partialMatch: false,
-    news: null,
-    documentsTeaser: null,
-    eventsTeaser: null,
-    sectionsTeaser: null,
-    documents: null,
-    events: null,
-    sections: null,
-  };
-}
 
 type Scored<T> = { item: T; matchedCount: number; textScore: number };
 
@@ -173,7 +151,7 @@ function buildSectionRow(item: SectionIndexItem, terms: readonly QueryTerm[]): S
 export function runSearchOverIndex(input: SearchInput, index: SearchIndex): SearchResponse {
   const parsed = parseSearchQuery(input.q);
   if (parsed.tooVague) {
-    return emptyResponse(parsed.raw, input, true);
+    return emptySearchResponse(parsed.raw, input, true);
   }
   const terms = parsed.terms;
 
@@ -344,7 +322,14 @@ export function runSearchOverIndex(input: SearchInput, index: SearchIndex): Sear
   };
 }
 
-export async function runSearch(input: SearchInput): Promise<SearchResponse> {
-  const index = await loadSearchIndex();
-  return runSearchOverIndex(input, index);
+/** `load` подменяется в тесте — счётчик загрузок индекса (tests/search-run.test.ts). */
+export async function runSearch(
+  input: SearchInput,
+  load: () => Promise<SearchIndex> = loadSearchIndex,
+): Promise<SearchResponse> {
+  // «Уточните запрос» и пустой запрос индекса не требуют: разбор — до загрузки,
+  // иначе пустой /search ждёт сборку индекса (после деплоя и правок — секунды).
+  const parsed = parseSearchQuery(input.q);
+  if (parsed.tooVague) return emptySearchResponse(parsed.raw, input, true);
+  return runSearchOverIndex(input, await load());
 }

@@ -3,8 +3,10 @@
  * клиент-безопасный `src/lib`: ни один компонент/файл маршрута не имеет
  * права импортировать что-либо из `src/server/**` (import-protection плагин
  * TanStack Start, `CLAUDE.md`), а строкам находок (`src/components/site`)
- * нужны эти типы для пропов. Значения (не типы) сюда не переезжают —
- * `runSearch` остаётся в `src/server/search.ts`.
+ * нужны эти типы для пропов. Из значений здесь только пустой ответ
+ * (`emptySearchResponse`): его строят и сервер, и loader маршрута `/search`
+ * для пустого запроса — без запроса к серверу. Сам `runSearch` остаётся в
+ * `src/server/search.ts`.
  */
 import type { SearchSort, SearchTab } from "@/lib/search-params";
 import type { FragmentSpan } from "@/lib/search-fragment";
@@ -85,3 +87,35 @@ export type SearchResponse = {
   events: SearchEventRow[] | null;
   sections: SearchSectionRow[] | null;
 };
+
+/**
+ * Ответ без находок: «уточните запрос» (`tooVague`) и пустой запрос.
+ * Один источник для сервера (`runSearch`) и loader маршрута `/search` —
+ * ответы для пустого запроса обязаны совпадать (tests/search-run.test.ts).
+ */
+export function emptySearchResponse(
+  query: string,
+  input: SearchInput,
+  tooVague: boolean,
+): SearchResponse {
+  return {
+    query,
+    tooVague,
+    counts: { news: 0, documents: 0, events: 0, sections: 0 },
+    years: [],
+    tab: input.tab,
+    sort: input.sort,
+    year: input.year,
+    page: 1,
+    pageCount: 0,
+    totalForTab: 0,
+    partialMatch: false,
+    news: null,
+    documentsTeaser: null,
+    eventsTeaser: null,
+    sectionsTeaser: null,
+    documents: null,
+    events: null,
+    sections: null,
+  };
+}

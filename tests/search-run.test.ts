@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { buildFieldWithPositions, createInternPool } from "@/lib/search-field-index";
-import { runSearchOverIndex, type SearchInput } from "@/server/search";
+import { emptySearchResponse } from "@/lib/search-response";
+import { runSearch, runSearchOverIndex, type SearchInput } from "@/server/search";
 import type { SearchIndex } from "@/server/search-index";
 import type { NewsIndexItem } from "@/server/search-index-news";
 import type { DocumentIndexItem } from "@/server/search-index-documents";
@@ -94,6 +95,54 @@ describe("runSearchOverIndex — «уточните запрос»", () => {
     expect(result.partialMatch).toBe(false);
     expect(result.news).toEqual([]);
     expect(result.totalForTab).toBe(0);
+  });
+});
+
+describe("runSearch — пустой и «уточните запрос» не загружают индекс", () => {
+  // Пустой /search (мобильная лупа) ждал полную сборку индекса — после деплоя
+  // и после каждой правки в админке около 2,4 с — хотя индекс ему не нужен.
+  function countingLoad() {
+    let calls = 0;
+    return {
+      load: async () => {
+        calls += 1;
+        return EMPTY_INDEX;
+      },
+      calls: () => calls,
+    };
+  }
+
+  for (const q of ["", "   ", "в на по", "я"]) {
+    test(`q=${JSON.stringify(q)}: 0 загрузок индекса, ответ «уточните запрос»`, async () => {
+      const counter = countingLoad();
+      const result = await runSearch(baseInput({ q }), counter.load);
+      expect({ загрузок: counter.calls(), tooVague: result.tooVague, query: result.query }).toEqual(
+        { загрузок: 0, tooVague: true, query: q },
+      );
+      expect(result).toEqual(runSearchOverIndex(baseInput({ q }), EMPTY_INDEX));
+    });
+  }
+
+  for (const q of ["", "   "]) {
+    test(`q=${JSON.stringify(q)}: ответ loader маршрута /search без сервера совпадает с runSearch`, async () => {
+      const counter = countingLoad();
+      const server = await runSearch(
+        baseInput({ q, tab: "news", sort: "date", year: 2020 }),
+        counter.load,
+      );
+      expect(
+        emptySearchResponse(q, baseInput({ q, tab: "news", sort: "date", year: 2020 }), true),
+      ).toEqual(server);
+    });
+  }
+
+  test("значимый запрос загружает индекс ровно один раз", async () => {
+    const counter = countingLoad();
+    const result = await runSearch(baseInput({ q: "турнир" }), counter.load);
+    expect({ загрузок: counter.calls(), tooVague: result.tooVague }).toEqual({
+      загрузок: 1,
+      tooVague: false,
+    });
   });
 });
 
